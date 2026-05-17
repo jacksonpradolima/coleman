@@ -150,6 +150,7 @@ class Environment(AbstractEnvironment):
 
         self.monitor: MonitorCollector = MonitorCollector(sink=self._sink)
         self.variant_monitors: dict[str, MonitorCollector] = {}
+        self.forecast_prioritizations: list[dict[str, Any]] = []
         self.reset()
 
     @staticmethod
@@ -268,7 +269,14 @@ class Environment(AbstractEnvironment):
         self.scenario_provider.last_build(payload.step)
         return payload.step + 1, payload.bandit
 
-    def run_single(self, experiment, trials=100, bandit_type=EvaluationMetricBandit, restore=True):
+    def run_single(
+        self,
+        experiment,
+        trials=100,
+        bandit_type=EvaluationMetricBandit,
+        restore=True,
+        forecast_next=True,
+    ):
         """Execute a single simulation experiment.
 
         Parameters
@@ -281,6 +289,9 @@ class Environment(AbstractEnvironment):
             The bandit class to use. Default is ``EvaluationMetricBandit``.
         restore : bool, optional
             Restore the experiment if it fails (e.g., energy down). Default is True.
+        forecast_next : bool, optional
+            Compute and store the next prioritization after the final evaluated
+            build without running evaluation/reward updates. Default is True.
         """
         # The agent need to learn from the beginning for each experiment
         self.reset_agents_memory()
@@ -290,9 +301,13 @@ class Environment(AbstractEnvironment):
 
         # restore to step
         restore_step = 1
+        last_step = restore_step - 1
+        last_virtual_scenario = None
+        last_bandit_duration = 0.0
         experiment_attrs = self._experiment_telemetry_attributes(experiment)
         self._resource_tracker = ProcessResourceTracker()
         self._last_resource_snapshot = None
+        self.forecast_prioritizations = []
 
         # Each independent execution must restart the scenario iteration from the beginning
         # unless a checkpoint explicitly restores to a later step.
@@ -337,6 +352,7 @@ class Environment(AbstractEnvironment):
                 end_bandit = time.time()
 
                 bandit_duration = end_bandit - start_bandit
+                last_bandit_duration = bandit_duration
                 self.telemetry.record_latency("bandit_update", bandit_duration, attributes=experiment_attrs)
 
                 # we can analyse the same "moment/scenario t" for "i agents"
@@ -366,6 +382,17 @@ class Environment(AbstractEnvironment):
 
                 self.telemetry.record_cycle(experiment_attrs)
                 self.save_periodically(restore, t, experiment, bandit)
+                last_step = t
+                last_virtual_scenario = virtual_scenario
+
+            if forecast_next:
+                self._run_forecast_prioritization(
+                    experiment=experiment,
+                    next_step=last_step + 1,
+                    bandit=bandit,
+                    virtual_scenario=last_virtual_scenario,
+                    bandit_duration=last_bandit_duration,
+                )
 
             logger.info("Finished experiment=%s scenario=%s", experiment, self.scenario_provider)
         finally:
@@ -378,6 +405,47 @@ class Environment(AbstractEnvironment):
             )
             self.telemetry.mark_run_finished(experiment_attrs)
             self.telemetry.flush()
+
+    def _run_forecast_prioritization(self, experiment, next_step, bandit, virtual_scenario, bandit_duration):
+        """Compute the next prioritization forecast without evaluating outcomes."""
+        if bandit is None or virtual_scenario is None:
+            return
+
+        for agent in self.agents:
+            if type(agent) in [ContextualAgent, SlidingWindowContextualAgent]:
+                agent.update_context(virtual_scenario.get_context_features())
+                agent.update_features(virtual_scenario.get_features())
+                policy_name = f"{str(agent)}_{virtual_scenario.get_feature_group()}"
+            else:
+                policy_name = str(agent)
+
+            reward_function_name = str(agent.get_reward_function())
+            telemetry_attrs = self._agent_telemetry_attributes(experiment, policy_name, reward_function_name)
+
+            agent.update_bandit(bandit)
+            start = time.time()
+            action = agent.choose()
+            end = time.time()
+
+            prioritization_time = (end - start) + bandit_duration
+            self.telemetry.record_latency("forecast_prioritization", prioritization_time, attributes=telemetry_attrs)
+
+            forecast = {
+                "experiment": experiment,
+                "step": next_step,
+                "policy": policy_name,
+                "reward_function": reward_function_name,
+                "prioritization_order": action,
+            }
+            self.forecast_prioritizations.append(forecast)
+            logger.info(
+                "Forecast experiment=%s step=%s policy=%s reward=%s prioritization=%s",
+                experiment,
+                next_step,
+                policy_name,
+                reward_function_name,
+                action,
+            )
 
     def run_prioritization(  # pylint: disable=too-many-positional-arguments
         self, agent, bandit, bandit_duration, experiment, t, virtual_scenario
@@ -593,7 +661,14 @@ class Environment(AbstractEnvironment):
         if restore and t % save_interval == 0:
             self.save_experiment(experiment, t, bandit)
 
-    def run(self, experiments=1, trials=100, bandit_type=EvaluationMetricBandit, restore=True):
+    def run(
+        self,
+        experiments=1,
+        trials=100,
+        bandit_type=EvaluationMetricBandit,
+        restore=True,
+        forecast_next=True,
+    ):
         """Execute a simulation over multiple experiments.
 
         Parameters
@@ -606,11 +681,14 @@ class Environment(AbstractEnvironment):
             The bandit class to use. Default is ``EvaluationMetricBandit``.
         restore : bool, optional
             Restore the experiment if it fails. Default is True.
+        forecast_next : bool, optional
+            Compute and store the next prioritization forecast after each
+            experiment. Default is True.
         """
         self.reset()
 
         for exp in range(experiments):
-            self.run_single(exp, trials, bandit_type, restore)
+            self.run_single(exp, trials, bandit_type, restore, forecast_next)
 
     def store_experiment(self):
         """Flush and persist the results collected during the experiment."""

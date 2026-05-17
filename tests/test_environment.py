@@ -203,6 +203,58 @@ def test_run_single_resumes_from_checkpoint_step(environment, mock_scenario_prov
     mock_bandit.update_arms.assert_called_once()
 
 
+def test_run_single_stores_forecast_prioritization_by_default(environment, mock_scenario_provider, mock_agent):
+    """run_single should store one next-step forecast per agent by default."""
+    mock_virtual_scenario = MagicMock()
+    mock_virtual_scenario.get_available_time.return_value = 100
+    mock_virtual_scenario.get_testcases.return_value = [
+        {"Name": "testcase1", "Duration": 1.0, "CalcPrio": 0, "LastRun": "0", "LastResults": ""},
+    ]
+    mock_scenario_provider.__iter__.side_effect = lambda: iter([mock_virtual_scenario])
+    mock_scenario_provider.total_build_duration = 150
+
+    mock_bandit = MagicMock(spec=EvaluationMetricBandit)
+    mock_agent.get_reward_function.return_value = "reward_function"
+    mock_agent.choose.return_value = ["testcase1"]
+
+    environment.run_prioritization = MagicMock(return_value=(["testcase1"], 0.0, "policy", 0.0))
+    environment.telemetry = MagicMock()
+    environment.save_periodically = MagicMock()
+
+    environment.run_single(experiment=1, trials=1, bandit_type=MagicMock(return_value=mock_bandit), restore=False)
+
+    assert len(environment.forecast_prioritizations) == 1
+    forecast = environment.forecast_prioritizations[0]
+    assert forecast["experiment"] == 1
+    assert forecast["step"] == 2
+    assert forecast["prioritization_order"] == ["testcase1"]
+
+
+def test_run_single_can_disable_forecast_prioritization(environment, mock_scenario_provider, mock_agent):
+    """run_single should skip forecast generation when forecast_next is False."""
+    mock_virtual_scenario = MagicMock()
+    mock_virtual_scenario.get_available_time.return_value = 100
+    mock_virtual_scenario.get_testcases.return_value = [
+        {"Name": "testcase1", "Duration": 1.0, "CalcPrio": 0, "LastRun": "0", "LastResults": ""},
+    ]
+    mock_scenario_provider.__iter__.side_effect = lambda: iter([mock_virtual_scenario])
+
+    mock_bandit = MagicMock(spec=EvaluationMetricBandit)
+    environment.run_prioritization = MagicMock(return_value=(["testcase1"], 0.0, "policy", 0.0))
+    environment.telemetry = MagicMock()
+    environment.save_periodically = MagicMock()
+
+    environment.run_single(
+        experiment=1,
+        trials=1,
+        bandit_type=MagicMock(return_value=mock_bandit),
+        restore=False,
+        forecast_next=False,
+    )
+
+    assert environment.forecast_prioritizations == []
+
+
 def test_save_periodically(environment):
     """Test the save_periodically method to ensure saving happens only at specified intervals."""
     environment.save_experiment = MagicMock()

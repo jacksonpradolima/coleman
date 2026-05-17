@@ -20,6 +20,7 @@ class AbstractEnvironment(ABC):
         trials: int = 100,
         bandit_type: Any = None,
         restore: bool = True,
+        forecast_next: bool = True,
     ) -> None:
         """Execute one experiment iteration.
 
@@ -33,6 +34,9 @@ class AbstractEnvironment(ABC):
             Bandit implementation class.
         restore : bool, optional
             Whether to attempt restore from checkpoints.
+        forecast_next : bool, optional
+            Whether to compute the next prioritization forecast after the
+            final evaluated build.
         """
 
     @abstractmethod
@@ -42,6 +46,7 @@ class AbstractEnvironment(ABC):
         trials: int = 100,
         bandit_type: Any = None,
         restore: bool = True,
+        forecast_next: bool = True,
     ) -> None:
         """Execute one or more experiments.
 
@@ -55,4 +60,7 @@ class AbstractEnvironment(ABC):
             Bandit implementation class.
         restore : bool, optional
             Whether to attempt restore from checkpoints.
+        forecast_next : bool, optional
+            Whether to compute the next prioritization forecast after each
+            experiment.
         """
