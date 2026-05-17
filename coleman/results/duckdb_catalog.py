@@ -15,8 +15,15 @@ Usage
 
 from __future__ import annotations
 
+import re
+
 import duckdb
 import polars as pl
+
+_WRITE_OR_DDL_PATTERN = re.compile(
+    r"\b(INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|ATTACH|DETACH|COPY|INSTALL|LOAD|CALL|EXPORT)\b",
+    re.IGNORECASE,
+)
 
 
 class DuckDBCatalog:
@@ -37,7 +44,7 @@ class DuckDBCatalog:
         DuckDB connection.
     """
 
-    def __init__(self, parquet_root: str, db_path: str = ":memory:") -> None:
+    def __init__(self, parquet_root: str, db_path: str = ":memory:", read_only: bool = True) -> None:
         """Initialise the catalog and create the ``results`` view.
 
         Parameters
@@ -46,9 +53,12 @@ class DuckDBCatalog:
             Root directory of the Hive-partitioned Parquet dataset.
         db_path : str
             DuckDB database path.  Default ``:memory:`` (ephemeral).
+        read_only : bool
+            If True, block mutating/DDL SQL in :meth:`query`.
         """
         self.parquet_root = parquet_root
         self.conn = duckdb.connect(db_path)
+        self._read_only = read_only
         self._create_view()
 
     def _create_view(self) -> None:
@@ -72,7 +82,30 @@ class DuckDBCatalog:
         polars.DataFrame
             Query result as a DataFrame.
         """
+        self._validate_query(sql)
         return self.conn.execute(sql).pl()
+
+    def _validate_query(self, sql: str) -> None:
+        """Validate a query string before execution.
+
+        In read-only mode, block multi-statement SQL and mutating/DDL commands.
+        """
+        if not self._read_only:
+            return
+
+        normalized = sql.strip()
+        if not normalized:
+            msg = "SQL query cannot be empty"
+            raise ValueError(msg)
+
+        # Only allow a single statement in read-only mode.
+        if ";" in normalized.rstrip(";"):
+            msg = "Multiple SQL statements are not allowed in read-only mode"
+            raise ValueError(msg)
+
+        if _WRITE_OR_DDL_PATTERN.search(normalized):
+            msg = "Mutating/DDL SQL is not allowed in read-only mode"
+            raise ValueError(msg)
 
     def close(self) -> None:
         """Close the DuckDB connection."""

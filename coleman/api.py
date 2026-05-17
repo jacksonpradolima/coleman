@@ -102,8 +102,8 @@ def run(spec: RunSpec) -> RunResult:
 
     # Persist resolved spec + provenance.
     run_dir = Path(spec.results.out_dir) / rid
-    save_resolved(spec, run_dir / "spec.resolved.json")
-    save_provenance(run_dir)
+    save_resolved(spec, run_dir / "spec.resolved.json", redact_sensitive=True)
+    save_provenance(run_dir, redact_sensitive=True)
 
     # Execute the experiment with per-run output paths so results and
     # checkpoints do not collide across different run ids or sweeps.

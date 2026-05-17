@@ -118,6 +118,13 @@ class ClickHouseSink(ResultsSink):
         port: int = 8123,
         database: str = "default",
         batch_size: int = 1000,
+        *,
+        username: str | None = None,
+        password: str | None = None,
+        secure: bool = True,
+        verify: bool = True,
+        connect_timeout: int | None = 10,
+        send_receive_timeout: int | None = 30,
     ) -> None:
         """Initialise the ClickHouse client and ensure the results table exists.
 
@@ -131,6 +138,18 @@ class ClickHouseSink(ResultsSink):
             Target database name.
         batch_size : int
             Rows buffered before an automatic insert.
+        username : str | None
+            ClickHouse username. If omitted, client defaults apply.
+        password : str | None
+            ClickHouse password. If omitted, client defaults apply.
+        secure : bool
+            Whether to use TLS for transport.
+        verify : bool
+            Whether to verify TLS certificates.
+        connect_timeout : int | None
+            Connection timeout in seconds.
+        send_receive_timeout : int | None
+            Network read/write timeout in seconds.
 
         Raises
         ------
@@ -144,11 +163,23 @@ class ClickHouseSink(ResultsSink):
                 "clickhouse-connect is required for ClickHouseSink. Install it with: pip install coleman[clickhouse]"
             ) from exc
 
-        self._client = clickhouse_connect.get_client(
-            host=host,
-            port=port,
-            database=database,
-        )
+        client_kwargs: dict[str, Any] = {
+            "host": host,
+            "port": port,
+            "database": database,
+            "secure": secure,
+            "verify": verify,
+        }
+        if username is not None:
+            client_kwargs["username"] = username
+        if password is not None:
+            client_kwargs["password"] = password
+        if connect_timeout is not None:
+            client_kwargs["connect_timeout"] = connect_timeout
+        if send_receive_timeout is not None:
+            client_kwargs["send_receive_timeout"] = send_receive_timeout
+
+        self._client = clickhouse_connect.get_client(**client_kwargs)
         self._client.command(_CREATE_TABLE_SQL)
         self._ensure_schema()
         self.batch_size = batch_size

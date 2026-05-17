@@ -95,8 +95,16 @@ class TestClickHouseSinkInit:
         with patch("coleman.results.clickhouse_sink.importlib.import_module", return_value=mod):
             sink = ClickHouseSink(host="h", port=9000, database="db", batch_size=50)
 
-        # get_client called with the supplied host/port/database
-        mod.get_client.assert_called_once_with(host="h", port=9000, database="db")
+        # get_client called with the supplied host/port/database + secure defaults
+        mod.get_client.assert_called_once_with(
+            host="h",
+            port=9000,
+            database="db",
+            secure=True,
+            verify=True,
+            connect_timeout=10,
+            send_receive_timeout=30,
+        )
         # First command call is CREATE TABLE
         first_call_args = client.command.call_args_list[0]
         assert "CREATE TABLE IF NOT EXISTS" in first_call_args[0][0]
@@ -113,8 +121,45 @@ class TestClickHouseSinkInit:
         with patch("coleman.results.clickhouse_sink.importlib.import_module", return_value=mod):
             sink = ClickHouseSink()
 
-        mod.get_client.assert_called_once_with(host="localhost", port=8123, database="default")
+        mod.get_client.assert_called_once_with(
+            host="localhost",
+            port=8123,
+            database="default",
+            secure=True,
+            verify=True,
+            connect_timeout=10,
+            send_receive_timeout=30,
+        )
         assert sink.batch_size == 1000
+
+    def test_allows_overriding_connection_security_and_auth(self):
+        client = _make_mock_client()
+        mod = _make_mock_cc_module(client)
+
+        with patch("coleman.results.clickhouse_sink.importlib.import_module", return_value=mod):
+            ClickHouseSink(
+                host="h",
+                port=9440,
+                database="db",
+                username="user",
+                password="secret",
+                secure=False,
+                verify=False,
+                connect_timeout=3,
+                send_receive_timeout=7,
+            )
+
+        mod.get_client.assert_called_once_with(
+            host="h",
+            port=9440,
+            database="db",
+            username="user",
+            password="secret",
+            secure=False,
+            verify=False,
+            connect_timeout=3,
+            send_receive_timeout=7,
+        )
 
 
 # ---------------------------------------------------------------------------

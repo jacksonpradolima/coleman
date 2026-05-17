@@ -15,6 +15,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from coleman.spec.redaction import redact_sensitive_data
+
 
 def _git_info() -> dict[str, Any]:
     """Collect git commit and dirty-flag if available.
@@ -83,13 +85,15 @@ def build_provenance() -> dict[str, Any]:
     }
 
 
-def save_provenance(directory: str | Path) -> Path:
+def save_provenance(directory: str | Path, *, redact_sensitive: bool = True) -> Path:
     """Write ``provenance.json`` into *directory*.
 
     Parameters
     ----------
     directory : str | Path
         Target directory (created if missing).
+    redact_sensitive : bool
+        If ``True``, redact likely sensitive values before persisting.
 
     Returns
     -------
@@ -99,6 +103,9 @@ def save_provenance(directory: str | Path) -> Path:
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     out = directory / "provenance.json"
+    payload = build_provenance()
+    if redact_sensitive:
+        payload = redact_sensitive_data(payload)
     with open(out, "w", encoding="utf-8") as fh:
-        json.dump(build_provenance(), fh, indent=2, sort_keys=True)
+        json.dump(payload, fh, indent=2, sort_keys=True)
     return out

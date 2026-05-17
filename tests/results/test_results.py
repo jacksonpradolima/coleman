@@ -4,6 +4,7 @@ import json
 import threading
 
 import pyarrow.parquet as pq
+import pytest
 
 from coleman.results.parquet_sink import ParquetSink, _hash_order, _top_k
 from coleman.results.sink_base import NullSink, ResultsSink
@@ -310,3 +311,42 @@ class TestDuckDBCatalog:
 
         cat = DuckDBCatalog(str(tmp_path / "runs"))
         cat.close()  # should not raise
+
+    def test_query_blocks_mutating_sql_in_read_only_mode(self, tmp_path):
+        """DuckDBCatalog should reject mutating SQL by default."""
+        from coleman.results.duckdb_catalog import DuckDBCatalog
+
+        sink = ParquetSink(out_dir=str(tmp_path / "runs"), batch_size=100)
+        sink.write_row(_make_row())
+        sink.close()
+
+        cat = DuckDBCatalog(str(tmp_path / "runs"))
+        with pytest.raises(ValueError, match="read-only mode"):
+            cat.query("DELETE FROM results")
+        cat.close()
+
+    def test_query_blocks_multi_statement_in_read_only_mode(self, tmp_path):
+        """DuckDBCatalog should reject multiple statements by default."""
+        from coleman.results.duckdb_catalog import DuckDBCatalog
+
+        sink = ParquetSink(out_dir=str(tmp_path / "runs"), batch_size=100)
+        sink.write_row(_make_row())
+        sink.close()
+
+        cat = DuckDBCatalog(str(tmp_path / "runs"))
+        with pytest.raises(ValueError, match="Multiple SQL statements"):
+            cat.query("SELECT 1; SELECT 2")
+        cat.close()
+
+    def test_query_allows_mutating_sql_when_read_only_disabled(self, tmp_path):
+        """DuckDBCatalog can optionally allow mutating SQL when explicitly requested."""
+        from coleman.results.duckdb_catalog import DuckDBCatalog
+
+        sink = ParquetSink(out_dir=str(tmp_path / "runs"), batch_size=100)
+        sink.write_row(_make_row())
+        sink.close()
+
+        cat = DuckDBCatalog(str(tmp_path / "runs"), read_only=False)
+        df = cat.query("SELECT COUNT(*) AS cnt FROM results")
+        assert df["cnt"][0] == 1
+        cat.close()

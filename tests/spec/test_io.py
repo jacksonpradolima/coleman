@@ -96,3 +96,40 @@ class TestSaveResolved:
                 data = json.load(fh)
             spec2 = RunSpec.model_validate(data)
             assert spec == spec2
+
+    def test_redacts_sensitive_fields_by_default(self):
+        spec = RunSpec.model_validate(
+            {
+                "telemetry": {
+                    "enabled": True,
+                    "otlp_endpoint": "https://user:pass@example.com:4318/v1/metrics?token=abc123",
+                },
+                "algorithm": {
+                    "api_key": "secret-value",
+                },
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out = save_resolved(spec, os.path.join(tmpdir, "spec.json"))
+            with open(out) as fh:
+                data = json.load(fh)
+
+        assert data["algorithm"]["api_key"] == "<redacted>"
+        endpoint = data["telemetry"]["otlp_endpoint"]
+        assert "<redacted>:<redacted>@" in endpoint
+        assert "token=%3Credacted%3E" in endpoint
+
+    def test_allows_disabling_redaction(self):
+        spec = RunSpec.model_validate(
+            {
+                "algorithm": {
+                    "api_key": "secret-value",
+                },
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out = save_resolved(spec, os.path.join(tmpdir, "spec.json"), redact_sensitive=False)
+            with open(out) as fh:
+                data = json.load(fh)
+
+        assert data["algorithm"]["api_key"] == "secret-value"

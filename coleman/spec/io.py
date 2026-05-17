@@ -19,6 +19,7 @@ import yaml
 
 from coleman.spec.models import RunSpec
 from coleman.spec.packs import resolve_packs
+from coleman.spec.redaction import redact_sensitive_data
 
 
 def load_spec(
@@ -63,7 +64,7 @@ def load_spec(
     return RunSpec.model_validate(resolved)
 
 
-def save_resolved(spec: RunSpec, path: str | Path) -> Path:
+def save_resolved(spec: RunSpec, path: str | Path, *, redact_sensitive: bool = True) -> Path:
     """Persist *spec* as canonical JSON.
 
     Parameters
@@ -72,6 +73,8 @@ def save_resolved(spec: RunSpec, path: str | Path) -> Path:
         Resolved run specification.
     path : str | Path
         Destination file path.
+    redact_sensitive : bool
+        If ``True``, redact likely sensitive values before persisting.
 
     Returns
     -------
@@ -80,6 +83,9 @@ def save_resolved(spec: RunSpec, path: str | Path) -> Path:
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, Any] = spec.model_dump()
+    if redact_sensitive:
+        payload = redact_sensitive_data(payload)
     with open(path, "w", encoding="utf-8") as fh:
-        json.dump(spec.model_dump(), fh, sort_keys=True, indent=2)
+        json.dump(payload, fh, sort_keys=True, indent=2)
     return path

@@ -67,3 +67,33 @@ class TestSaveProvenance:
             nested = os.path.join(tmpdir, "a", "b", "c")
             out = save_provenance(nested)
             assert out.exists()
+
+    def test_redacts_sensitive_fields_by_default(self):
+        fake_prov = {
+            "python_version": "3.12",
+            "platform": "linux",
+            "cwd": "/tmp",
+            "git": {"commit": "abc", "dirty": False},
+            "uv_lock_hash": None,
+            "token": "abc123",
+            "service_url": "https://admin:pw@example.com/path?api_key=k",
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("coleman.spec.provenance.build_provenance", return_value=fake_prov):
+                out = save_provenance(tmpdir)
+            with open(out) as fh:
+                data = json.load(fh)
+
+        assert data["token"] == "<redacted>"
+        assert "<redacted>:<redacted>@" in data["service_url"]
+        assert "api_key=%3Credacted%3E" in data["service_url"]
+
+    def test_allows_disabling_redaction(self):
+        fake_prov = {"token": "abc123"}
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("coleman.spec.provenance.build_provenance", return_value=fake_prov):
+                out = save_provenance(tmpdir, redact_sensitive=False)
+            with open(out) as fh:
+                data = json.load(fh)
+
+        assert data["token"] == "abc123"
