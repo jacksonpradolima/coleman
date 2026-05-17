@@ -6,6 +6,9 @@ Hive-partitioned Parquet dataset produced by ``ParquetSink``.  This allows
 users to run ad-hoc SQL queries over experiment results without loading data
 into RAM.
 
+The view is created with Hive partition discovery and schema-union enabled so
+that queries keep working as the experiment schema evolves across runs.
+
 Usage
 -----
 >>> from coleman.results.duckdb_catalog import DuckDBCatalog
@@ -66,7 +69,7 @@ class DuckDBCatalog:
         glob_path = f"{self.parquet_root}/**/*.parquet"
         escaped = glob_path.replace("'", "''")
         self.conn.execute(
-            f"CREATE OR REPLACE VIEW results AS SELECT * FROM read_parquet('{escaped}', hive_partitioning=1)",
+            f"CREATE OR REPLACE VIEW results AS SELECT * FROM read_parquet('{escaped}', hive_partitioning=1, union_by_name=1, filename=1)",  # noqa: E501
         )
 
     def query(self, sql: str) -> pl.DataFrame:

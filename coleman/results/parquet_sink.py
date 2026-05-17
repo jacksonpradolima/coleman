@@ -29,7 +29,8 @@ import pyarrow.parquet as pq
 
 from coleman.results.sink_base import ResultsSink
 
-# Arrow schema matching MonitorCollector columns
+# Arrow schema matching MonitorCollector columns.
+# Keep this in sync with the monitor output so DuckDB can scan a stable layout.
 _RESULT_SCHEMA = pa.schema(
     [
         ("scenario", pa.utf8()),
@@ -232,6 +233,10 @@ class ParquetSink(ResultsSink):
             return
 
         table = pa.Table.from_pylist(self._buffer, schema=_RESULT_SCHEMA)
+        sort_keys = [col for col in self._partition_cols if col in table.column_names]
+        if sort_keys:
+            table = table.sort_by([(col, "ascending") for col in sort_keys])
+
         self._file_counter += 1
         pid = os.getpid()
         basename = f"part-{self._file_counter:06d}-{pid}-{int(time.time())}-{{i}}.parquet"
