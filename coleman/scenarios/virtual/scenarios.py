@@ -1,5 +1,7 @@
 """Virtual scenario classes."""
 
+from __future__ import annotations
+
 import polars as pl
 
 
@@ -10,7 +12,7 @@ class VirtualScenario:
     ----------
     available_time : float
         The time available to execute tests.
-    testcases : list of dict
+    testcases : list of dict or polars.DataFrame
         The test cases for the scenario.
     build_id : int
         The build identifier.
@@ -21,22 +23,26 @@ class VirtualScenario:
     ----------
     available_time : float
         The time available to execute tests.
-    testcases : list of dict
-        The test cases for the scenario.
     build_id : int
         The build identifier.
     total_build_duration : float
         The total duration of the build.
     """
 
-    def __init__(self, available_time: float, testcases: list[dict], build_id: int, total_build_duration: float):
+    def __init__(
+        self,
+        available_time: float,
+        testcases: list[dict] | pl.DataFrame,
+        build_id: int,
+        total_build_duration: float,
+    ):
         """Initialize the VirtualScenario.
 
         Parameters
         ----------
         available_time : float
             The time available to execute tests.
-        testcases : list of dict
+        testcases : list of dict or polars.DataFrame
             The test cases for the scenario.
         build_id : int
             The build identifier.
@@ -44,15 +50,31 @@ class VirtualScenario:
             The total duration of the build.
         """
         self.available_time = available_time
-        self.testcases = testcases
         self.build_id = build_id
         self.total_build_duration = total_build_duration
-        self.reset()
+
+        if isinstance(testcases, pl.DataFrame):
+            self._testcases_df: pl.DataFrame = testcases
+        else:
+            self._testcases_df = pl.DataFrame(testcases) if testcases else pl.DataFrame()
+
+    @property
+    def testcases(self) -> list[dict]:
+        """Return the test cases as a list of dicts (legacy access)."""
+        return self._testcases_df.to_dicts()
+
+    @testcases.setter
+    def testcases(self, value: list[dict] | pl.DataFrame) -> None:
+        """Set the test cases from a list of dicts or a DataFrame."""
+        if isinstance(value, pl.DataFrame):
+            self._testcases_df = value
+        else:
+            self._testcases_df = pl.DataFrame(value) if value else pl.DataFrame()
 
     def reset(self) -> None:
         """Reset the priorities for all test cases in the scenario."""
-        for testcase in self.testcases:
-            testcase["CalcPrio"] = 0
+        if "CalcPrio" in self._testcases_df.columns or self._testcases_df.height > 0:
+            self._testcases_df = self._testcases_df.with_columns(pl.lit(0).alias("CalcPrio"))
 
     def get_available_time(self) -> float:
         """Return the available time to execute the tests.
@@ -72,7 +94,17 @@ class VirtualScenario:
         list of dict
             The test cases.
         """
-        return self.testcases
+        return self._testcases_df.to_dicts()
+
+    def get_testcases_df(self) -> pl.DataFrame:
+        """Return the test cases as a Polars DataFrame.
+
+        Returns
+        -------
+        polars.DataFrame
+            DataFrame containing test case data.
+        """
+        return self._testcases_df
 
 
 class VirtualHCSScenario(VirtualScenario):

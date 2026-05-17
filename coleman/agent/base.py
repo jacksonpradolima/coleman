@@ -57,7 +57,6 @@ class Agent:
         self._seed = seed
         self._rng = np.random.default_rng(seed)
         self._action_names: set[str] = set()
-        self._name_to_idx: dict[str, int] = {}
         self._attempt_weights_cache: dict[int, np.ndarray] = {}
 
         self.reset()
@@ -77,12 +76,8 @@ class Agent:
         self.actions = self.actions.with_columns(
             [pl.lit(0.0).alias("ValueEstimates"), pl.lit(0.0).alias("ActionAttempts"), pl.lit(0.0).alias("Q")]
         )
-        names = self.actions["Name"].to_list()
-        self._action_names = set(names)
-        self._name_to_idx = {name: i for i, name in enumerate(names)}
-
+        self._action_names = set(self.actions["Name"].to_list())
         self.last_prioritization = []
-
         self.t = 0
 
     def _attempt_weights(self, state_size: int) -> np.ndarray:
@@ -102,7 +97,6 @@ class Agent:
             The name of the action (test case) to add.
         """
         if action not in self._action_names:
-            self._name_to_idx[action] = len(self.actions)
             new_row = pl.DataFrame(
                 {"Name": [action], "ActionAttempts": [0.0], "ValueEstimates": [0.0], "Q": [0.0]},
                 schema=ACTIONS_SCHEMA,
@@ -145,7 +139,7 @@ class Agent:
             self._action_names |= new_actions
 
         if obsolete_actions or new_actions:
-            self._name_to_idx = {name: i for i, name in enumerate(self.actions["Name"].to_list())}
+            self._action_names = set(self.actions["Name"].to_list())
 
     def update_bandit(self, bandit):
         """Update the agent's associated bandit.
@@ -187,23 +181,16 @@ class Agent:
         A weight is given to counterbalance the order of choice, since
         all tests are selected.
         """
-        state_size = len(self.last_prioritization)
-        if state_size == 0:
+        n = len(self.last_prioritization)
+        if n == 0:
             return
 
-        weights = self._attempt_weights(state_size)
-        indices_all = np.fromiter(
-            (self._name_to_idx.get(nm, -1) for nm in self.last_prioritization), dtype=np.intp, count=state_size
+        prio_df = pl.DataFrame({"Name": self.last_prioritization, "_weight": self._attempt_weights(n)})
+        self.actions = (
+            self.actions.join(prio_df, on="Name", how="left")
+            .with_columns((pl.col("ActionAttempts") + pl.col("_weight").fill_null(0.0)).alias("ActionAttempts"))
+            .drop("_weight")
         )
-        valid = indices_all >= 0
-        if not valid.any():
-            return
-
-        indices = indices_all[valid]
-        used_weights = weights[valid]
-        attempts = np.array(self.actions["ActionAttempts"].to_numpy(), dtype=np.float64, copy=True)
-        np.add.at(attempts, indices, used_weights)
-        self.actions = self.actions.with_columns(pl.Series("ActionAttempts", attempts))
 
     def observe(self, reward):
         """Update Q action-value estimates.
@@ -218,32 +205,28 @@ class Agent:
         self.update_action_attempts()
 
         reward_list = list(reward)
-        reward_len = min(len(self.last_prioritization), len(reward_list))
-        if reward_len == 0:
+        n = min(len(self.last_prioritization), len(reward_list))
+        if n == 0:
             self.t += 1
             return
 
-        indices_all = np.fromiter(
-            (self._name_to_idx.get(nm, -1) for nm in self.last_prioritization[:reward_len]),
-            dtype=np.intp,
-            count=reward_len,
+        rewards_df = pl.DataFrame(
+            {
+                "Name": self.last_prioritization[:n],
+                "_reward": reward_list[:n],
+            }
         )
-        rewards_all = np.asarray(reward_list[:reward_len], dtype=np.float64)
-        valid = indices_all >= 0
-        if not valid.any():
-            self.t += 1
-            return
-
-        indices = indices_all[valid]
-        rewards = rewards_all[valid]
-        attempts = np.array(self.actions["ActionAttempts"].to_numpy(), dtype=np.float64, copy=True)
-        values = np.array(self.actions["ValueEstimates"].to_numpy(), dtype=np.float64, copy=True)
-
-        k = attempts[indices]
-        mask = k > 0
-        idx_valid = indices[mask]
-        values[idx_valid] += (1.0 / k[mask]) * (rewards[mask] - values[idx_valid])
-
-        self.actions = self.actions.with_columns(pl.Series("ValueEstimates", values))
+        self.actions = (
+            self.actions.join(rewards_df, on="Name", how="left")
+            .with_columns(
+                pl.when((pl.col("ActionAttempts") > 0) & pl.col("_reward").is_not_null())
+                .then(
+                    pl.col("ValueEstimates") + (pl.col("_reward") - pl.col("ValueEstimates")) / pl.col("ActionAttempts")
+                )
+                .otherwise(pl.col("ValueEstimates"))
+                .alias("ValueEstimates")
+            )
+            .drop("_reward")
+        )
 
         self.t += 1

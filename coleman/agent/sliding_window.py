@@ -1,6 +1,5 @@
 """Sliding-window agent variants."""
 
-import numpy as np
 import polars as pl
 
 from coleman.evaluation import EvaluationMetric
@@ -71,17 +70,20 @@ class RewardSlidingWindowAgent(RewardAgent):
 
         self.last_reward = self.reward_function.evaluate(reward, self.last_prioritization)
         n = len(self.last_prioritization)
-        estimates = np.zeros(self.actions.height, dtype=np.float64)
         if n > 0:
-            indices_all = np.fromiter(
-                (self._name_to_idx.get(nm, -1) for nm in self.last_prioritization), dtype=np.intp, count=n
+            rewards_df = pl.DataFrame(
+                {
+                    "Name": self.last_prioritization[:n],
+                    "_reward": list(self.last_reward[:n]),
+                }
             )
-            rewards_all = np.asarray(self.last_reward[:n], dtype=np.float64)
-            valid = indices_all >= 0
-            if valid.any():
-                estimates[indices_all[valid]] = rewards_all[valid]
-
-        self.actions = self.actions.with_columns([pl.Series("ValueEstimates", estimates)])
+            self.actions = (
+                self.actions.join(rewards_df, on="Name", how="left")
+                .with_columns(pl.col("_reward").fill_null(0.0).alias("ValueEstimates"))
+                .drop("_reward")
+            )
+        else:
+            self.actions = self.actions.with_columns(pl.lit(0.0).alias("ValueEstimates"))
 
         self.t += 1
         self.update_history()
@@ -178,17 +180,20 @@ class SlidingWindowContextualAgent(ContextualAgent):
 
         self.last_reward = self.reward_function.evaluate(reward, self.last_prioritization)
         n = len(self.last_prioritization)
-        estimates = np.zeros(self.actions.height, dtype=np.float64)
         if n > 0:
-            indices_all = np.fromiter(
-                (self._name_to_idx.get(nm, -1) for nm in self.last_prioritization), dtype=np.intp, count=n
+            rewards_df = pl.DataFrame(
+                {
+                    "Name": self.last_prioritization[:n],
+                    "_reward": list(self.last_reward[:n]),
+                }
             )
-            rewards_all = np.asarray(self.last_reward[:n], dtype=np.float64)
-            valid = indices_all >= 0
-            if valid.any():
-                estimates[indices_all[valid]] = rewards_all[valid]
-
-        self.actions = self.actions.with_columns([pl.Series("ValueEstimates", estimates)])
+            self.actions = (
+                self.actions.join(rewards_df, on="Name", how="left")
+                .with_columns(pl.col("_reward").fill_null(0.0).alias("ValueEstimates"))
+                .drop("_reward")
+            )
+        else:
+            self.actions = self.actions.with_columns(pl.lit(0.0).alias("ValueEstimates"))
 
         self.t += 1
         self.update_history()

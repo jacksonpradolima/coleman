@@ -222,15 +222,13 @@ class ScenarioLoader:
 
         self._current_build_df = self._collect_build(self.current_build)
 
-        testcases = self._current_build_df.select(self.REQUIRED_COLUMNS).to_dicts()
-
         total_build_duration = cast(int | float | Decimal | None, self._current_build_df["Duration"].sum())
         self.total_build_duration = float(total_build_duration or 0.0)
         available_time = self.total_build_duration * self.avail_time_ratio
 
         self.scenario = VirtualScenario(
             available_time=available_time,
-            testcases=testcases,
+            testcases=self._current_build_df.select(self.REQUIRED_COLUMNS),
             build_id=self.current_build,
             total_build_duration=self.total_build_duration,
         )
@@ -424,7 +422,13 @@ class HCSScenarioLoader(ScenarioLoader):
         if variants.height == 0:
             variants = pl.DataFrame(schema=self._variants_schema)
 
-        self.scenario = VirtualHCSScenario(**base_scenario.__dict__, variants=variants)
+        self.scenario = VirtualHCSScenario(
+            available_time=base_scenario.available_time,
+            testcases=base_scenario.get_testcases_df(),
+            build_id=base_scenario.build_id,
+            total_build_duration=base_scenario.total_build_duration,
+            variants=variants,
+        )
 
         return self.scenario
 
@@ -580,7 +584,10 @@ class ContextScenarioLoader(ScenarioLoader):
         context_features = self._merge_context_features(self._current_build_df)
 
         self.scenario = VirtualContextScenario(
-            **base_scenario.__dict__,
+            available_time=base_scenario.available_time,
+            testcases=base_scenario.get_testcases_df(),
+            build_id=base_scenario.build_id,
+            total_build_duration=base_scenario.total_build_duration,
             feature_group=self.feature_group,
             features=self.features,
             context_features=context_features,

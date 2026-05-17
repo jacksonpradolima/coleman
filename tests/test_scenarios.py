@@ -25,8 +25,8 @@ from coleman.scenarios import (
 def mock_testcases():
     """Fixture to generate a mock DataFrame of test cases."""
     return [
-        {"Name": "TC1", "Duration": "1,000", "CalcPrio": 0, "LastRun": "2023-01-01", "Verdict": 1},
-        {"Name": "TC2", "Duration": 2, "CalcPrio": 1, "LastRun": "2023-01-02", "Verdict": 0},
+        {"Name": "TC1", "Duration": 1.0, "CalcPrio": 0, "LastRun": "2023-01-01", "Verdict": 1},
+        {"Name": "TC2", "Duration": 2.0, "CalcPrio": 1, "LastRun": "2023-01-02", "Verdict": 0},
         {"Name": "TC3", "Duration": 3.5, "CalcPrio": 2, "LastRun": "2023-01-03", "Verdict": 1},
     ]
 

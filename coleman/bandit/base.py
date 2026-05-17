@@ -2,7 +2,6 @@
 
 from abc import ABC, abstractmethod
 
-import numpy as np
 import polars as pl
 
 #: Schema for the bandit arms DataFrame.
@@ -58,9 +57,6 @@ class Bandit(ABC):
 
         self.arms: pl.DataFrame = pl.DataFrame(schema=BANDIT_SCHEMA)
         self._arm_names: list[str] = []
-        self._arm_name_to_idx: dict[str, int] = {}
-        self._arm_name_to_indices: dict[str, list[int]] = {}
-        self._has_duplicate_names = False
         self.reset()
         self.add_arms(arms)
 
@@ -68,9 +64,6 @@ class Bandit(ABC):
         """Reset the arms to an empty DataFrame."""
         self.arms = pl.DataFrame(schema=BANDIT_SCHEMA)
         self._arm_names = []
-        self._arm_name_to_idx = {}
-        self._arm_name_to_indices = {}
-        self._has_duplicate_names = False
 
     def get_arms(self) -> list[str]:
         """Retrieve the list of arm names currently associated with the bandit.
@@ -102,17 +95,7 @@ class Bandit(ABC):
             new_arms = pl.DataFrame(data, schema=BANDIT_SCHEMA)
             self.arms = pl.concat([self.arms, new_arms], how="vertical")
             new_names = new_arms["Name"].to_list()
-            start = len(self._arm_names)
             self._arm_names.extend(new_names)
-            for i, name in enumerate(new_names):
-                idx = start + i
-                existing = self._arm_name_to_indices.get(name)
-                if existing is None:
-                    self._arm_name_to_indices[name] = [idx]
-                    self._arm_name_to_idx[name] = idx
-                else:
-                    existing.append(idx)
-                    self._has_duplicate_names = True
 
     @abstractmethod
     def pull(self, action):
@@ -139,20 +122,14 @@ class Bandit(ABC):
             self.arms = self.arms.with_columns(pl.lit(0, dtype=pl.Int32).alias("CalcPrio"))
             return
 
-        priorities = np.zeros(len(self._arm_names), dtype=np.int32)
-        if not self._has_duplicate_names:
-            for priority, name in enumerate(action, start=1):
-                idx = self._arm_name_to_idx.get(name)
-                if idx is not None:
-                    priorities[idx] = priority
-        else:
-            for priority, name in enumerate(action, start=1):
-                indices = self._arm_name_to_indices.get(name)
-                if not indices:
-                    continue
-                if len(indices) == 1:
-                    priorities[indices[0]] = priority
-                else:
-                    priorities[indices] = priority
-
-        self.arms = self.arms.with_columns(pl.Series("CalcPrio", priorities, dtype=pl.Int32))
+        prio_df = pl.DataFrame(
+            {
+                "Name": action,
+                "CalcPrio": pl.Series(list(range(1, len(action) + 1)), dtype=pl.Int32),
+            }
+        )
+        self.arms = (
+            self.arms.drop("CalcPrio")
+            .join(prio_df, on="Name", how="left")
+            .with_columns(pl.col("CalcPrio").fill_null(0).cast(pl.Int32))
+        )
