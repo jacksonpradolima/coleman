@@ -325,6 +325,19 @@ class TestDuckDBCatalog:
             cat.query("DELETE FROM results")
         cat.close()
 
+    def test_query_blocks_empty_sql(self, tmp_path):
+        """DuckDBCatalog should reject empty SQL strings in read-only mode."""
+        from coleman.results.duckdb_catalog import DuckDBCatalog
+
+        sink = ParquetSink(out_dir=str(tmp_path / "runs"), batch_size=100)
+        sink.write_row(_make_row())
+        sink.close()
+
+        cat = DuckDBCatalog(str(tmp_path / "runs"))
+        with pytest.raises(ValueError, match="cannot be empty"):
+            cat.query("   ")
+        cat.close()
+
     def test_query_blocks_multi_statement_in_read_only_mode(self, tmp_path):
         """DuckDBCatalog should reject multiple statements by default."""
         from coleman.results.duckdb_catalog import DuckDBCatalog

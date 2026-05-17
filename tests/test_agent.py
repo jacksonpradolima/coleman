@@ -115,6 +115,21 @@ def test_agent_choose(mock_policy, mock_bandit):
         assert chosen == mock_policy.choose_all.return_value
 
 
+def test_agent_choose_delegates_after_first_turn(mock_policy, mock_bandit):
+    """Cover Agent.choose() for t > 0 and null Q filling."""
+    mock_policy.choose_all.return_value = ["Test3", "Test2", "Test1"]
+    agent = Agent(mock_policy, mock_bandit)
+    agent.update_actions(["Test1", "Test2", "Test3"])
+    agent.t = 1
+    agent.actions = agent.actions.with_columns(pl.lit(None).alias("Q"))
+
+    chosen = agent.choose()
+
+    assert chosen == ["Test3", "Test2", "Test1"]
+    mock_policy.choose_all.assert_called_once_with(agent)
+    assert agent.actions["Q"].null_count() == 0
+
+
 def test_reward_agent_observe(mock_policy, mock_bandit, mock_evaluation_metric):
     """
     Test the observe method of RewardAgent.
@@ -157,6 +172,23 @@ def test_reward_sliding_window_agent_observe(mock_policy, mock_bandit, mock_eval
     assert "T" in agent.history.columns
 
 
+def test_reward_sliding_window_agent_observe_empty_prioritization(mock_policy, mock_bandit, mock_evaluation_metric):
+    """Cover the empty-prioritization branch in RewardSlidingWindowAgent.observe()."""
+    reward_function = MagicMock()
+    reward_function.evaluate.return_value = []
+
+    agent = RewardSlidingWindowAgent(mock_policy, reward_function, window_size=2)
+    agent.update_bandit(mock_bandit)
+    agent.update_actions(["Test1", "Test2"])
+    agent.last_prioritization = []
+
+    agent.observe(mock_evaluation_metric)
+
+    assert agent.last_reward == []
+    assert agent.t == 1
+    assert agent.actions["ValueEstimates"].to_list() == [0.0, 0.0]
+
+
 def test_sliding_window_contextual_agent_history_truncation():
     """
     Test the history truncation logic of SlidingWindowContextualAgent.
@@ -175,6 +207,46 @@ def test_sliding_window_contextual_agent_history_truncation():
     agent.update_history()
     assert len(agent.history) == 2
     assert agent.history["T"].min() == 2
+
+
+def test_reward_sliding_window_agent_update_history_empty_history(mock_policy):
+    """Cover RewardSlidingWindowAgent.update_history() with no rows."""
+    reward_function = MagicMock()
+    agent = RewardSlidingWindowAgent(mock_policy, reward_function, window_size=2)
+
+    agent.update_history()
+
+    assert agent.history.is_empty()
+
+
+def test_sliding_window_contextual_agent_observe_empty_prioritization(mock_evaluation_metric):
+    """Cover the empty-prioritization branch in SlidingWindowContextualAgent.observe()."""
+    policy = MagicMock()
+    policy.choose_all.return_value = []
+    policy.credit_assignment = MagicMock()
+    policy.update_actions = MagicMock()
+
+    reward_function = MagicMock()
+    reward_function.evaluate.return_value = []
+
+    agent = SlidingWindowContextualAgent(policy, reward_function, window_size=5)
+    agent.update_actions(["A", "B"])
+    agent.last_prioritization = []
+
+    agent.observe(mock_evaluation_metric)
+
+    assert agent.last_reward == []
+    assert agent.t == 1
+    assert agent.actions["ValueEstimates"].to_list() == [0.0, 0.0]
+
+
+def test_sliding_window_contextual_agent_update_history_empty_history():
+    """Cover SlidingWindowContextualAgent.update_history() with no rows."""
+    agent = SlidingWindowContextualAgent(MagicMock(), MagicMock(), window_size=2)
+
+    agent.update_history()
+
+    assert agent.history.is_empty()
 
 
 @pytest.mark.benchmark(group="agent")
@@ -224,6 +296,19 @@ def test_agent_observe_direct(mock_policy, mock_bandit):
     agent.observe([1.0, 0.5, 0.0])
     assert agent.t == t_before + 1
     assert "ValueEstimates" in agent.actions.columns
+
+
+def test_agent_observe_empty_reward_list_increments_time(mock_policy, mock_bandit):
+    """Cover the early-return branch in Agent.observe()."""
+    agent = Agent(mock_policy, mock_bandit)
+    agent.update_actions(["Test1", "Test2"])
+    agent.last_prioritization = ["Test1", "Test2"]
+    t_before = agent.t
+
+    agent.observe([])
+
+    assert agent.t == t_before + 1
+    assert agent.actions["ValueEstimates"].to_list() == [0.0, 0.0]
 
 
 def test_agent_observe_keeps_estimate_when_reward_missing(mock_policy, mock_bandit):

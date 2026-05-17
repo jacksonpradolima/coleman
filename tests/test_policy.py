@@ -565,6 +565,35 @@ def test_frrmab_choose_all_accepts_history_after_credit_assignment(dummy_agent):
     assert set(chosen_actions) == {"A1", "A2", "A3"}
 
 
+def test_frrmab_choose_all_reuses_existing_history_without_new_names(dummy_agent):
+    """Cover the path that rehydrates _ordered_names from preloaded history."""
+    policy = FRRMABPolicy(c=0.3, decayed_factor=1)
+    dummy_agent.policy = policy
+    dummy_agent.actions = pl.DataFrame(
+        {
+            "Name": ["A1", "A2"],
+            "ActionAttempts": [1.0, 1.0],
+            "ValueEstimates": [0.5, 0.2],
+            "Q": [0.0, 0.0],
+        }
+    )
+    policy.history = pl.DataFrame(
+        {
+            "Name": ["A1", "A2"],
+            "ActionAttempts": [1.0, 1.0],
+            "ValueEstimates": [0.7, 0.1],
+            "Q": [0.7, 0.1],
+            "T": [1, 2],
+        }
+    )
+    policy._history_names = set()
+    policy._ordered_names = []
+
+    chosen_actions = policy.choose_all(dummy_agent)
+
+    assert chosen_actions == ["A1", "A2"]
+
+
 def test_frrmab_credit_assignment_handles_zero_decay_sum(dummy_agent):
     """Regression test: zero total reward must not produce NaN during FRR normalization."""
     policy = FRRMABPolicy(c=0.3, decayed_factor=0.9)

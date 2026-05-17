@@ -42,3 +42,18 @@ class TestRedactSensitiveData:
         raw = "https://example.com/path?token=abc"
         with patch("coleman.spec.redaction.urlsplit", side_effect=ValueError("bad url")):
             assert redact_sensitive_data(raw) == raw
+
+
+class TestSensitiveKeyDetectionEdgeCases:
+    """Cover edge cases in sensitive key detection."""
+
+    def test_detects_normalized_empty_string_after_strip(self):
+        """When normalization results in empty string, return False."""
+        assert _is_sensitive_key("!!!") is False
+        assert _is_sensitive_key("   ") is False
+
+    def test_url_without_query_params_passes_through(self):
+        """URLs without query params should pass through unchanged."""
+        url = "https://example.com/path"
+        result = redact_sensitive_data(url)
+        assert "example.com/path" in result

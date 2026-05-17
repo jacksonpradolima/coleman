@@ -86,6 +86,18 @@ def test_evaluation_metric_str():
     assert str(napfd_v) == "NAPFDVerdict", "NAPFDVerdictMetric __str__ method failed."
 
 
+def test_evaluation_metric_set_default_metrics():
+    """Cover the default-metric initializer used by derived metrics."""
+    metric = EvaluationMetric()
+    metric.set_default_metrics()
+
+    assert metric.ttf == -1
+    assert metric.recall == 1
+    assert metric.avg_precision == 1
+    assert metric.fitness == 1
+    assert metric.cost == 1
+
+
 def test_napfd_metric(sample_records, available_time):
     """
     Test NAPFDMetric with standard records and 50% available time.
@@ -136,6 +148,14 @@ def test_napfd_verdict_metric_no_failures(available_time):
 
     assert napfd_v.fitness == 1, "NAPFD-V fitness should be 1 when no failures are present."
     assert napfd_v.cost == 1, "NAPFD-V cost should be 1 when no failures are present."
+
+
+def test_evaluation_metric_as_suite_frame_empty_list():
+    """Cover _as_suite_frame when test_suite is an empty list."""
+    metric = NAPFDMetric()
+    result = metric._as_suite_frame([], error_key="NumErrors")
+    assert result.is_empty()
+    assert set(result.columns) == {"Name", "Duration", "Verdict", "NumErrors"}
 
 
 def test_napfd_metric_accepts_polars_dataframe(sample_records, available_time):

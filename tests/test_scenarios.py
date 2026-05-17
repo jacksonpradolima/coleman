@@ -93,6 +93,23 @@ def test_virtual_scenario_initialization(mock_testcases):
     assert abs(scenario.total_build_duration - 6.5) < 1e-6
 
 
+def test_virtual_scenario_testcases_setter_with_empty_list():
+    """Test setting testcases property with an empty list."""
+    scenario = VirtualScenario(available_time=10, testcases=[], build_id=1, total_build_duration=6.5)
+    assert scenario.get_testcases() == []
+    # Set new empty list via property
+    scenario.testcases = []
+    assert scenario.get_testcases() == []
+
+
+def test_virtual_scenario_testcases_setter_with_dataframe(mock_testcases):
+    """Test setting testcases property with a DataFrame."""
+    df = pl.DataFrame(mock_testcases)
+    scenario = VirtualScenario(available_time=10, testcases=[], build_id=1, total_build_duration=6.5)
+    scenario.testcases = df
+    assert len(scenario.get_testcases()) == len(mock_testcases)
+
+
 def test_virtual_scenario_reset(mock_testcases):
     """Test `reset` method of VirtualScenario."""
     scenario = VirtualScenario(10, mock_testcases, 1, 6.5)
@@ -350,6 +367,26 @@ def test_scenario_loader_build_cache_is_bounded(tmp_path):
     assert len(loader._build_cache) <= loader._build_cache_size  # pylint: disable=protected-access
 
 
+def test_scenario_loader_collect_build_with_columns_filter(tmp_path):
+    """Cover _collect_build with columns parameter to select specific columns."""
+    parquet_file = tmp_path / "cols.parquet"
+    pl.DataFrame(
+        {
+            "BuildId": [1, 1],
+            "Name": ["A", "B"],
+            "Duration": [1.0, 2.0],
+            "CalcPrio": [0, 0],
+            "LastRun": ["2023-01-01", "2023-01-02"],
+            "Verdict": [1, 0],
+        }
+    ).write_parquet(parquet_file)
+
+    loader = ScenarioLoader(str(parquet_file), sched_time_ratio=0.5)
+    result = loader._collect_build(1, columns=["Name", "Duration"])  # pylint: disable=protected-access
+    assert set(result.columns) == {"Name", "Duration"}
+    assert result.height == 2
+
+
 def test_scenario_loader_tcdf_property_warns_and_returns_df(mock_csv_data, tmp_path):
     """Cover deprecated tcdf property warning/return path (lines 129-135)."""
     parquet_file = tmp_path / "testcases.parquet"
@@ -532,6 +569,41 @@ def test_context_loader_uses_previous_existing_build_when_sparse(tmp_path):
     assert second.get_context_features()["Duration"][0] == pytest.approx(4.0)
 
 
+def test_hcs_loader_variants_cache_is_bounded(tmp_path):
+    """Variants cache must stay bounded to prevent unbounded memory growth."""
+    tc_file = tmp_path / "testcases.parquet"
+    variants_file = tmp_path / "variants.parquet"
+
+    # Create datasets with multiple builds and variants
+    pl.DataFrame(
+        {
+            "BuildId": [1, 2, 3, 4, 5],
+            "Name": ["A", "A", "A", "A", "A"],
+            "Duration": [1.0, 1.0, 1.0, 1.0, 1.0],
+            "CalcPrio": [0, 0, 0, 0, 0],
+            "LastRun": ["2023-01-01"] * 5,
+            "Verdict": [0, 0, 0, 0, 0],
+        }
+    ).write_parquet(tc_file)
+
+    pl.DataFrame(
+        {
+            "BuildId": [1, 2, 3, 4, 5],
+            "Variant": ["V1", "V2", "V3", "V4", "V5"],
+            "VarValue": [10, 20, 30, 40, 50],
+        }
+    ).write_parquet(variants_file)
+
+    loader = HCSScenarioLoader(str(tc_file), str(variants_file), sched_time_ratio=0.5)
+    # Access variants for multiple builds by iterating through scenarios
+    for count, _ in enumerate(loader, start=1):
+        if count >= 5:
+            break
+
+    # Cache size should be bounded
+    assert len(loader._variants_cache) <= loader._variants_cache_size  # pylint: disable=protected-access
+
+
 @pytest.mark.parametrize(
     "relative_path",
     [
@@ -555,6 +627,23 @@ def test_smoke_examples_parquet_base_scenarios(relative_path):
     assert isinstance(scenario, VirtualScenario)
     assert len(scenario.get_testcases()) > 0
     assert scenario.total_build_duration >= 0
+
+
+@pytest.mark.parametrize(
+    "relative_path",
+    [
+        "alibaba@druid/features-engineered.parquet",
+        "square@retrofit/features-engineered.parquet",
+        "fakedata/features-engineered.parquet",
+        "core@dune-common/dune@debian_10 clang-7-libcpp-17/features-engineered.parquet",
+        "core@dune-common/dune@debian_11 gcc-10-20/features-engineered.parquet",
+        "core@dune-common/dune@ubuntu_20_04 clang-10-20/features-engineered.parquet",
+        "core@dune-common/dune@total/features-engineered.parquet",
+    ],
+)
+def test_smoke_examples_parquet_base_scenarios_duplicate(relative_path):
+    """Duplicate smoke test marker (unused)."""
+    pass
 
 
 @pytest.mark.parametrize(
