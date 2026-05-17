@@ -203,13 +203,14 @@ class TestCLISweep:
 
 
 class TestCLIRunArtifacts:
-    def test_run_prints_artifacts_dir_when_set(self, capsys):
+    def test_run_prints_artifacts_dir_when_set(self, capsys, tmp_path):
         """Lines 95-98: prints artifact dir when artifacts_dir is non-empty."""
         from coleman.api import RunResult
         from coleman.spec.models import RunSpec
 
         fake_spec = RunSpec()
-        fake_result = RunResult(run_id="test-run-id", spec=fake_spec, artifacts_dir="/tmp/artifacts")
+        artifacts_dir = str(tmp_path / "artifacts")
+        fake_result = RunResult(run_id="test-run-id", spec=fake_spec, artifacts_dir=artifacts_dir)
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as fh:
             yaml.dump({}, fh)
@@ -219,7 +220,7 @@ class TestCLIRunArtifacts:
                 main(["run", "--config", path])
             captured = capsys.readouterr()
             assert "run_id: test-run-id" in captured.out
-            assert "artifacts: /tmp/artifacts" in captured.out
+            assert f"artifacts: {artifacts_dir}" in captured.out
         finally:
             os.unlink(path)
 
