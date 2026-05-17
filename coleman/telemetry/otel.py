@@ -30,6 +30,7 @@ from __future__ import annotations
 import contextlib
 import importlib
 import logging
+from collections.abc import Generator
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -258,7 +259,7 @@ class Telemetry:
         self._tracer_provider.force_flush()
 
     @contextlib.contextmanager
-    def span(self, name: str, attributes: dict[str, Any] | None = None):
+    def span(self, name: str, attributes: dict[str, Any] | None = None) -> Generator[Any]:
         """Create a trace span context manager.
 
         Parameters
@@ -349,7 +350,7 @@ class NoOpTelemetry:
         """No-op flush."""
 
     @contextlib.contextmanager
-    def span(self, name: str, attributes: dict[str, Any] | None = None):
+    def span(self, name: str, attributes: dict[str, Any] | None = None) -> Generator[None]:
         """No-op context manager.
 
         Parameters

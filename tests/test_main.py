@@ -166,8 +166,10 @@ def test_run_parallel_executions_dispatches_unique_execution_plans():
             return None
 
     class FakeContext:
-        def Pool(self, size, maxtasksperchild=None):  # noqa: N802
+        def pool(self, size, maxtasksperchild=None):
             return FakePool(size, maxtasksperchild=maxtasksperchild)
+
+        Pool = pool  # noqa: N815
 
     build_config = EnvironmentBuildConfig(
         datasets_dir="examples",
@@ -248,8 +250,10 @@ def test_run_parallel_executions_keyboard_interrupt_terminates_pool():
             captured["joined"] = True
 
     class FakeContext:
-        def Pool(self, size, maxtasksperchild=None):  # noqa: N802
+        def pool(self, size, maxtasksperchild=None):
             return FakePool(size, maxtasksperchild=maxtasksperchild)
+
+        Pool = pool  # noqa: N815
 
     build_config = EnvironmentBuildConfig(
         datasets_dir="examples",
@@ -310,8 +314,10 @@ def test_run_parallel_executions_retries_on_timeout_then_completes():
             return None
 
     class FakeContext:
-        def Pool(self, size, maxtasksperchild=None):  # noqa: N802
+        def pool(self, size, maxtasksperchild=None):
             return FakePool(size, maxtasksperchild=maxtasksperchild)
+
+        Pool = pool  # noqa: N815
 
     build_config = EnvironmentBuildConfig(
         datasets_dir="examples",

@@ -31,12 +31,12 @@ class TestSetNested:
     def test_initial_data_not_dict_with_multiple_parts_raises(self):
         """Covers the guard at the top of the for-loop (lines 73-79)."""
         with pytest.raises(ValueError, match="is not a mapping"):
-            _set_nested("not_a_dict", "a.b", 42)  # type: ignore[arg-type]
+            _set_nested("not_a_dict", "a.b", 42)
 
     def test_initial_data_not_dict_single_part_raises(self):
         """Covers the post-loop guard (lines 98-104)."""
         with pytest.raises(ValueError, match="is not a mapping"):
-            _set_nested("not_a_dict", "key", 42)  # type: ignore[arg-type]
+            _set_nested("not_a_dict", "key", 42)
 
 
 class TestExpandAxis:

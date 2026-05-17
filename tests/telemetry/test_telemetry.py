@@ -45,7 +45,7 @@ class TestNoOpTelemetry:
         with t.span("test_span") as s:
             assert s is None  # NoOp yields None
         with t.span("test_span", attributes={"step": 1}) as s:
-            pass  # should not raise
+            assert s is None  # NoOp still yields None with attributes
 
 
 # ============================================================================
@@ -218,8 +218,8 @@ def test_telemetry_with_fake_otel_stack_covers_instrument_paths():
         t.record_resource_snapshot(10.0, 20.0, 30.0, {"k": "v"})
         t.record_experiment_resources(12.0, 5.0, 20.0, {"k": "v"})
         t.record_checkpoint_save({"k": "v"})
-        with t.span("demo", attributes={"step": 1}):
-            pass
+        with t.span("demo", attributes={"step": 1}) as span:
+            assert span is None
         t.flush()
         t.mark_run_finished({"k": "v"})
 

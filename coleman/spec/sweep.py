@@ -9,7 +9,7 @@ instances with every parameter combination materialised.
 from __future__ import annotations
 
 import itertools
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field
 
@@ -49,13 +49,13 @@ class SweepSpec(BaseModel):
     seeds: list[int] | None = None
 
 
-def _set_nested(data: dict[str, Any], dotted_key: str, value: Any) -> None:
+def _set_nested(data: object, dotted_key: str, value: Any) -> None:
     """Set a value in a nested dict using a dotted key path.
 
     Parameters
     ----------
-    data : dict
-        Root dictionary to mutate.
+    data : object
+        Root object to mutate. Must be a dictionary-like mapping at runtime.
     dotted_key : str
         Dot-separated path (e.g. ``"algorithm.ucb.timerank.c"``).
     value : Any
@@ -67,7 +67,7 @@ def _set_nested(data: dict[str, Any], dotted_key: str, value: Any) -> None:
         If an intermediate path component is not a mapping.
     """
     parts = dotted_key.split(".")
-    current = data
+    current: object = data
     for idx, part in enumerate(parts[:-1]):
         if not isinstance(current, dict):
             path_so_far = ".".join(parts[:idx])
@@ -78,8 +78,10 @@ def _set_nested(data: dict[str, Any], dotted_key: str, value: Any) -> None:
             )
             raise ValueError(msg)
 
-        if part in current:
-            next_obj = current[part]
+        current_dict = cast(dict[str, Any], current)
+
+        if part in current_dict:
+            next_obj = current_dict[part]
             if not isinstance(next_obj, dict):
                 path_so_far = ".".join(parts[: idx + 1])
                 msg = (
@@ -91,7 +93,7 @@ def _set_nested(data: dict[str, Any], dotted_key: str, value: Any) -> None:
             current = next_obj
         else:
             new_container: dict[str, Any] = {}
-            current[part] = new_container
+            current_dict[part] = new_container
             current = new_container
 
     if not isinstance(current, dict):
@@ -103,7 +105,8 @@ def _set_nested(data: dict[str, Any], dotted_key: str, value: Any) -> None:
         )
         raise ValueError(msg)
 
-    current[parts[-1]] = value
+    current_dict = cast(dict[str, Any], current)
+    current_dict[parts[-1]] = value
 
 
 def _expand_axis(axis: SweepAxis) -> list[dict[str, Any]]:
