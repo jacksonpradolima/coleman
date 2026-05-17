@@ -9,8 +9,8 @@ environments.
 ## Features
 
 - Adaptive learning from test execution feedback
-- Multiple MAB policies: Random, Greedy, EpsilonGreedy, UCB, FRRMAB
-- Contextual bandits: LinUCB, SWLinUCB
+- Multiple MAB policies: baseline, Bayesian/stochastic, adversarial, and non-stationary variants
+- Contextual bandits: LinUCB/SWLinUCB plus LinTS and contextual epsilon-greedy variants
 - HCS support with WTS and VTS strategies
 - Cost-effective prioritization under time budgets
 - **Typed configuration** — Pydantic v2 models with YAML configs and composable config packs

@@ -33,6 +33,9 @@ experiment:
     - FRRMAB
     - LinUCB
 
+# Note: the list above is an example, not an exhaustive list of available policies.
+# See the policy API reference for the complete set.
+
 algorithm:
   ucb:
     rnfail:

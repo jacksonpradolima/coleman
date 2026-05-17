@@ -67,12 +67,26 @@ In order to use this `version`, use any Contextual-MAB available, for instance, 
   - [CLI](#cli)
   - [Config packs](#config-packs)
   - [Sweep engine](#sweep-engine)
-  - [Deterministic run_id](#deterministic-run_id)
+  - [Deterministic run\_id](#deterministic-run_id)
   - [Provenance](#provenance)
 - [Installation](#installation)
+  - [As a library (recommended for new projects)](#as-a-library-recommended-for-new-projects)
+  - [From source (for development)](#from-source-for-development)
 - [Development](#development)
-- [Architecture: Results, Checkpoints & Telemetry](#architecture-results-checkpoints--telemetry)
+  - [Code Cost Evaluation](#code-cost-evaluation)
+  - [DevContainer (recommended)](#devcontainer-recommended)
+- [Architecture: Results, Checkpoints \& Telemetry](#architecture-results-checkpoints--telemetry)
+  - [Configuration](#configuration)
+  - [Optional extras](#optional-extras)
+  - [Querying results](#querying-results)
 - [Observability](#observability)
+  - [Using the DevContainer (zero-step setup)](#using-the-devcontainer-zero-step-setup)
+  - [Local setup (without DevContainer)](#local-setup-without-devcontainer)
+  - [Port reference](#port-reference)
+  - [Metric names](#metric-names)
+    - [Cardinality rules](#cardinality-rules)
+  - [Adding ClickHouse (optional)](#adding-clickhouse-optional)
+  - [Tear down](#tear-down)
 - [Datasets](#datasets)
 - [About the files input](#about-the-files-input)
 - [Using the tool](#using-the-tool)
@@ -436,7 +450,7 @@ See [Configuration](docs/configuration.md) for the full YAML schema reference.
 packs:
   - execution/default        # parallel_pool_size: 10, independent_executions: 10
   - experiment/alibaba_druid # datasets, rewards, policies
-  - algorithm/defaults       # FRRMAB, UCB, EpsilonGreedy, LinUCB, SWLinUCB params
+  - algorithm/defaults       # baseline defaults (UCB/FRRMAB/EpsilonGreedy/LinUCB/SWLinUCB)
   - results/parquet          # Parquet sink with default settings
   - checkpoint/default       # checkpoint enabled, interval: 50000
   - telemetry/off            # telemetry disabled (swap for telemetry/local to enable)
@@ -689,7 +703,7 @@ experiment:
   - `datasets` is an array that represents the datasets to analyse. It's the folder name inside `datasets_dir` which contains the required file inputs.
   - `experiment_dir` is the directory where we will save the results.
   - `rewards` defines the reward functions to be used, available RNFailReward and TimeRankReward (See **Ref1** in [References](#references)).
-  - `policies` selects the Policies available on **COLEMAN**, such as Random, Greedy, EpsilonGreedy, UCB, and FRRMAB.
+  - `policies` selects the Policies available on **COLEMAN** (classic + extended), including greedy, UCB, contextual, and non-stationary/sliding-window variants.
 - Algorithm Configuration: each algorithm has its own individual configuration. Next, we present some of them:
   - FRRAB:
     - `window_sizes` is an array that contains the sliding window sizes
@@ -712,25 +726,60 @@ experiment:
 
 ##  MAB Policies Available
 
-The following MAB Policies are available on **COLEMAN**:
+The following policies are available on **COLEMAN**.
 
-| **Policy**        | **Description**                                                                                                                                                                                                                         | **Use Case**                                                                                                                    |
-|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
-| **Random**        | Selects actions purely based on random choice without any preference.                                                                                                                                                                   | Used as a baseline to compare with other more sophisticated policies. Doesn't use prior knowledge.                               |
-| **Greedy**        | Always selects the action with the highest estimated reward. Exploits current knowledge without exploring other options.                                                                                                                | Effective in environments where reward probabilities are static and unchanging.                                                  |
-| **EpsilonGreedy** | This is a variation of the Greedy policy. With probability \( \epsilon \), a random action is selected (exploration), and with probability \( 1 - \epsilon \), the action with the highest estimated reward is selected (exploitation). | Useful in environments with uncertainty about the optimal action or when the environment changes over time.                       |
-| **UCB**           | Selects actions based on both their estimated rewards and the uncertainty around these rewards. Balances exploration and exploitation.                                                                                                  | Effective when trials are limited and there's a need to explore and exploit simultaneously.                                       |
-| **SlMAB**         | Sliding-window Multi-Armed Bandit (SlMAB) approach, which uses a fixed-size sliding window to consider only recent feedback. The window size determines the trade-off between short-term and long-term rewards.                         | Suitable for non-stationary environments where the optimal action can change over time and recent actions are more indicative.    |
-| **FRRMAB**        | A more sophisticated MAB policy that considers feedback from previous actions using a sliding window to adjust estimated rewards for future decisions.                                                                                  | Beneficial in dynamic environments where actions' reward probabilities change and feedback from previous actions is valuable.     |
+Baseline and classical policies:
+- Random
+- Greedy
+- EpsilonGreedy
+- UCB
+- UCB1
+- SlMAB
+- FRRMAB
 
-and the following Contextual MABs for **CONSTANTINE**:
+Greedy variants:
+- DecayEpsilonGreedy
+- OptimisticGreedy
 
-| **Policy**        | **Description**                                                                                                                                                                                                                         | **Use Case**                                                                                                                    |
-|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
-| **LinUCB**        | Incorporates linear regression with UCB. Uses contextual information of the arms to estimate the reward. The uncertainty bonus is combined with a linear estimate of the expected reward.                                                    | Best for environments with contextual information where the relationship between context and reward can be linearly approximated. |
-| **SWLinUCB**      | A combination of LinUCB and sliding window approach. It uses the recent contextual information of the arms within a sliding window to better estimate the reward in non-stationary environments.                                         | Ideal for non-stationary environments with contextual information where recent context-reward relationships are more indicative.  |
+UCB variants:
+- UCB2
+- SlidingWindowUCB
+- KLUCB
+- UCBTuned
+- UCBV
+- MOSSUCB
 
-Note: you can execute all the MAB and Contextual MAB policies together if you have the proper data input.
+Bayesian/stochastic/adversarial variants:
+- ThompsonSampling
+- BayesianUCB
+- Softmax
+- Pursuit
+- EpsilonDecreasing
+- BootstrappedThompson
+- PHE
+- EXP3
+- EXP3IX
+- DiscountedUCB
+- ChangeDetectionUCB
+
+Combinatorial variants:
+- CombinatorialUCB
+- CombinatorialThompson
+
+Dueling / ranking variants:
+- DuelingUCB
+- PairwiseThompsonRanking
+
+Portfolio meta-policy:
+- PortfolioUCB
+
+Contextual variants:
+- LinUCB
+- SWLinUCB
+- LinTS
+- ContextualEpsilonGreedy
+- SWLinTS
+- SWContextualEpsilonGreedy
 
 ## Running for Non-HCS System
 

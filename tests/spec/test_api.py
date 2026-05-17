@@ -89,6 +89,19 @@ class TestSweep:
 
 
 class TestSeedApplication:
+    def test_policy_rng_reexport_stays_synced_with_base_rng(self):
+        """Assigning through coleman.policy._rng must update base RNG used by policies."""
+        import numpy as np
+
+        import coleman.policy
+        import coleman.policy.base
+
+        new_rng = np.random.default_rng(123)
+        coleman.policy._rng = new_rng  # type: ignore[assignment]
+
+        assert coleman.policy.base._rng is new_rng
+        assert coleman.policy._rng.bit_generator.state == new_rng.bit_generator.state
+
     def test_seed_applied_to_rng(self):
         """When execution.seed is set, the policy RNG should be deterministically seeded."""
         import numpy as np
