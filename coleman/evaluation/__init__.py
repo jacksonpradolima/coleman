@@ -23,7 +23,25 @@ child classes. Ensure that the ``reset`` method is called at the beginning of ea
 evaluation to reset metric values.
 """
 
+from .apfdc import APFDcMetric
 from .base import EvaluationMetric
 from .napfd import NAPFDMetric, NAPFDVerdictMetric
+from .topk import (
+    AveragePrecisionAtKMetric,
+    NDCGAtKMetric,
+    PrecisionAtKMetric,
+    RecallAtKMetric,
+    ReciprocalRankAtKMetric,
+)
 
-__all__ = ["EvaluationMetric", "NAPFDMetric", "NAPFDVerdictMetric"]
+__all__ = [
+    "EvaluationMetric",
+    "NAPFDMetric",
+    "NAPFDVerdictMetric",
+    "APFDcMetric",
+    "PrecisionAtKMetric",
+    "RecallAtKMetric",
+    "AveragePrecisionAtKMetric",
+    "ReciprocalRankAtKMetric",
+    "NDCGAtKMetric",
+]
