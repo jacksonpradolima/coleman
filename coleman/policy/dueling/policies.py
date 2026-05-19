@@ -58,28 +58,30 @@ class DuelingUCBPolicy(Policy):
             return (a, b)
         return (b, a)
 
+    def _pref_left(self, left: str, key: tuple[str, str], log_total: float) -> float:
+        """Estimate UCB preference probability for *left* over its paired opponent."""
+        n = self._duels.get(key, 0.0)
+        if n <= 0.0:
+            return 0.5
+        wins_first = self._wins_first.get(key, 0.0)
+        wins_left = wins_first if left == key[0] else (n - wins_first)
+        mean_left = wins_left / n
+        bonus = self.c * math.sqrt(log_total / (n + 1.0))
+        return min(1.0, max(0.0, mean_left + bonus))
+
     def _copeland_scores(self, names: list[str]) -> dict[str, float]:
         """Compute Copeland scores from current win/duel statistics."""
         total_duels = float(sum(self._duels.values())) + 1.0
         log_total = math.log(total_duels)
-        scores = {name: 0.0 for name in names}
+        scores = dict.fromkeys(names, 0.0)
 
         for i, left in enumerate(names):
             for right in names[i + 1 :]:
                 key = self._pair(left, right)
-                n = self._duels.get(key, 0.0)
-                wins_first = self._wins_first.get(key, 0.0)
-                wins_left = wins_first if left == key[0] else (n - wins_first)
-                if n <= 0.0:
-                    pref_left = 0.5
-                else:
-                    mean_left = wins_left / n
-                    bonus = self.c * math.sqrt(log_total / (n + 1.0))
-                    pref_left = min(1.0, max(0.0, mean_left + bonus))
-
-                if pref_left >= 0.5:
+                pref = self._pref_left(left, key, log_total)
+                if pref >= 0.5:
                     scores[left] += 1.0
-                if (1.0 - pref_left) >= 0.5:
+                if (1.0 - pref) >= 0.5:
                     scores[right] += 1.0
 
         return scores
@@ -161,7 +163,7 @@ class PairwiseThompsonRankingPolicy(Policy):
     def choose_all(self, agent: Agent) -> list[str]:
         """Sample and rank all actions using Thompson sampling."""
         names = action_names(agent)
-        sampled_scores = {name: 0.0 for name in names}
+        sampled_scores = dict.fromkeys(names, 0.0)
 
         for i, left in enumerate(names):
             for right in names[i + 1 :]:
@@ -185,7 +187,7 @@ class PairwiseThompsonRankingPolicy(Policy):
                     self._beta[key] += 1.0
 
         names = action_names(agent)
-        mean_scores = {name: 0.0 for name in names}
+        mean_scores = dict.fromkeys(names, 0.0)
         for i, left in enumerate(names):
             for right in names[i + 1 :]:
                 key = self._pair(left, right)

@@ -223,6 +223,6 @@ class NDCGAtKMetric(_TopKVerdictMetric):
         ideal_hits = min(total_failures, selected_count)
         idcg = sum(1.0 / np.log2(rank + 1.0) for rank in range(1, ideal_hits + 1))
 
-        if idcg == 0.0:
+        if idcg < 1e-12:
             return 0.0
         return dcg / idcg

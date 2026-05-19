@@ -64,7 +64,7 @@ class DiscountedUCBPolicy(Policy, DeltaRewardMixin):
         self._ensure_actions(agent)
         rewards = self.extract_step_rewards(agent)
 
-        for name in list(self.n_disc.keys()):
+        for name in self.n_disc:
             self.n_disc[name] *= self.gamma
             self.r_disc[name] *= self.gamma
 
