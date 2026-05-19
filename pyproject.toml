@@ -101,6 +101,7 @@ typeCheckingMode = "basic"
 addopts = [
     "--durations=25",
     "--durations-min=0.05",
+    "--benchmark-disable",
     "--benchmark-min-rounds=1",
     "--benchmark-max-time=0.05",
     "--benchmark-sort=mean",
