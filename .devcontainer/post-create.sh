@@ -27,8 +27,18 @@ uv run --python .venv/bin/python --no-project pip install -e .
 # 3. Install pre-commit hooks (non-critical)
 make pre-commit-install || echo "⚠  pre-commit install failed — you can run 'make pre-commit-install' manually."
 
-# 4. Install recommended Copilot plugins (non-critical)
-if command -v copilot >/dev/null 2>&1; then
+# 4. Install recommended Copilot plugins (non-critical, opt-in)
+#
+# Set INSTALL_COPILOT_PLUGINS=1 to install:
+# - polyglot-test-agent@awesome-copilot
+# - testing-automation@awesome-copilot
+# - context-engineering@awesome-copilot
+# - security-best-practices@awesome-copilot
+# - database-data-management@awesome-copilot
+# - technical-spike@awesome-copilot
+# - project-planning@awesome-copilot
+# - structured-autonomy@awesome-copilot
+if command -v copilot >/dev/null 2>&1 && [[ "${INSTALL_COPILOT_PLUGINS:-0}" == "1" ]]; then
   echo "Installing Copilot plugins from awesome-copilot..."
   copilot plugin install polyglot-test-agent@awesome-copilot || echo "⚠  Failed to install plugin: polyglot-test-agent"
   copilot plugin install testing-automation@awesome-copilot || echo "⚠  Failed to install plugin: testing-automation"
@@ -38,6 +48,8 @@ if command -v copilot >/dev/null 2>&1; then
   copilot plugin install technical-spike@awesome-copilot || echo "⚠  Failed to install plugin: technical-spike"
   copilot plugin install project-planning@awesome-copilot || echo "⚠  Failed to install plugin: project-planning"
   copilot plugin install structured-autonomy@awesome-copilot || echo "⚠  Failed to install plugin: structured-autonomy"
+elif command -v copilot >/dev/null 2>&1; then
+  echo "Skipping Copilot plugin installation (set INSTALL_COPILOT_PLUGINS=1 to enable)."
 else
   echo "⚠  Copilot CLI not found; skipping plugin installation."
 fi

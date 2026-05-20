@@ -1,5 +1,7 @@
 """NAPFD evaluation metrics."""
 
+import numpy as np
+
 from .base import EvaluationMetric
 
 
@@ -56,7 +58,7 @@ class NAPFDMetric(EvaluationMetric):
         """
         self.ttf = self.detection_ranks[0] if self.detection_ranks else 0
         self.recall = sum(self.detection_ranks_failures) / total_failure_count
-        self.avg_precision = 123
+        self.avg_precision = _avg_precision_from_detection_ranks(self.detection_ranks)
 
         p = self.recall if self.undetected_failures > 0 else 1
 
@@ -119,7 +121,7 @@ class NAPFDVerdictMetric(EvaluationMetric):
         """
         self.ttf = self.detection_ranks[0] if self.detection_ranks else 0
         self.recall = self.detected_failures / total_failure_count
-        self.avg_precision = 123  # Placeholder value, can be replaced with real calculation
+        self.avg_precision = _avg_precision_from_detection_ranks(self.detection_ranks)
 
         p = self.recall if self.undetected_failures > 0 else 1
 
@@ -130,3 +132,13 @@ class NAPFDVerdictMetric(EvaluationMetric):
         self.cost = sum(sum(costs[i - 1 :]) - 0.5 * costs[i - 1] for i in self.detection_ranks) / (
             sum(costs) * total_failure_count
         )
+
+
+def _avg_precision_from_detection_ranks(detection_ranks: list[int]) -> float:
+    """Compute average precision from 1-based failure detection ranks."""
+    if not detection_ranks:
+        return 0.0
+
+    ranks = np.asarray(detection_ranks, dtype=np.float64)
+    positives = np.arange(1, ranks.size + 1, dtype=np.float64)
+    return float(np.mean(positives / ranks))

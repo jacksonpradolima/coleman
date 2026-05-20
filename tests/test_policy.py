@@ -778,6 +778,12 @@ def test_epsilon_greedy_str():
     assert "0.25" in s
 
 
+def test_frrmab_str_has_closing_parenthesis():
+    """FRRMABPolicy.__str__ should return a balanced label."""
+    policy = FRRMABPolicy(c=0.5, decayed_factor=0.9)
+    assert str(policy) == "FRRMAB (C=0.5, D=0.9)"
+
+
 def test_ucb_strings_cover_repr_lines():
     """Cover UCB1/UCB __str__ lines (69 and 103 in policies.py)."""
     assert "UCB1" in str(UCB1Policy(c=1.0))

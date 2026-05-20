@@ -244,6 +244,7 @@ def test_napfd_metric(sample_records, available_time):
     assert napfd.fitness >= 0, NAPFD_FITNESS_NON_NEGATIVE
     assert napfd.fitness <= 1, NAPFD_FITNESS_NOT_EXCEED_ONE
     assert napfd.cost >= 0, NAPFD_COST_NON_NEGATIVE
+    assert 0 <= napfd.avg_precision <= 1
 
 
 def test_napfd_verdict_metric(sample_records, available_time):
@@ -257,6 +258,7 @@ def test_napfd_verdict_metric(sample_records, available_time):
     assert napfd_v.fitness >= 0, NAPFD_FITNESS_NON_NEGATIVE
     assert napfd_v.fitness <= 1, NAPFD_FITNESS_NOT_EXCEED_ONE
     assert napfd_v.cost >= 0, NAPFD_COST_NON_NEGATIVE
+    assert 0 <= napfd_v.avg_precision <= 1
 
 
 def test_empty_records(available_time):

@@ -53,7 +53,7 @@ class FRRMABPolicy(Policy):
         str
             The policy name with C and D values.
         """
-        return f"FRRMAB (C={self.c}, D={self.decayed_factor}"
+        return f"FRRMAB (C={self.c}, D={self.decayed_factor})"
 
     def choose_all(self, agent: Agent):
         """Choose all actions based on Q values from the FRRMAB history.
