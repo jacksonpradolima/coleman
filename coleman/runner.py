@@ -309,14 +309,17 @@ def build_runtime_metadata(
 
 
 def build_environment(
-    build_config: EnvironmentBuildConfig, runtime_metadata: dict[str, str]
+    build_config: EnvironmentBuildConfig,
+    runtime_metadata: dict[str, str],
+    agent_seed: int | None = None,
 ) -> tuple[Environment, int]:
     """Create a fresh environment for one execution."""
+    effective_agent_seed = build_config.seed if agent_seed is None else agent_seed
     agents = build_agents_from_config(
         build_config.algorithm_configs,
         build_config.policy_names,
         build_config.rewards_names,
-        seed=build_config.seed,
+        seed=effective_agent_seed,
     )
     scenario = get_scenario_provider(
         build_config.datasets_dir,
@@ -379,7 +382,7 @@ def exp_run_industrial_dataset_isolated(build_config: EnvironmentBuildConfig, pl
         "worker_id": plan.worker_id,
         "parallel_mode": plan.parallel_mode,
     }
-    env, _ = build_environment(build_config, runtime_metadata)
+    env, _ = build_environment(build_config, runtime_metadata, agent_seed=plan.seed)
     exp_run_industrial_dataset(plan.iteration, plan.trials, env, plan.level, runtime_metadata)
 
 
