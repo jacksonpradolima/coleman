@@ -1,7 +1,7 @@
 # Optional Local Observability Stack
 
 This directory contains an **optional** Docker Compose stack for local
-observability when developing or profiling Coleman4HCS experiments.
+observability when developing or profiling Coleman experiments.
 
 > **Framework-first guarantee:** `coleman run --config run.yaml` works without Docker or
 > any of these services.  Install optional extras only when you need them.
@@ -61,7 +61,7 @@ and analysis, see [docs/workflow.py](docs/workflow.py).
 ```bash
 OTEL_COLLECTOR_CONFIG=otel-collector-config-clickhouse.yaml \
   docker compose --profile clickhouse up -d
-pip install coleman4hcs[telemetry,clickhouse]
+pip install coleman[telemetry,clickhouse]
 ```
 
 When the ClickHouse profile is active:

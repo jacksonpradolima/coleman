@@ -9,10 +9,10 @@ body:
   - type: checkboxes
     id: non_api
     attributes:
-      label: Confirm this is a feature request for the coleman4hcs library.
+      label: Confirm this is a feature request for the coleman library.
       description: Feature requests relevant to other tools should be directed to the correct repository.
       options:
-        - label: This is a feature request for the coleman4hcs library
+        - label: This is a feature request for the coleman library
           required: true
   - type: textarea
     id: feature

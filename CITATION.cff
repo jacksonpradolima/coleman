@@ -1,13 +1,13 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite the article below."
-title: "Coleman4HCS"
+title: "Coleman"
 type: software
 authors:
   - family-names: "Prado Lima"
     given-names: "Jackson A."
   - family-names: "Vergilio"
     given-names: "Silvia Regina"
-repository-code: "https://github.com/jacksonpradolima/coleman4hcs"
+repository-code: "https://github.com/jacksonpradolima/coleman"
 license: MIT
 preferred-citation:
   type: article

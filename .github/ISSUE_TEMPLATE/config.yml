@@ -1,7 +1,7 @@
 blank_issues_enabled: false
 contact_links:
-  - name: coleman4hcs Support
-    url: https://github.com/jacksonpradolima/coleman4hcs
+  - name: coleman Support
+    url: https://github.com/jacksonpradolima/coleman
     about: |
-      Please only file issues here if they relate to actual bugs or feature requests for the coleman4hcs project.
+      Please only file issues here if they relate to actual bugs or feature requests for the coleman project.
       For more general discussions or questions, open an issue and select the appropriate template.

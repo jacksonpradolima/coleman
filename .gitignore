@@ -204,6 +204,7 @@ htmlcov/
 
 # Ignore profiling files
 prof/
+scalene-profile*
 
 # Ignore runs and checkpoints output
 runs/

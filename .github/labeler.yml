@@ -4,7 +4,7 @@
 # Python source code changes
 'type/code':
   - changed-files:
-    - any-glob-to-any-file: 'coleman4hcs/**/*.py'
+    - any-glob-to-any-file: 'coleman/**/*.py'
 
 # Test changes
 'type/tests':

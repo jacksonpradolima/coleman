@@ -8,7 +8,7 @@ when raised with or without a custom message.
 
 import pytest
 
-from coleman4hcs.exceptions import QException
+from coleman.exceptions import QException
 
 
 def test_qexception_inheritance():

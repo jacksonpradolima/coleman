@@ -3,7 +3,7 @@ Unit tests for the Environment class and related components.
 
 This module contains a suite of unit tests to validate the functionality of
 the `Environment` class as well as the associated functionalities in the
-`coleman4hcs` package. These tests cover the behaviors, interactions, and
+`coleman` package. These tests cover the behaviors, interactions, and
 edge cases for:
 
 - Initialization of `Environment` objects.
@@ -13,7 +13,7 @@ edge cases for:
 
 Fixtures:
 - `mock_agent`: A fixture for a mocked `ContextualAgent`.
-- `mock_scenario_provider`: A fixture for a mocked `IndustrialDatasetHCSScenarioProvider`.
+- `mock_scenario_provider`: A fixture for a mocked `HCSScenarioLoader`.
 - `mock_evaluation_metric`: A fixture for a mocked evaluation metric.
 - `environment`: A fixture for an initialized instance of the `Environment` class.
 
@@ -26,20 +26,21 @@ Tested Functionalities:
 6. Execution and prioritization of test cases and variants.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import polars as pl
 import pytest
 
-from coleman4hcs.agent import ContextualAgent
-from coleman4hcs.bandit import EvaluationMetricBandit
-from coleman4hcs.checkpoint.checkpoint_store import NullCheckpointStore
-from coleman4hcs.checkpoint.state import CheckpointPayload
-from coleman4hcs.environment import Environment
-from coleman4hcs.results.sink_base import NullSink
-from coleman4hcs.scenarios import IndustrialDatasetHCSScenarioProvider
-from coleman4hcs.utils.monitor import MonitorCollector
+from coleman.agent import ContextualAgent
+from coleman.bandit import EvaluationMetricBandit
+from coleman.checkpoint.checkpoint_store import NullCheckpointStore
+from coleman.checkpoint.state import CheckpointPayload
+from coleman.environment import Environment
+from coleman.environment_base import AbstractEnvironment
+from coleman.results.sink_base import NullSink
+from coleman.scenarios import HCSScenarioLoader, VirtualHCSScenario
+from coleman.utils.monitor import MonitorCollector
 
 
 # Fixtures for common dependencies
@@ -52,7 +53,7 @@ def mock_agent():
 @pytest.fixture
 def mock_scenario_provider():
     """Fixture for creating a mock scenario provider."""
-    mock_provider = MagicMock(spec=IndustrialDatasetHCSScenarioProvider)
+    mock_provider = MagicMock(spec=HCSScenarioLoader)
     mock_provider.get_total_variants.return_value = 0
     mock_provider.get_avail_time_ratio.return_value = 0.5
     return mock_provider
@@ -82,6 +83,7 @@ def test_initialization(environment, mock_agent, mock_scenario_provider, mock_ev
     assert environment.evaluation_metric == mock_evaluation_metric
     assert isinstance(environment.monitor, MonitorCollector)
     assert isinstance(environment.checkpoint_store, NullCheckpointStore)
+    assert isinstance(environment, AbstractEnvironment)
 
 
 def test_reset(environment, mock_agent, mock_scenario_provider):
@@ -201,6 +203,58 @@ def test_run_single_resumes_from_checkpoint_step(environment, mock_scenario_prov
     mock_bandit.update_arms.assert_called_once()
 
 
+def test_run_single_stores_forecast_prioritization_by_default(environment, mock_scenario_provider, mock_agent):
+    """run_single should store one next-step forecast per agent by default."""
+    mock_virtual_scenario = MagicMock()
+    mock_virtual_scenario.get_available_time.return_value = 100
+    mock_virtual_scenario.get_testcases.return_value = [
+        {"Name": "testcase1", "Duration": 1.0, "CalcPrio": 0, "LastRun": "0", "LastResults": ""},
+    ]
+    mock_scenario_provider.__iter__.side_effect = lambda: iter([mock_virtual_scenario])
+    mock_scenario_provider.total_build_duration = 150
+
+    mock_bandit = MagicMock(spec=EvaluationMetricBandit)
+    mock_agent.get_reward_function.return_value = "reward_function"
+    mock_agent.choose.return_value = ["testcase1"]
+
+    environment.run_prioritization = MagicMock(return_value=(["testcase1"], 0.0, "policy", 0.0))
+    environment.telemetry = MagicMock()
+    environment.save_periodically = MagicMock()
+
+    environment.run_single(experiment=1, trials=1, bandit_type=MagicMock(return_value=mock_bandit), restore=False)
+
+    assert len(environment.forecast_prioritizations) == 1
+    forecast = environment.forecast_prioritizations[0]
+    assert forecast["experiment"] == 1
+    assert forecast["step"] == 2
+    assert forecast["prioritization_order"] == ["testcase1"]
+
+
+def test_run_single_can_disable_forecast_prioritization(environment, mock_scenario_provider, mock_agent):
+    """run_single should skip forecast generation when forecast_next is False."""
+    mock_virtual_scenario = MagicMock()
+    mock_virtual_scenario.get_available_time.return_value = 100
+    mock_virtual_scenario.get_testcases.return_value = [
+        {"Name": "testcase1", "Duration": 1.0, "CalcPrio": 0, "LastRun": "0", "LastResults": ""},
+    ]
+    mock_scenario_provider.__iter__.side_effect = lambda: iter([mock_virtual_scenario])
+
+    mock_bandit = MagicMock(spec=EvaluationMetricBandit)
+    environment.run_prioritization = MagicMock(return_value=(["testcase1"], 0.0, "policy", 0.0))
+    environment.telemetry = MagicMock()
+    environment.save_periodically = MagicMock()
+
+    environment.run_single(
+        experiment=1,
+        trials=1,
+        bandit_type=MagicMock(return_value=mock_bandit),
+        restore=False,
+        forecast_next=False,
+    )
+
+    assert environment.forecast_prioritizations == []
+
+
 def test_save_periodically(environment):
     """Test the save_periodically method to ensure saving happens only at specified intervals."""
     environment.save_experiment = MagicMock()
@@ -273,7 +327,7 @@ def test_load_experiment_returns_none_when_no_checkpoint(environment):
 
 def test_load_experiment_returns_payload(environment, tmp_path):
     """Test load_experiment returns a CheckpointPayload when checkpoint exists."""
-    from coleman4hcs.checkpoint.checkpoint_store import LocalCheckpointStore
+    from coleman.checkpoint.checkpoint_store import LocalCheckpointStore
 
     store = LocalCheckpointStore(base_dir=str(tmp_path / "ckpts"))
     environment.checkpoint_store = store
@@ -346,7 +400,7 @@ def test_run_prioritization_hcs(environment):
 
 def test_environment_with_results_config(mock_agent, mock_scenario_provider, mock_evaluation_metric, tmp_path):
     """Test Environment creation with results config produces a ParquetSink."""
-    from coleman4hcs.results.parquet_sink import ParquetSink
+    from coleman.results.parquet_sink import ParquetSink
 
     env = Environment(
         agents=[mock_agent],
@@ -366,3 +420,182 @@ def test_environment_disabled_results(mock_agent, mock_scenario_provider, mock_e
         results_config={"enabled": False},
     )
     assert isinstance(env.monitor.sink, NullSink)
+
+
+def test_build_sink_unsupported_type_raises(mock_agent, mock_scenario_provider, mock_evaluation_metric):
+    """Lines 181-183: _build_sink raises ValueError for unknown sink types."""
+    with pytest.raises(ValueError, match="Unsupported results sink type"):
+        Environment(
+            agents=[mock_agent],
+            scenario_provider=mock_scenario_provider,
+            evaluation_metric=mock_evaluation_metric,
+            results_config={"enabled": True, "sink": "invalid_sink_type"},
+        )
+
+
+def test_environment_clickhouse_sink_branch(mock_agent, mock_scenario_provider, mock_evaluation_metric):
+    """Cover _build_sink clickhouse import/return branch (lines 181-183)."""
+    fake_sink = MagicMock()
+    with patch("coleman.results.clickhouse_sink.ClickHouseSink", return_value=fake_sink) as sink_cls:
+        env = Environment(
+            agents=[mock_agent],
+            scenario_provider=mock_scenario_provider,
+            evaluation_metric=mock_evaluation_metric,
+            results_config={
+                "enabled": True,
+                "sink": "clickhouse",
+                "clickhouse": {"host": "localhost", "port": 8123, "secure": False, "verify": False},
+            },
+        )
+    sink_cls.assert_called_once_with(host="localhost", port=8123, secure=False, verify=False)
+    assert env.monitor.sink is fake_sink
+
+
+def test_environment_clickhouse_sink_invalid_config_type_raises(
+    mock_agent, mock_scenario_provider, mock_evaluation_metric
+):
+    """results.clickhouse must be a mapping for ClickHouseSink kwargs."""
+    with pytest.raises(TypeError, match="results.clickhouse"):
+        Environment(
+            agents=[mock_agent],
+            scenario_provider=mock_scenario_provider,
+            evaluation_metric=mock_evaluation_metric,
+            results_config={"enabled": True, "sink": "clickhouse", "clickhouse": "invalid"},
+        )
+
+
+def test_run_single_breaks_when_t_exceeds_trials(environment):
+    """Cover run_single early-break branch around line 322."""
+
+    class ScenarioStub:
+        def __init__(self):
+            self._items = [MagicMock(), MagicMock()]
+            self.name = "stub"
+            self._last = 0
+
+        def __iter__(self):
+            return iter(self._items)
+
+        def __str__(self):
+            return "stub"
+
+        def get_avail_time_ratio(self):
+            return 0.5
+
+        def last_build(self, build):
+            self._last = build
+
+    environment.scenario_provider = ScenarioStub()
+    environment.run_prioritization = MagicMock()
+    environment.save_periodically = MagicMock()
+    environment.evaluation_metric = MagicMock()
+    environment.telemetry = MagicMock()
+
+    environment.run_single(experiment=1, trials=0, bandit_type=MagicMock(), restore=False)
+    environment.run_prioritization.assert_not_called()
+
+
+def test_run_single_hcs_branch_calls_run_prioritization_hcs(environment):
+    """Cover run_single HCS branch around line 354."""
+    testcase = {"Name": "TC1", "Duration": 1.0, "CalcPrio": 0, "LastRun": "2023-01-01", "Verdict": 1}
+    virtual = VirtualHCSScenario(
+        available_time=1.0,
+        testcases=[testcase],
+        build_id=1,
+        total_build_duration=1.0,
+        variants=pl.DataFrame({"Variant": ["v1"]}),
+    )
+
+    class HCSStub(HCSScenarioLoader):
+        def __iter__(self):
+            return iter([virtual])
+
+        def __str__(self):
+            return "hcs-stub"
+
+        def get_avail_time_ratio(self):
+            return 0.5
+
+    environment.scenario_provider = HCSStub.__new__(HCSStub)
+    environment.scenario_provider.__iter__ = lambda self=environment.scenario_provider: iter([virtual])
+    environment.scenario_provider.get_avail_time_ratio = lambda: 0.5
+    environment.scenario_provider.__str__ = lambda: "hcs-stub"
+
+    mock_bandit = MagicMock()
+    mock_bandit.update_arms = MagicMock()
+    mock_bandit.pull.return_value = MagicMock(fitness=1.0, cost=1.0)
+    bandit_type = MagicMock(return_value=mock_bandit)
+    environment.run_prioritization = MagicMock(return_value=([], 0.0, "exp", 0.0))
+    environment.run_prioritization_hcs = MagicMock()
+    environment.evaluation_metric = MagicMock()
+    environment.telemetry = MagicMock()
+
+    environment.run_single(experiment=1, trials=1, bandit_type=bandit_type, restore=False)
+    environment.run_prioritization_hcs.assert_called_once()
+
+
+def test_run_prioritization_contextual_branch_sets_exp_name(environment):
+    """Cover contextual branch in run_prioritization (lines 411-414)."""
+    policy = MagicMock()
+    policy.choose_all.return_value = ["A"]
+    reward_fn = MagicMock()
+    reward_fn.evaluate.return_value = [1.0]
+    reward_fn.__str__ = MagicMock(return_value="RNFail")
+    agent = ContextualAgent(policy, reward_fn)
+    agent.update_actions(["A"])
+    agent.bandit = MagicMock()
+    metric = MagicMock()
+    metric.fitness = 1.0
+    metric.cost = 1.0
+    metric.scheduled_testcases = ["A"]
+    metric.prioritization_order = ["A"]
+    metric.ttf = 1.0
+    metric.ttf_duration = 1.0
+    metric.time_reduction = 0.0
+    metric.detected_failures = 0
+    metric.undetected_failures = 0
+    metric.fitness = 1.0
+    metric.cost = 1.0
+    agent.bandit.pull.return_value = metric
+
+    virtual = MagicMock()
+    virtual.get_context_features.return_value = pl.DataFrame({"Name": ["A"], "f": [1.0]})
+    virtual.get_features.return_value = ["f"]
+    virtual.get_feature_group.return_value = "grp"
+    virtual.get_testcases.return_value = []
+    virtual.total_build_duration = 1.0
+
+    environment.monitor = MagicMock()
+    environment.telemetry = MagicMock()
+    environment.scenario_provider = MagicMock()
+    environment.scenario_provider.total_build_duration = 1.0
+    environment.scenario_provider.avail_time_ratio = 0.5
+    environment.scenario_provider.name = "scenario"
+    environment.scenario_provider.get_avail_time_ratio.return_value = 0.5
+
+    _, _, exp_name, _ = environment.run_prioritization(agent, MagicMock(), 0.1, 1, 1, virtual)
+    assert exp_name.endswith("_grp")
+
+
+def test_save_experiment_records_checkpoint_metric(environment):
+    """Cover save_experiment success telemetry path (line 658)."""
+    environment.monitor = MagicMock()
+    environment.variant_monitors = {"v1": MagicMock()}
+    environment.checkpoint_store = MagicMock()
+    environment.telemetry = MagicMock()
+    environment._experiment_telemetry_attributes = MagicMock(return_value={"k": "v"})
+
+    environment.save_experiment("exp", 1, None)
+    environment.variant_monitors["v1"].flush.assert_called_once()
+    environment.telemetry.record_checkpoint_save.assert_called_once()
+
+
+def test_save_experiment_exception_branch_logs_and_raises(environment):
+    """Cover save_experiment exception branch (line 667)."""
+    environment.monitor = MagicMock()
+    environment.monitor.flush.side_effect = RuntimeError("flush fail")
+    environment.variant_monitors = {}
+    environment.telemetry = MagicMock()
+
+    with pytest.raises(RuntimeError, match="flush fail"):
+        environment.save_experiment("exp", 1, None)

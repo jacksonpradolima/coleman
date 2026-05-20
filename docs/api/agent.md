@@ -1,3 +1,3 @@
 # Agent
 
-::: coleman4hcs.agent
+::: coleman.agent

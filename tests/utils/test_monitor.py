@@ -1,5 +1,5 @@
 """
-Test cases for the MonitorCollector utility in the coleman4hcs package.
+Test cases for the MonitorCollector utility in the coleman package.
 
 These tests cover functionality including data collection via the ResultsSink
 and the new Parquet-based architecture.
@@ -10,11 +10,11 @@ from unittest.mock import MagicMock
 import pyarrow.parquet as pq
 import pytest
 
-from coleman4hcs.evaluation import EvaluationMetric
-from coleman4hcs.results.parquet_sink import ParquetSink
-from coleman4hcs.results.sink_base import NullSink
-from coleman4hcs.utils.monitor import MonitorCollector
-from coleman4hcs.utils.monitor_params import CollectParams
+from coleman.evaluation import EvaluationMetric
+from coleman.results.parquet_sink import ParquetSink
+from coleman.results.sink_base import NullSink
+from coleman.utils.monitor import MonitorCollector
+from coleman.utils.monitor_params import CollectParams
 
 
 @pytest.fixture

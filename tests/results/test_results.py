@@ -4,10 +4,11 @@ import json
 import threading
 
 import pyarrow.parquet as pq
+import pytest
 
-from coleman4hcs.results.parquet_sink import ParquetSink, _hash_order, _top_k
-from coleman4hcs.results.sink_base import NullSink, ResultsSink
-from coleman4hcs.results.writer import ResultsWriter
+from coleman.results.parquet_sink import ParquetSink, _hash_order, _top_k
+from coleman.results.sink_base import NullSink, ResultsSink
+from coleman.results.writer import _SENTINEL, ResultsWriter
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -238,6 +239,32 @@ class TestResultsWriter:
             writer.enqueue(_make_row(step=i))
         writer.stop()  # should not raise
 
+    def test_drain_writes_remaining_items_after_stop_signal(self):
+        """Cover branch where _drain sees stop marker before remaining queue items."""
+
+        class RecordingSink(NullSink):
+            def __init__(self):
+                self.rows = []
+                self.flushed = False
+
+            def write_row(self, row):
+                self.rows.append(row)
+
+            def flush(self):
+                self.flushed = True
+
+        sink = RecordingSink()
+        writer = ResultsWriter(sink, max_queue_size=10)
+
+        # Drive _drain deterministically without background thread.
+        writer._queue.put(_SENTINEL)  # pylint: disable=protected-access
+        writer._queue.put(_make_row(step=99))  # pylint: disable=protected-access
+        writer._drain()  # pylint: disable=protected-access
+
+        assert len(sink.rows) == 1
+        assert sink.rows[0]["step"] == 99
+        assert sink.flushed is True
+
 
 # ============================================================================
 # DuckDBCatalog
@@ -247,7 +274,7 @@ class TestResultsWriter:
 class TestDuckDBCatalog:
     def test_create_view_and_query(self, tmp_path):
         """DuckDBCatalog should create a view over Parquet and return query results."""
-        from coleman4hcs.results.duckdb_catalog import DuckDBCatalog
+        from coleman.results.duckdb_catalog import DuckDBCatalog
 
         # Write some rows via ParquetSink first
         sink = ParquetSink(out_dir=str(tmp_path / "runs"), batch_size=100)
@@ -262,7 +289,7 @@ class TestDuckDBCatalog:
 
     def test_query_aggregation(self, tmp_path):
         """DuckDBCatalog should support aggregation queries over the view."""
-        from coleman4hcs.results.duckdb_catalog import DuckDBCatalog
+        from coleman.results.duckdb_catalog import DuckDBCatalog
 
         sink = ParquetSink(out_dir=str(tmp_path / "runs"), batch_size=100)
         for i in range(3):
@@ -276,7 +303,7 @@ class TestDuckDBCatalog:
 
     def test_close(self, tmp_path):
         """DuckDBCatalog.close() should not raise."""
-        from coleman4hcs.results.duckdb_catalog import DuckDBCatalog
+        from coleman.results.duckdb_catalog import DuckDBCatalog
 
         sink = ParquetSink(out_dir=str(tmp_path / "runs"), batch_size=100)
         sink.write_row(_make_row())
@@ -284,3 +311,81 @@ class TestDuckDBCatalog:
 
         cat = DuckDBCatalog(str(tmp_path / "runs"))
         cat.close()  # should not raise
+
+    def test_query_blocks_mutating_sql_in_read_only_mode(self, tmp_path):
+        """DuckDBCatalog should reject mutating SQL by default."""
+        from coleman.results.duckdb_catalog import DuckDBCatalog
+
+        sink = ParquetSink(out_dir=str(tmp_path / "runs"), batch_size=100)
+        sink.write_row(_make_row())
+        sink.close()
+
+        cat = DuckDBCatalog(str(tmp_path / "runs"))
+        with pytest.raises(ValueError, match="read-only mode"):
+            cat.query("DELETE FROM results")
+        cat.close()
+
+    def test_query_blocks_empty_sql(self, tmp_path):
+        """DuckDBCatalog should reject empty SQL strings in read-only mode."""
+        from coleman.results.duckdb_catalog import DuckDBCatalog
+
+        sink = ParquetSink(out_dir=str(tmp_path / "runs"), batch_size=100)
+        sink.write_row(_make_row())
+        sink.close()
+
+        cat = DuckDBCatalog(str(tmp_path / "runs"))
+        with pytest.raises(ValueError, match="cannot be empty"):
+            cat.query("   ")
+        cat.close()
+
+    def test_query_blocks_multi_statement_in_read_only_mode(self, tmp_path):
+        """DuckDBCatalog should reject multiple statements by default."""
+        from coleman.results.duckdb_catalog import DuckDBCatalog
+
+        sink = ParquetSink(out_dir=str(tmp_path / "runs"), batch_size=100)
+        sink.write_row(_make_row())
+        sink.close()
+
+        cat = DuckDBCatalog(str(tmp_path / "runs"))
+        with pytest.raises(ValueError, match="Multiple SQL statements"):
+            cat.query("SELECT 1; SELECT 2")
+        cat.close()
+
+    def test_query_allows_mutating_sql_when_read_only_disabled(self, tmp_path):
+        """DuckDBCatalog can optionally allow mutating SQL when explicitly requested."""
+        from coleman.results.duckdb_catalog import DuckDBCatalog
+
+        sink = ParquetSink(out_dir=str(tmp_path / "runs"), batch_size=100)
+        sink.write_row(_make_row())
+        sink.close()
+
+        cat = DuckDBCatalog(str(tmp_path / "runs"), read_only=False)
+        df = cat.query("SELECT COUNT(*) AS cnt FROM results")
+        assert df["cnt"][0] == 1
+        cat.close()
+
+    def test_query_allows_semicolon_inside_string_literal(self, tmp_path):
+        """Semicolons inside string literals should not be treated as multi-statement SQL."""
+        from coleman.results.duckdb_catalog import DuckDBCatalog
+
+        sink = ParquetSink(out_dir=str(tmp_path / "runs"), batch_size=100)
+        sink.write_row(_make_row())
+        sink.close()
+
+        cat = DuckDBCatalog(str(tmp_path / "runs"))
+        df = cat.query("SELECT ';' AS marker")
+        assert df["marker"][0] == ";"
+        cat.close()
+
+    def test_query_allows_write_keyword_inside_string_literal(self, tmp_path):
+        """Write keywords inside literals should not trigger read-only mutation guard."""
+        from coleman.results.duckdb_catalog import DuckDBCatalog
+
+        sink = ParquetSink(out_dir=str(tmp_path / "runs"), batch_size=100)
+        sink.write_row(_make_row())
+        sink.close()
+
+        cat = DuckDBCatalog(str(tmp_path / "runs"))
+        df = cat.query("SELECT 'DROP TABLE results' AS statement_text")
+        assert df["statement_text"][0] == "DROP TABLE results"
+        cat.close()

@@ -1,5 +1,5 @@
 """
-Unit tests for reward functions in the coleman4hcs.reward module.
+Unit tests for reward functions in the coleman.reward module.
 
 This module provides unit tests for the TimeRankReward and RNFailReward classes,
 which are part of the multi-armed bandit framework for test case prioritization.
@@ -15,8 +15,8 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from coleman4hcs.evaluation import EvaluationMetric
-from coleman4hcs.reward import RNFailReward, TimeRankReward
+from coleman.evaluation import EvaluationMetric
+from coleman.reward import APFDcReward, DiscountedFailureReward, RNFailReward, TimeRankReward, TopKRNFailReward
 
 
 @pytest.fixture
@@ -117,6 +117,74 @@ def test_rn_fail_reward_no_failures(mock_empty_evaluation_metric, sample_priorit
     reward = RNFailReward()
     results = reward.evaluate(mock_empty_evaluation_metric, sample_prioritization)
     assert np.allclose(results, [0.0] * len(sample_prioritization))
+
+
+def test_topk_rn_fail_reward_precision_style_behavior():
+    """TopKRNFailReward should encode failure rate over the first k tests."""
+    reward = TopKRNFailReward(top_k=6)
+    mock_metric = MagicMock(spec=EvaluationMetric)
+    mock_metric.detection_ranks = [1, 2, 3, 4, 5, 6]
+    prioritization = [f"Test{i}" for i in range(1, 11)]
+
+    values = reward.evaluate(mock_metric, prioritization)
+    assert np.allclose(values[:6], [1 / 6] * 6)
+    assert np.allclose(values[6:], [0.0] * 4)
+    assert sum(values) == pytest.approx(1.0)
+
+
+def test_topk_rn_fail_reward_can_use_time_budget_cap():
+    """Budget mode should cap k by the number of scheduled tests."""
+    reward = TopKRNFailReward(top_k=4, use_time_budget=True)
+    mock_metric = MagicMock(spec=EvaluationMetric)
+    mock_metric.detection_ranks = [1, 2, 3]
+    mock_metric.scheduled_testcases = ["Test1", "Test2"]
+    prioritization = [f"Test{i}" for i in range(1, 6)]
+
+    values = reward.evaluate(mock_metric, prioritization)
+    assert np.allclose(values, [0.5, 0.5, 0.0, 0.0, 0.0])
+
+
+def test_topk_rn_fail_reward_default_mode_ignores_budget_cap():
+    """Legacy mode should continue to use only top-k regardless of scheduled count."""
+    reward = TopKRNFailReward(top_k=4, use_time_budget=False)
+    mock_metric = MagicMock(spec=EvaluationMetric)
+    mock_metric.detection_ranks = [1, 2, 3]
+    mock_metric.scheduled_testcases = ["Test1", "Test2"]
+    prioritization = [f"Test{i}" for i in range(1, 6)]
+
+    values = reward.evaluate(mock_metric, prioritization)
+    assert np.allclose(values, [0.25, 0.25, 0.25, 0.0, 0.0])
+
+
+def test_discounted_failure_reward_values():
+    """DiscountedFailureReward should prioritize early failures."""
+    reward = DiscountedFailureReward()
+    mock_metric = MagicMock(spec=EvaluationMetric)
+    mock_metric.detection_ranks = [1, 3, 5]
+    prioritization = [f"Test{i}" for i in range(1, 6)]
+
+    values = reward.evaluate(mock_metric, prioritization)
+    expected = [1.0, 0.0, 1 / np.log2(4), 0.0, 1 / np.log2(6)]
+    assert np.allclose(values, expected)
+
+
+def test_apfdc_reward_matches_cost_contributions():
+    """APFDcReward should distribute the cost-aware score across failing ranks."""
+    reward_metric = MagicMock(spec=EvaluationMetric)
+    reward_metric.detection_ranks = [1, 3]
+    reward_metric.detected_failures = 2
+    reward_metric.undetected_failures = 1
+    reward_metric.testcase_costs = [2.0, 1.0, 3.0]
+    prioritization = ["Test1", "Test2", "Test3"]
+
+    reward = APFDcReward()
+    values = reward.evaluate(reward_metric, prioritization)
+
+    total_cost = sum(reward_metric.testcase_costs)
+    expected_first = ((2.0 + 1.0 + 3.0) - 0.5 * 2.0) / (total_cost * 3)
+    expected_third = (3.0 - 0.5 * 3.0) / (total_cost * 3)
+    assert np.allclose(values, [expected_first, 0.0, expected_third])
+    assert sum(values) == pytest.approx(expected_first + expected_third)
 
 
 @pytest.mark.benchmark(group="reward")

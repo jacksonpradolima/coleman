@@ -1,6 +1,6 @@
-"""Coleman4HCS Analysis Notebook.
+"""Coleman Analysis Notebook.
 
-Marimo notebook for analyzing Coleman4HCS experiment results.
+Marimo notebook for analyzing Coleman experiment results.
 Includes performance metrics, visualizations, and statistical tests.
 """
 
@@ -21,7 +21,7 @@ with app.setup:
     import seaborn as sns
     from scipy.stats import kruskal
 
-    from coleman4hcs.statistics import vargha_delaney
+    from coleman.statistics import vargha_delaney
 
     plt.style.use("ggplot")
     sns.set_style("whitegrid")

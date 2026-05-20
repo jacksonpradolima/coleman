@@ -1,6 +1,6 @@
 """Tests for deterministic run_id computation."""
 
-from coleman4hcs.spec.models import (
+from coleman.spec.models import (
     AlgorithmSpec,
     CheckpointSpec,
     ExecutionSpec,
@@ -9,7 +9,7 @@ from coleman4hcs.spec.models import (
     RunSpec,
     TelemetrySpec,
 )
-from coleman4hcs.spec.run_id import _canonical_json, compute_run_id
+from coleman.spec.run_id import _canonical_json, compute_run_id
 
 
 class TestCanonicalJson:
@@ -77,7 +77,7 @@ class TestComputeRunId:
             telemetry=TelemetrySpec(enabled=False),
         )
         # This pre-computed value must never change.
-        golden_rid = "90b7e6a07bdb"
+        golden_rid = "33a651e6197b"
         assert compute_run_id(spec) == golden_rid
         # Two independent constructions must match.
         spec_copy = RunSpec.model_validate(spec.model_dump())

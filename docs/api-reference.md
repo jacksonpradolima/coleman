@@ -4,14 +4,14 @@
 
 | Module | Description |
 |--------|-------------|
-| [`coleman4hcs.api`](api/experiment-api.md) | Library-first API: `run`, `run_many`, `sweep`, `load_spec`, `save_resolved` |
-| [`coleman4hcs.spec.models`](api/spec-models.md) | Typed `RunSpec` and sub-spec Pydantic v2 models |
-| [`coleman4hcs.spec.sweep`](api/spec-sweep.md) | Sweep engine: `SweepSpec`, `SweepAxis`, `expand_sweep` |
-| [`coleman4hcs.spec.packs`](api/spec-packs.md) | Config pack resolution: `resolve_packs` |
-| [`coleman4hcs.spec.run_id`](api/spec-run-id.md) | Deterministic `run_id`: `compute_run_id` |
-| [`coleman4hcs.spec.io`](api/spec-io.md) | YAML I/O: `load_spec`, `save_resolved` |
-| [`coleman4hcs.spec.provenance`](api/spec-provenance.md) | Provenance capture: `save_provenance` |
-| [`coleman4hcs.cli`](api/cli.md) | CLI entry-point: `coleman run`, `coleman sweep`, `coleman validate` |
+| [`coleman.api`](api/experiment-api.md) | Library-first API: `run`, `run_many`, `sweep`, `load_spec`, `save_resolved` |
+| [`coleman.spec.models`](api/spec-models.md) | Typed `RunSpec` and sub-spec Pydantic v2 models |
+| [`coleman.spec.sweep`](api/spec-sweep.md) | Sweep engine: `SweepSpec`, `SweepAxis`, `expand_sweep` |
+| [`coleman.spec.packs`](api/spec-packs.md) | Config pack resolution: `resolve_packs` |
+| [`coleman.spec.run_id`](api/spec-run-id.md) | Deterministic `run_id`: `compute_run_id` |
+| [`coleman.spec.io`](api/spec-io.md) | YAML I/O: `load_spec`, `save_resolved` |
+| [`coleman.spec.provenance`](api/spec-provenance.md) | Provenance capture: `save_provenance` |
+| [`coleman.cli`](api/cli.md) | CLI entry-point: `coleman run`, `coleman sweep`, `coleman validate` |
 
 ## Core framework
 

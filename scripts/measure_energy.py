@@ -1,4 +1,4 @@
-"""Estimate energy and carbon impact for a coleman4hcs experiment run.
+"""Estimate energy and carbon impact for a coleman experiment run.
 
 This script uses CodeCarbon to track estimated CO2 emissions during
 an actual experiment execution.  It serves as a starting point for
@@ -15,13 +15,13 @@ from pathlib import Path
 
 from codecarbon import EmissionsTracker
 
-from coleman4hcs.api import load_spec, run
+from coleman.api import load_spec, run
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def workload() -> None:
-    """Run a coleman4hcs experiment as the measured workload."""
+    """Run a coleman experiment as the measured workload."""
     spec = load_spec(_REPO_ROOT / "run.yaml")
     result = run(spec)
     print(f"Completed run_id={result.run_id}")

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# DevContainer post-start hook for Coleman4HCS
+# DevContainer post-start hook for Coleman
 # =============================================================================
 # Runs every time the container starts (not just on creation).
 # Brings up the observability stack so that `coleman run --config run.yaml`

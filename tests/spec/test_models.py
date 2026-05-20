@@ -5,7 +5,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from coleman4hcs.spec.models import (
+from coleman.spec.models import (
     AlgorithmSpec,
     CheckpointSpec,
     ExecutionSpec,
@@ -88,7 +88,7 @@ class TestTelemetrySpec:
     def test_defaults(self):
         spec = TelemetrySpec()
         assert spec.enabled is False
-        assert spec.service_name == "coleman4hcs"
+        assert spec.service_name == "coleman"
         assert spec.resource_attributes == {}
 
     def test_resource_attributes(self):

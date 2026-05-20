@@ -1,5 +1,5 @@
 # =============================================================================
-# OpenTelemetry Collector Configuration for Coleman4HCS
+# OpenTelemetry Collector Configuration for Coleman
 # =============================================================================
 #
 # Receives OTLP data from the framework and exports:

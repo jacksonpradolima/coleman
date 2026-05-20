@@ -1,0 +1,225 @@
+"""
+coleman.results.duckdb_catalog - Optional DuckDB Views over Parquet.
+
+Provides a thin helper that creates analytical DuckDB views on top of the
+Hive-partitioned Parquet dataset produced by ``ParquetSink``.  This allows
+users to run ad-hoc SQL queries over experiment results without loading data
+into RAM.
+
+The view is created with Hive partition discovery and schema-union enabled so
+that queries keep working as the experiment schema evolves across runs.
+
+Usage
+-----
+>>> from coleman.results.duckdb_catalog import DuckDBCatalog
+>>> cat = DuckDBCatalog("./runs")
+>>> df = cat.query("SELECT scenario, AVG(fitness) FROM results GROUP BY 1")
+"""
+
+from __future__ import annotations
+
+import re
+
+import duckdb
+import polars as pl
+
+_WRITE_OR_DDL_PATTERN = re.compile(
+    r"\b(INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|ATTACH|DETACH|COPY|INSTALL|LOAD|CALL|EXPORT)\b",
+    re.IGNORECASE,
+)
+
+
+def _handle_line_comment(out: list[str], sql: str, i: int, ch: str) -> tuple[bool, int]:
+    """Process characters while in line comment state."""
+    if ch == "\n":
+        out.append(ch)
+        return False, i + 1
+    out.append(" ")
+    return True, i + 1
+
+
+def _handle_block_comment(out: list[str], sql: str, i: int, ch: str, nxt: str) -> tuple[bool, int]:
+    """Process characters while in block comment state."""
+    if ch == "*" and nxt == "/":
+        out.extend([" ", " "])
+        return False, i + 2
+    out.append("\n" if ch == "\n" else " ")
+    return True, i + 1
+
+
+def _handle_single_quote(out: list[str], sql: str, i: int, ch: str, nxt: str) -> tuple[bool, int]:
+    """Process characters while in single-quoted string state."""
+    if ch == "'" and nxt == "'":
+        out.extend([" ", " "])
+        return True, i + 2
+    if ch == "'":
+        out.append("\n" if ch == "\n" else " ")
+        return False, i + 1
+    out.append("\n" if ch == "\n" else " ")
+    return True, i + 1
+
+
+def _handle_double_quote(out: list[str], sql: str, i: int, ch: str, nxt: str) -> tuple[bool, int]:
+    """Process characters while in double-quoted string state."""
+    if ch == '"' and nxt == '"':
+        out.extend([" ", " "])
+        return True, i + 2
+    if ch == '"':
+        out.append("\n" if ch == "\n" else " ")
+        return False, i + 1
+    out.append("\n" if ch == "\n" else " ")
+    return True, i + 1
+
+
+def _strip_sql_literals_and_comments(sql: str) -> str:
+    """Return SQL with literals/comments blanked out for guard checks."""
+    out: list[str] = []
+    i = 0
+    n = len(sql)
+    in_single = False
+    in_double = False
+    in_line_comment = False
+    in_block_comment = False
+
+    while i < n:
+        ch = sql[i]
+        nxt = sql[i + 1] if i + 1 < n else ""
+
+        if in_line_comment:
+            in_line_comment, i = _handle_line_comment(out, sql, i, ch)
+            continue
+
+        if in_block_comment:
+            in_block_comment, i = _handle_block_comment(out, sql, i, ch, nxt)
+            continue
+
+        if in_single:
+            in_single, i = _handle_single_quote(out, sql, i, ch, nxt)
+            continue
+
+        if in_double:
+            in_double, i = _handle_double_quote(out, sql, i, ch, nxt)
+            continue
+
+        if ch == "-" and nxt == "-":
+            in_line_comment = True
+            out.extend([" ", " "])
+            i += 2
+            continue
+
+        if ch == "/" and nxt == "*":
+            in_block_comment = True
+            out.extend([" ", " "])
+            i += 2
+            continue
+
+        if ch == "'":
+            in_single = True
+            out.append(" ")
+            i += 1
+            continue
+
+        if ch == '"':
+            in_double = True
+            out.append(" ")
+            i += 1
+            continue
+
+        out.append(ch)
+        i += 1
+
+    return "".join(out)
+
+
+def _count_sql_statements(sql: str) -> int:
+    """Count non-empty statements in SQL after removing literals/comments."""
+    scrubbed = _strip_sql_literals_and_comments(sql)
+    statements = [chunk.strip() for chunk in scrubbed.split(";")]
+    return sum(1 for stmt in statements if stmt)
+
+
+class DuckDBCatalog:
+    """Read-only DuckDB view layer over a Parquet results dataset.
+
+    Parameters
+    ----------
+    parquet_root : str
+        Root directory of the Hive-partitioned Parquet dataset.
+    db_path : str
+        DuckDB database path.  Default ``:memory:`` (in-process, ephemeral).
+
+    Attributes
+    ----------
+    parquet_root : str
+        Parquet root directory.
+    conn : duckdb.DuckDBPyConnection
+        DuckDB connection.
+    """
+
+    def __init__(self, parquet_root: str, db_path: str = ":memory:", read_only: bool = True) -> None:
+        """Initialise the catalog and create the ``results`` view.
+
+        Parameters
+        ----------
+        parquet_root : str
+            Root directory of the Hive-partitioned Parquet dataset.
+        db_path : str
+            DuckDB database path.  Default ``:memory:`` (ephemeral).
+        read_only : bool
+            If True, block mutating/DDL SQL in :meth:`query`.
+        """
+        self.parquet_root = parquet_root
+        self.conn = duckdb.connect(db_path)
+        self._read_only = read_only
+        self._create_view()
+
+    def _create_view(self) -> None:
+        """Create the ``results`` view pointing at the Parquet dataset."""
+        glob_path = f"{self.parquet_root}/**/*.parquet"
+        escaped = glob_path.replace("'", "''")
+        self.conn.execute(
+            f"CREATE OR REPLACE VIEW results AS SELECT * FROM read_parquet('{escaped}', hive_partitioning=1, union_by_name=1, filename=1)",  # noqa: E501
+        )
+
+    def query(self, sql: str) -> pl.DataFrame:
+        """Execute an SQL query against the results view.
+
+        Parameters
+        ----------
+        sql : str
+            SQL statement.
+
+        Returns
+        -------
+        polars.DataFrame
+            Query result as a DataFrame.
+        """
+        self._validate_query(sql)
+        return self.conn.execute(sql).pl()
+
+    def _validate_query(self, sql: str) -> None:
+        """Validate a query string before execution.
+
+        In read-only mode, block multi-statement SQL and mutating/DDL commands.
+        """
+        if not self._read_only:
+            return
+
+        normalized = sql.strip()
+        if not normalized:
+            msg = "SQL query cannot be empty"
+            raise ValueError(msg)
+
+        # Only allow a single statement in read-only mode.
+        if _count_sql_statements(normalized) > 1:
+            msg = "Multiple SQL statements are not allowed in read-only mode"
+            raise ValueError(msg)
+
+        guard_view = _strip_sql_literals_and_comments(normalized)
+        if _WRITE_OR_DDL_PATTERN.search(guard_view):
+            msg = "Mutating/DDL SQL is not allowed in read-only mode"
+            raise ValueError(msg)
+
+    def close(self) -> None:
+        """Close the DuckDB connection."""
+        self.conn.close()

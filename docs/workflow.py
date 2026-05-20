@@ -1,4 +1,4 @@
-"""Coleman4HCS workflow notebook.
+"""Coleman workflow notebook.
 
 Official marimo notebook covering configuration, code cost evaluation,
 observability, resume/recovery, result export, and final analysis.
@@ -34,7 +34,7 @@ def _(mo):
     """Introduce the end-to-end workflow covered by the notebook."""
     mo.md(
         """
-        # Coleman4HCS Workflow
+        # Coleman Workflow
 
         This official notebook covers the full operational loop:
 
@@ -95,7 +95,7 @@ def _(mo):
         """
         ## Code Cost Evaluation
 
-        Coleman4HCS measures code cost as a **multi-dimensional scorecard**
+        Coleman measures code cost as a **multi-dimensional scorecard**
         with four dimensions:
 
         | Dimension | What it measures | Tools |
@@ -135,7 +135,7 @@ def _(mo, pd):
     import subprocess
     import sys
 
-    radon_mi_cmd = [sys.executable, "-m", "radon", "mi", "-s", "-j", "coleman4hcs/"]
+    radon_mi_cmd = [sys.executable, "-m", "radon", "mi", "-s", "-j", "coleman/"]
     xenon_cmd = [
         sys.executable,
         "-m",
@@ -146,7 +146,7 @@ def _(mo, pd):
         "B",
         "--max-average",
         "A",
-        "coleman4hcs/",
+        "coleman/",
     ]
 
     mi_result = subprocess.run(radon_mi_cmd, capture_output=True, text=True)

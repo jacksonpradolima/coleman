@@ -1,7 +1,7 @@
 """
-coleman4hcs/tests/test_bandit.py
+coleman/tests/test_bandit.py
 
-Unit and performance tests for the Bandit classes in the coleman4hcs package. This module tests the functionality of
+Unit and performance tests for the Bandit classes in the coleman package. This module tests the functionality of
 the `Bandit`, `DynamicBandit`, and `EvaluationMetricBandit` classes, including:
 
 - Initialization and management of arms (test cases).
@@ -36,8 +36,8 @@ from unittest.mock import MagicMock
 import polars as pl
 import pytest
 
-from coleman4hcs.bandit import Bandit, DynamicBandit, EvaluationMetricBandit
-from coleman4hcs.evaluation import EvaluationMetric
+from coleman.bandit import Bandit, DynamicBandit, EvaluationMetricBandit
+from coleman.evaluation import EvaluationMetric
 
 
 class MockBandit(Bandit):
@@ -166,6 +166,13 @@ def test_bandit_update_priority(sample_arms):
     assert bandit.arms.filter(pl.col("Name") == "Test2")["CalcPrio"][0] == 3
 
 
+def test_bandit_update_priority_empty_action_sets_zero(sample_arms):
+    """Empty action list should set CalcPrio=0 for all arms."""
+    bandit = MockBandit(sample_arms)
+    bandit.update_priority([])
+    assert bandit.arms["CalcPrio"].to_list() == [0, 0, 0]
+
+
 def test_dynamic_bandit_update_arms(sample_arms):
     """
     Test that DynamicBandit updates arms correctly.
@@ -204,6 +211,7 @@ def test_evaluation_metric_bandit_pull(sample_arms, mock_evaluation_metric):
     action = ["Test2", "Test1", "Test3"]
     result = bandit.pull(action)
     mock_evaluation_metric.evaluate.assert_called_once()
+    assert isinstance(mock_evaluation_metric.evaluate.call_args.args[0], pl.DataFrame)
     assert result == mock_evaluation_metric
 
 

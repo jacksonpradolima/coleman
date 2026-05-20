@@ -1,3 +1,3 @@
 # Policy
 
-::: coleman4hcs.policy
+::: coleman.policy

@@ -1,7 +1,7 @@
 # Observability
 
 This page describes the **optional** local observability stack for
-debugging and profiling Coleman4HCS experiments.
+debugging and profiling Coleman experiments.
 
 !!! note "Framework-first guarantee"
     `coleman run --config run.yaml` works without Docker or any of these services.
@@ -78,7 +78,7 @@ cd examples/observability
 docker compose up -d
 
 # Install telemetry extras
-uv pip install coleman4hcs[telemetry]
+uv pip install coleman[telemetry]
 
 # Enable telemetry — use the telemetry/local pack in your run.yaml:
 #   packs:
@@ -98,7 +98,7 @@ coleman run --config run.yaml
 
 ```bash
 docker compose --profile clickhouse up -d
-pip install coleman4hcs[clickhouse]
+pip install coleman[clickhouse]
 ```
 
 ## Tear down

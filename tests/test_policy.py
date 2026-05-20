@@ -2,7 +2,7 @@
 Unit tests for `policy.py`.
 
 This module provides comprehensive unit tests for all policy implementations
-in the `coleman4hcs.policy` module. Each test ensures that the policies behave
+in the `coleman.policy` module. Each test ensures that the policies behave
 correctly under various scenarios, including edge cases.
 
 Policies Tested:
@@ -29,8 +29,9 @@ import numpy as np
 import polars as pl
 import pytest
 
-from coleman4hcs.agent import Agent, ContextualAgent, SlidingWindowContextualAgent
-from coleman4hcs.policy import (
+from coleman.agent import Agent, ContextualAgent, SlidingWindowContextualAgent
+from coleman.exceptions import QException
+from coleman.policy import (
     EpsilonGreedyPolicy,
     FRRMABPolicy,
     GreedyPolicy,
@@ -564,6 +565,35 @@ def test_frrmab_choose_all_accepts_history_after_credit_assignment(dummy_agent):
     assert set(chosen_actions) == {"A1", "A2", "A3"}
 
 
+def test_frrmab_choose_all_reuses_existing_history_without_new_names(dummy_agent):
+    """Cover the path that rehydrates _ordered_names from preloaded history."""
+    policy = FRRMABPolicy(c=0.3, decayed_factor=1)
+    dummy_agent.policy = policy
+    dummy_agent.actions = pl.DataFrame(
+        {
+            "Name": ["A1", "A2"],
+            "ActionAttempts": [1.0, 1.0],
+            "ValueEstimates": [0.5, 0.2],
+            "Q": [0.0, 0.0],
+        }
+    )
+    policy.history = pl.DataFrame(
+        {
+            "Name": ["A1", "A2"],
+            "ActionAttempts": [1.0, 1.0],
+            "ValueEstimates": [0.7, 0.1],
+            "Q": [0.7, 0.1],
+            "T": [1, 2],
+        }
+    )
+    policy._history_names = set()
+    policy._ordered_names = []
+
+    chosen_actions = policy.choose_all(dummy_agent)
+
+    assert chosen_actions == ["A1", "A2"]
+
+
 def test_frrmab_credit_assignment_handles_zero_decay_sum(dummy_agent):
     """Regression test: zero total reward must not produce NaN during FRR normalization."""
     policy = FRRMABPolicy(c=0.3, decayed_factor=0.9)
@@ -734,3 +764,328 @@ def test_policy_performance(dummy_agent, benchmark, policy_class, policy_kwargs,
         chosen_actions = benchmark(policy.choose_all, dummy_agent)
         # Ensure that all actions are selected
         assert len(chosen_actions) == num_actions, "Policy should select all actions."
+
+
+def test_policy_base_str_returns_untreated():
+    """Policy.__str__ should return 'Untreated'."""
+    assert str(Policy()) == "Untreated"
+
+
+def test_epsilon_greedy_str():
+    """EpsilonGreedyPolicy.__str__ includes epsilon value."""
+    policy = EpsilonGreedyPolicy(epsilon=0.25)
+    s = str(policy)
+    assert "0.25" in s
+
+
+def test_frrmab_str_has_closing_parenthesis():
+    """FRRMABPolicy.__str__ should return a balanced label."""
+    policy = FRRMABPolicy(c=0.5, decayed_factor=0.9)
+    assert str(policy) == "FRRMAB (C=0.5, D=0.9)"
+
+
+def test_ucb_strings_cover_repr_lines():
+    """Cover UCB1/UCB __str__ lines (69 and 103 in policies.py)."""
+    assert "UCB1" in str(UCB1Policy(c=1.0))
+    assert "UCB (C=" in str(UCBPolicy(c=1.0))
+
+
+def test_ucb_policy_base_invalid_c_raises():
+    """UCBPolicyBase (and subclasses) must reject c <= 0."""
+    with pytest.raises(ValueError, match="c must be positive"):
+        UCBPolicy(c=0)
+    with pytest.raises(ValueError, match="c must be positive"):
+        UCBPolicy(c=-1.0)
+
+
+def test_ucb_policy_credit_assignment_scaling(dummy_agent):
+    """UCBPolicy.credit_assignment applies scaling-factor variant of UCB."""
+    policy = UCBPolicy(c=1.0)
+    dummy_agent.actions = dummy_agent.actions.with_columns(
+        [pl.Series("ActionAttempts", [1.0, 2.0, 4.0]), pl.Series("ValueEstimates", [5.0, 5.0, 5.0])]
+    )
+    dummy_agent.t = 10
+    policy.credit_assignment(dummy_agent)
+    q_vals = dummy_agent.actions["Q"].to_list()
+    # Lower attempts → higher exploration bonus → higher Q
+    assert q_vals[0] > q_vals[1] > q_vals[2]
+
+
+# ------------------------ SlMABPolicy ------------------------
+
+
+def test_slmab_policy_init():
+    """SlMABPolicy initializes with an empty history DataFrame."""
+    from coleman.policy.mab.slmab import SlMABPolicy
+
+    policy = SlMABPolicy()
+    assert policy.history.is_empty()
+
+
+def test_slmab_policy_str():
+    """SlMABPolicy.__str__ returns the expected label prefix."""
+    from coleman.policy.mab.slmab import SlMABPolicy
+
+    policy = SlMABPolicy()
+    assert "SlMAB" in str(policy)
+
+
+def test_slmab_policy_choose_all(dummy_agent):
+    """SlMABPolicy.choose_all adds unseen actions and sorts by Q."""
+    from coleman.policy.mab.slmab import SlMABPolicy
+
+    policy = SlMABPolicy()
+    # All three actions are new — should be added to history with Q=0
+    result = policy.choose_all(dummy_agent)
+    assert sorted(result) == sorted(["A1", "A2", "A3"])
+    assert len(policy.history) == 3
+
+
+def test_slmab_policy_choose_all_returns_existing_order():
+    """SlMABPolicy.choose_all respects Q ordering for known actions."""
+    from unittest.mock import MagicMock
+
+    from coleman.agent import HISTORY_SCHEMA, RewardSlidingWindowAgent
+    from coleman.policy.mab.slmab import SlMABPolicy
+
+    policy = SlMABPolicy()
+    # Pre-populate history with different Q values
+    policy.history = pl.DataFrame(
+        {
+            "Name": ["A1", "A2", "A3"],
+            "ActionAttempts": [1.0, 1.0, 1.0],
+            "ValueEstimates": [0.0, 0.0, 0.0],
+            "Q": [0.3, 0.9, 0.1],
+            "T": [1, 1, 1],
+        },
+        schema=HISTORY_SCHEMA,
+    )
+
+    agent = RewardSlidingWindowAgent(policy, MagicMock(), window_size=5)
+    agent.update_actions(["A1", "A2", "A3"])
+    result = policy.choose_all(agent)
+    assert result[0] == "A2"  # highest Q
+
+
+def test_slmab_policy_credit_assignment():
+    """SlMABPolicy.credit_assignment updates history from agent's history."""
+    from unittest.mock import MagicMock
+
+    import polars as pl
+
+    from coleman.agent import HISTORY_SCHEMA, RewardSlidingWindowAgent
+    from coleman.policy.mab.slmab import SlMABPolicy
+
+    policy = SlMABPolicy()
+    reward_fn = MagicMock()
+    reward_fn.evaluate.return_value = [1.0, 0.5, 0.0]
+
+    agent = RewardSlidingWindowAgent(policy, reward_fn, window_size=5)
+    agent.update_actions(["A1", "A2", "A3"])
+    agent.choose()
+    # Manually set history to have something to aggregate
+    agent.history = pl.DataFrame(
+        {
+            "Name": ["A1", "A2", "A3"],
+            "ActionAttempts": [1.0, 1.0, 1.0],
+            "ValueEstimates": [1.0, 0.5, 0.0],
+            "Q": [0.5, 0.3, 0.1],
+            "T": [1, 1, 1],
+        },
+        schema=HISTORY_SCHEMA,
+    )
+    agent.t = 2
+
+    policy.credit_assignment(agent)
+    assert not policy.history.is_empty()
+    assert "Q" in policy.history.columns
+
+
+# ------------------------ LinUCBPolicy extras ------------------------
+
+
+def test_linucb_add_action_initialises_matrices(contextual_agent):
+    """LinUCBPolicy.add_action creates A, A_inv, b matrices for the action."""
+    policy = LinUCBPolicy(alpha=0.5)
+    policy.features = ["feat1", "feat2"]
+    policy.add_action("NewAction")
+    assert "NewAction" in policy.context["A"]
+    assert "NewAction" in policy.context["A_inv"]
+    assert "NewAction" in policy.context["b"]
+
+
+def test_linucb_update_actions_adds_unseen_actions(contextual_agent):
+    """LinUCBPolicy.update_actions calls add_action for newly seen actions."""
+    policy = LinUCBPolicy(alpha=0.5)
+    policy.update_actions(contextual_agent, ["A1", "A2"])
+    assert "A1" in policy.context["A"]
+    assert "A2" in policy.context["A"]
+
+
+def test_linucb_credit_assignment_updates_matrices(contextual_agent):
+    """LinUCBPolicy.credit_assignment increments A and b for all actions."""
+    policy = LinUCBPolicy(alpha=0.5)
+    policy.update_actions(contextual_agent, ["A1", "A2"])
+    contextual_agent.actions = pl.DataFrame({"Name": ["A1", "A2"], "ValueEstimates": [1.0, 0.5]})
+
+    a_before = policy.context["A"]["A1"].copy()
+    policy.credit_assignment(contextual_agent)
+    assert not np.allclose(policy.context["A"]["A1"], a_before)
+
+
+# ------------------------ SWLinUCBPolicy extras ------------------------
+
+
+def test_swlinucb_str():
+    """SWLinUCBPolicy.__str__ should include 'SWLinUCB'."""
+    policy = SWLinUCBPolicy(alpha=0.3)
+    assert "SWLinUCB" in str(policy)
+
+
+def test_swlinucb_choose_all_raises_for_non_sliding_agent(contextual_agent):
+    """SWLinUCBPolicy.choose_all must reject a plain ContextualAgent."""
+    policy = SWLinUCBPolicy(alpha=0.5)
+    policy.update_actions(contextual_agent, ["A1", "A2"])
+    with pytest.raises(TypeError, match="SWLinUCBPolicy requires a SlidingWindowContextualAgent"):
+        policy.choose_all(contextual_agent)
+
+
+def test_linucb_choose_all_exercises_q_computation(contextual_agent):
+    """Cover LinUCB choose_all matrix computations and return ordering path."""
+    policy = LinUCBPolicy(alpha=0.1)
+    policy.update_actions(contextual_agent, ["A1", "A2"])
+    ordered = policy.choose_all(contextual_agent)
+    assert set(ordered) == {"A1", "A2"}
+
+
+def test_linucb_str_line():
+    """Cover LinUCB __str__ line 68."""
+    assert "LinUCB" in str(LinUCBPolicy(alpha=0.3))
+
+
+def test_linucb_update_actions_with_empty_new_actions(contextual_agent):
+    """Cover update_actions branch where loop executes zero iterations."""
+    policy = LinUCBPolicy(alpha=0.2)
+    policy.update_actions(contextual_agent, [])
+    assert policy.features == ["feat1", "feat2"]
+
+
+def test_swlinucb_str_exact_prefix():
+    """Cover SWLinUCB __str__ line explicitly."""
+    policy = SWLinUCBPolicy(alpha=0.7)
+    assert str(policy).startswith("SWLinUCB")
+
+
+def test_slmab_credit_assignment_without_r_column_uses_default():
+    """Cover SlMAB branch that injects R=0.0 when agent.actions lacks R column."""
+    from unittest.mock import MagicMock
+
+    from coleman.agent import HISTORY_SCHEMA, RewardSlidingWindowAgent
+    from coleman.policy.mab.slmab import SlMABPolicy
+
+    policy = SlMABPolicy()
+    reward_fn = MagicMock()
+    reward_fn.evaluate.return_value = [0.0]
+    agent = RewardSlidingWindowAgent(policy, reward_fn, window_size=3)
+    agent.actions = pl.DataFrame(
+        {
+            "Name": ["A1"],
+            "ActionAttempts": [1.0],
+            "ValueEstimates": [0.5],
+            "Q": [0.5],
+        }
+    )
+    agent.history = pl.DataFrame(
+        {
+            "Name": ["A1"],
+            "ActionAttempts": [1.0],
+            "ValueEstimates": [0.5],
+            "Q": [0.5],
+            "T": [1],
+        },
+        schema=HISTORY_SCHEMA,
+    )
+    agent.t = 2
+
+    policy.credit_assignment(agent)
+    assert "R" in policy.history.columns
+
+
+def test_slmab_credit_assignment_with_r_column_branch():
+    """Cover SlMAB branch where agent.actions already contains R (lines 87-89)."""
+    from unittest.mock import MagicMock
+
+    from coleman.agent import HISTORY_SCHEMA, RewardSlidingWindowAgent
+    from coleman.policy.mab.slmab import SlMABPolicy
+
+    policy = SlMABPolicy()
+    reward_fn = MagicMock()
+    reward_fn.evaluate.return_value = [0.0]
+    agent = RewardSlidingWindowAgent(policy, reward_fn, window_size=3)
+    agent.actions = pl.DataFrame(
+        {
+            "Name": ["A1"],
+            "ActionAttempts": [1.0],
+            "ValueEstimates": [0.5],
+            "Q": [0.5],
+            "R": [0.2],
+        }
+    )
+    agent.history = pl.DataFrame(
+        {
+            "Name": ["A1"],
+            "ActionAttempts": [1.0],
+            "ValueEstimates": [0.5],
+            "Q": [0.5],
+            "T": [1],
+        },
+        schema=HISTORY_SCHEMA,
+    )
+    agent.t = 2
+
+    policy.credit_assignment(agent)
+    assert "R" in policy.history.columns
+
+
+def test_linucb_choose_all_raises_qexception_when_score_shape_invalid(contextual_agent):
+    """Cover LinUCB QException raise path (line 132)."""
+    policy = LinUCBPolicy(alpha=0.1)
+    policy.update_actions(contextual_agent, ["A1", "A2"])
+    # Force invalid p_t shape by tampering b matrix for one action.
+    policy.context["b"]["A1"] = np.zeros((2, 2))
+
+    with pytest.raises(QException):
+        policy.choose_all(contextual_agent)
+
+
+def test_swlinucb_choose_all_occurrence_discount_and_qexception(sliding_window_contextual_agent):
+    """Cover SWLinUCB occurrence-discount path (line 222) and QException line 227."""
+    policy = SWLinUCBPolicy(alpha=0.1)
+    policy.update_actions(sliding_window_contextual_agent, ["A1", "A2"])
+    sliding_window_contextual_agent.t = 10
+    sliding_window_contextual_agent.window_size = 5
+
+    # First call covers occurrence discount branch for actions present in history.
+    actions = policy.choose_all(sliding_window_contextual_agent)
+    assert set(actions) == {"A1", "A2"}
+
+    # Then force invalid q shape for QException path.
+    policy.context["b"]["A1"] = np.zeros((2, 2))
+    with pytest.raises(QException):
+        policy.choose_all(sliding_window_contextual_agent)
+
+
+def test_ucb_policy_credit_assignment_explicit_line(dummy_agent):
+    """Cover UCBPolicy.credit_assignment line 103 in the current report."""
+    policy = UCBPolicy(c=1.2)
+    dummy_agent.actions = pl.DataFrame(
+        {
+            "Name": ["A1", "A2"],
+            "ActionAttempts": [1.0, 2.0],
+            "ValueEstimates": [1.0, 0.8],
+            "Q": [0.0, 0.0],
+        }
+    )
+    dummy_agent.t = 5
+    policy.credit_assignment(dummy_agent)
+    assert all(v >= 0 for v in dummy_agent.actions["Q"].to_list())

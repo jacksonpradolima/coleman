@@ -3,12 +3,13 @@
 import os
 import tempfile
 
+import pytest
 import yaml
 
-from coleman4hcs.api import RunResult, load_spec, run, run_many, save_resolved, sweep
-from coleman4hcs.spec.models import ExecutionSpec, ExperimentSpec, ResultsSpec, RunSpec
-from coleman4hcs.spec.run_id import compute_run_id
-from coleman4hcs.spec.sweep import SweepAxis, SweepSpec
+from coleman.api import RunResult, load_spec, run, run_many, save_resolved, sweep
+from coleman.spec.models import ExecutionSpec, ExperimentSpec, ResultsSpec, RunSpec
+from coleman.spec.run_id import compute_run_id
+from coleman.spec.sweep import SweepAxis, SweepSpec
 
 
 def _light_run_spec(tmpdir: str, **execution_overrides) -> RunSpec:
@@ -88,12 +89,25 @@ class TestSweep:
 
 
 class TestSeedApplication:
+    def test_policy_rng_reexport_stays_synced_with_base_rng(self):
+        """Assigning through coleman.policy._rng must update base RNG used by policies."""
+        import numpy as np
+
+        import coleman.policy
+        import coleman.policy.base
+
+        new_rng = np.random.default_rng(123)
+        coleman.policy._rng = new_rng  # type: ignore[assignment]
+
+        assert coleman.policy.base._rng is new_rng
+        assert coleman.policy._rng.bit_generator.state == new_rng.bit_generator.state
+
     def test_seed_applied_to_rng(self):
         """When execution.seed is set, the policy RNG should be deterministically seeded."""
         import numpy as np
 
-        import coleman4hcs.policy
-        from coleman4hcs.runner import run_experiment
+        import coleman.policy.base
+        from coleman.runner import run_experiment
 
         with tempfile.TemporaryDirectory() as tmpdir:
             spec = _light_run_spec(tmpdir, seed=42)
@@ -103,7 +117,7 @@ class TestSeedApplication:
             # After running, re-seed with same value and verify the generator
             # type matches (proves the seed path was taken).
             ref_rng = np.random.default_rng(42)
-            actual = coleman4hcs.policy._rng.bit_generator.state
+            actual = coleman.policy.base._rng.bit_generator.state
             expected = ref_rng.bit_generator.state
             assert actual["bit_generator"] == expected["bit_generator"]
 
@@ -111,11 +125,11 @@ class TestSeedApplication:
         """Without execution.seed the policy RNG stays in its default state."""
         import numpy as np
 
-        import coleman4hcs.policy
-        from coleman4hcs.runner import run_experiment
+        import coleman.policy.base
+        from coleman.runner import run_experiment
 
         # Reset to a known-seed baseline so the test is reproducible
-        coleman4hcs.policy._rng = np.random.default_rng(0)
+        coleman.policy.base._rng = np.random.default_rng(0)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             spec = _light_run_spec(tmpdir)
@@ -123,7 +137,7 @@ class TestSeedApplication:
             spec_dict = spec.model_dump()
             run_experiment(spec_dict)
             # RNG should still be a default_rng (PCG64) — no error
-            state = coleman4hcs.policy._rng.bit_generator.state
+            state = coleman.policy.base._rng.bit_generator.state
             assert state["bit_generator"] == "PCG64"
 
 
@@ -143,3 +157,27 @@ class TestApiLoadSave:
         with tempfile.TemporaryDirectory() as tmpdir:
             out = save_resolved(spec, os.path.join(tmpdir, "spec.json"))
             assert out.exists()
+
+
+class TestRunManyEdgeCases:
+    def test_duplicate_run_ids_raise_in_parallel(self):
+        """run_many with max_workers > 1 must raise ValueError for duplicate run_ids."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Two identical specs produce the same run_id
+            spec = _light_run_spec(tmpdir)
+            with pytest.raises(ValueError, match="Duplicate run_id"):
+                run_many([spec, spec], max_workers=2)
+
+    def test_run_many_empty_specs(self):
+        """run_many with an empty list should return an empty list."""
+        results = run_many([], max_workers=1)
+        assert results == []
+
+    def test_run_many_parallel_with_unique_specs(self):
+        """run_many with max_workers > 1 and unique specs should succeed."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            specs = [_light_run_spec(tmpdir, seed=i) for i in range(2)]
+            results = run_many(specs, max_workers=2)
+            assert len(results) == 2
+            ids = [r.run_id for r in results]
+            assert len(set(ids)) == 2

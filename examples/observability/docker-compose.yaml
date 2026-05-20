@@ -1,9 +1,9 @@
 # =============================================================================
-# Coleman4HCS – Optional Local Observability Stack
+# Coleman – Optional Local Observability Stack
 # =============================================================================
 #
 # This Compose file provides an optional local observability stack for
-# debugging and profiling Coleman4HCS experiments.  It is NOT required for
+# debugging and profiling Coleman experiments.  It is NOT required for
 # normal usage — `coleman run --config run.yaml` works without any of these services.
 #
 # Quick start (base stack — OTel Collector + Grafana):

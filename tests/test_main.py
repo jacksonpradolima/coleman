@@ -2,7 +2,7 @@
 Unit and integration tests for the experiment runner logic.
 
 This module contains unit and integration tests to verify the functionality
-of various core functions present in the ``coleman4hcs.runner`` module. The
+of various core functions present in the ``coleman.runner`` module. The
 tests cover a wide range of behaviors, including logging setup, managing
 agents, loading classes dynamically, working with experiments, and scenario
 providers.
@@ -36,19 +36,22 @@ Tested Functionalities:
 """
 
 import logging
+import warnings
 from typing import Any, cast
 from unittest.mock import Mock, patch
 
+import polars as pl
 import pytest
 
-import coleman4hcs.policy
-from coleman4hcs.agent import ContextualAgent, RewardSlidingWindowAgent
-from coleman4hcs.environment import Environment
-from coleman4hcs.policy import FRRMABPolicy, SWLinUCBPolicy
-from coleman4hcs.runner import (
+import coleman.policy
+from coleman.agent import ContextualAgent, RewardSlidingWindowAgent
+from coleman.environment import Environment
+from coleman.policy import FRRMABPolicy, SWLinUCBPolicy
+from coleman.runner import (
     EnvironmentBuildConfig,
     ExecutionPlan,
     _effective_parallel_pool_size,
+    build_agents_from_config,
     build_runtime_metadata,
     create_agents,
     create_logger,
@@ -57,7 +60,7 @@ from coleman4hcs.runner import (
     load_class_from_module,
     run_parallel_executions,
 )
-from coleman4hcs.scenarios import IndustrialDatasetScenarioProvider
+from coleman.scenarios import ScenarioLoader
 
 # ------------------------
 # Unit Tests
@@ -83,8 +86,8 @@ def test_create_logger():
     logger.handlers.clear()
 
 
-@patch("coleman4hcs.runner.create_logger")
-@patch("coleman4hcs.runner.Environment")
+@patch("coleman.runner.create_logger")
+@patch("coleman.runner.Environment")
 def test_exp_run_industrial_dataset(mock_environment, mock_create_logger, tmpdir):
     """Test that a single experiment run executes the expected environment methods."""
     mock_env = mock_environment.return_value
@@ -163,8 +166,10 @@ def test_run_parallel_executions_dispatches_unique_execution_plans():
             return None
 
     class FakeContext:
-        def Pool(self, size, maxtasksperchild=None):  # noqa: N802
+        def pool(self, size, maxtasksperchild=None):
             return FakePool(size, maxtasksperchild=maxtasksperchild)
+
+        Pool = pool  # noqa: N815
 
     build_config = EnvironmentBuildConfig(
         datasets_dir="examples",
@@ -200,7 +205,7 @@ def test_run_parallel_executions_dispatches_unique_execution_plans():
         ),
     ]
 
-    with patch("coleman4hcs.runner.get_context", return_value=FakeContext()):
+    with patch("coleman.runner.get_context", return_value=FakeContext()):
         run_parallel_executions(2, build_config, plans)
 
     assert captured["pool_size"] == 2
@@ -217,16 +222,160 @@ def test_run_parallel_executions_dispatches_unique_execution_plans():
     assert dispatched_first_plan.execution_id != dispatched_second_plan.execution_id
 
 
+def test_run_parallel_executions_keyboard_interrupt_terminates_pool():
+    """Cover runner KeyboardInterrupt handling path (lines 404-410)."""
+    captured: dict[str, Any] = {"terminated": False, "joined": False}
+
+    class FakeAsyncResult:
+        def get(self, timeout=None):  # noqa: ARG002
+            raise KeyboardInterrupt
+
+    class FakePool:
+        def __init__(self, size, maxtasksperchild=None):  # noqa: ARG002
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):  # noqa: ARG002
+            return False
+
+        def starmap_async(self, func, args_list):  # noqa: ARG002
+            return FakeAsyncResult()
+
+        def terminate(self):
+            captured["terminated"] = True
+
+        def join(self):
+            captured["joined"] = True
+
+    class FakeContext:
+        def pool(self, size, maxtasksperchild=None):
+            return FakePool(size, maxtasksperchild=maxtasksperchild)
+
+        Pool = pool  # noqa: N815
+
+    build_config = EnvironmentBuildConfig(
+        datasets_dir="examples",
+        dataset="fakedata",
+        sched_time_ratio=0.5,
+        use_hcs=False,
+        use_context=False,
+        context_config={},
+        feature_groups={},
+        results_config={},
+        checkpoint_config={},
+        telemetry_config={},
+        algorithm_configs={},
+        rewards_names=["RNFail"],
+        policy_names=["Random"],
+    )
+    plans = [ExecutionPlan(iteration=1, trials=1, level=20, execution_id="e", worker_id="1", parallel_mode="p")]
+
+    with patch("coleman.runner.get_context", return_value=FakeContext()), pytest.raises(SystemExit) as exc:
+        run_parallel_executions(1, build_config, plans)
+
+    assert exc.value.code == 130
+    assert captured["terminated"] is True
+    assert captured["joined"] is True
+
+
+def test_run_parallel_executions_retries_on_timeout_then_completes():
+    """Cover TimeoutError continue branch in run_parallel_executions (line 405)."""
+    from multiprocessing import TimeoutError as MPTimeoutError
+
+    class FakeAsyncResult:
+        def __init__(self):
+            self.calls = 0
+
+        def get(self, timeout=None):  # noqa: ARG002
+            self.calls += 1
+            if self.calls == 1:
+                raise MPTimeoutError
+            return None
+
+    class FakePool:
+        def __init__(self, size, maxtasksperchild=None):  # noqa: ARG002
+            self.result = FakeAsyncResult()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):  # noqa: ARG002
+            return False
+
+        def starmap_async(self, func, args_list):  # noqa: ARG002
+            return self.result
+
+        def terminate(self):
+            return None
+
+        def join(self):
+            return None
+
+    class FakeContext:
+        def pool(self, size, maxtasksperchild=None):
+            return FakePool(size, maxtasksperchild=maxtasksperchild)
+
+        Pool = pool  # noqa: N815
+
+    build_config = EnvironmentBuildConfig(
+        datasets_dir="examples",
+        dataset="fakedata",
+        sched_time_ratio=0.5,
+        use_hcs=False,
+        use_context=False,
+        context_config={},
+        feature_groups={},
+        results_config={},
+        checkpoint_config={},
+        telemetry_config={},
+        algorithm_configs={},
+        rewards_names=["RNFail"],
+        policy_names=["Random"],
+    )
+    plans = [ExecutionPlan(iteration=1, trials=1, level=20, execution_id="e", worker_id="1", parallel_mode="p")]
+
+    with patch("coleman.runner.get_context", return_value=FakeContext()):
+        run_parallel_executions(1, build_config, plans)
+
+
+def test_run_experiment_sets_seeds_when_config_seed_present(tmp_path):
+    """Cover seed assignment branch in run_experiment (runner lines 499-500)."""
+    from coleman.runner import run_experiment
+
+    cfg = {
+        "execution": {"seed": 7, "independent_executions": 1, "parallel_pool_size": 1, "verbose": False},
+        "experiment": {
+            "scheduled_time_ratio": [0.1],
+            "datasets_dir": "examples",
+            "datasets": ["fakedata"],
+            "rewards": ["RNFail"],
+            "policies": ["Random"],
+        },
+        "results": {"enabled": False, "out_dir": str(tmp_path)},
+    }
+
+    with (
+        patch("coleman.runner.get_scenario_provider"),
+        patch("coleman.runner.build_agents_from_config", return_value=[]),
+        patch("coleman.runner.Environment"),
+        patch("coleman.runner.exp_run_industrial_dataset"),
+        patch("coleman.runner.run_parallel_executions"),
+    ):
+        run_experiment(cfg)
+
+
 def test_load_class_from_module_valid():
     """Test that a valid class is loaded correctly from a module."""
-    policy_class = load_class_from_module(coleman4hcs.policy, "FRRMABPolicy")
+    policy_class = load_class_from_module(coleman.policy, "FRRMABPolicy")
     assert policy_class.__name__ == "FRRMABPolicy"
 
 
 def test_load_class_from_module_invalid():
     """Test that a ValueError is raised when an invalid class name is provided."""
     with pytest.raises(ValueError, match="Class 'InvalidPolicy' not found"):
-        load_class_from_module(coleman4hcs.policy, "InvalidPolicy")
+        load_class_from_module(coleman.policy, "InvalidPolicy")
 
 
 def test_create_agents_frrmab():
@@ -252,7 +401,7 @@ def test_create_agents_swlinucb():
 
 
 def test_get_scenario_provider_basic():
-    """Test that get_scenario_provider returns an IndustrialDatasetScenarioProvider instance."""
+    """Test that get_scenario_provider returns a ScenarioLoader instance."""
     datasets_dir = "examples"
     dataset = "fakedata"
     sched_time_ratio = 0.5
@@ -265,7 +414,93 @@ def test_get_scenario_provider_basic():
         datasets_dir, dataset, sched_time_ratio, use_hcs, use_context, context_config, feature_groups
     )
 
-    assert isinstance(scenario_provider, IndustrialDatasetScenarioProvider)
+    assert isinstance(scenario_provider, ScenarioLoader)
+
+
+def test_get_scenario_provider_prefers_parquet(tmp_path):
+    """Test that get_scenario_provider selects Parquet when both formats are available."""
+    datasets_dir = tmp_path / "datasets"
+    dataset_dir = datasets_dir / "toy"
+    dataset_dir.mkdir(parents=True)
+
+    csv_df = pl.DataFrame(
+        {
+            "Name": ["TC_FROM_CSV"],
+            "Duration": [1.0],
+            "CalcPrio": [0],
+            "LastRun": ["2023-01-01"],
+            "Verdict": [1],
+            "BuildId": [1],
+        }
+    )
+    parquet_df = csv_df.with_columns(pl.lit("TC_FROM_PARQUET").alias("Name"))
+    csv_df.write_csv(dataset_dir / "features-engineered.csv", separator=";")
+    parquet_df.write_parquet(dataset_dir / "features-engineered.parquet")
+
+    with warnings.catch_warnings(record=True) as recorded_warnings:
+        warnings.simplefilter("always")
+        scenario_provider = get_scenario_provider(
+            str(datasets_dir),
+            "toy",
+            0.5,
+            use_hcs=False,
+            use_context=False,
+            context_config={},
+            feature_groups={},
+        )
+        first_scenario = next(scenario_provider)
+
+    assert not any(issubclass(w.category, DeprecationWarning) for w in recorded_warnings)
+    assert len(first_scenario.get_testcases()) == 1
+    assert first_scenario.get_testcases()[0]["Name"] == "TC_FROM_PARQUET"
+
+
+def test_get_scenario_provider_falls_back_to_csv_when_parquet_missing(tmp_path):
+    """If Parquet is absent, provider should use CSV fallback path."""
+    datasets_dir = tmp_path / "datasets"
+    dataset_dir = datasets_dir / "toycsv"
+    dataset_dir.mkdir(parents=True)
+
+    csv_df = pl.DataFrame(
+        {
+            "Name": ["TC_ONLY_CSV"],
+            "Duration": [1.0],
+            "CalcPrio": [0],
+            "LastRun": ["2023-01-01"],
+            "Verdict": [1],
+            "BuildId": [1],
+        }
+    )
+    csv_df.write_csv(dataset_dir / "features-engineered.csv", separator=";")
+
+    with warnings.catch_warnings(record=True) as recorded_warnings:
+        warnings.simplefilter("always")
+        scenario_provider = get_scenario_provider(
+            str(datasets_dir),
+            "toycsv",
+            0.5,
+            use_hcs=False,
+            use_context=False,
+            context_config={},
+            feature_groups={},
+        )
+        first_scenario = next(scenario_provider)
+
+    assert len(first_scenario.get_testcases()) == 1
+    assert first_scenario.get_testcases()[0]["Name"] == "TC_ONLY_CSV"
+    assert any(issubclass(w.category, DeprecationWarning) for w in recorded_warnings)
+
+
+def test_build_agents_from_config_creates_windowed_agents():
+    """build_agents_from_config should create one agent per FRRMAB window size."""
+    agents = build_agents_from_config(
+        algorithm_configs={"frrmab": {"window_sizes": [3, 7], "rnfail": {"c": 0.3, "decayed_factor": 0.9}}},
+        policy_names=["FRRMAB"],
+        rewards_names=["RNFail"],
+    )
+
+    assert len(agents) == 2
+    assert all(isinstance(agent, RewardSlidingWindowAgent) for agent in agents)
 
 
 # ------------------------
@@ -273,8 +508,8 @@ def test_get_scenario_provider_basic():
 # ------------------------
 
 
-@patch("coleman4hcs.runner.create_logger")
-@patch("coleman4hcs.runner.Environment")
+@patch("coleman.runner.create_logger")
+@patch("coleman.runner.Environment")
 def test_end_to_end_execution(mock_environment, mock_create_logger, tmpdir):
     """Test end-to-end execution using mocked environment and logger."""
     mock_env = mock_environment.return_value
@@ -290,3 +525,277 @@ def test_end_to_end_execution(mock_environment, mock_create_logger, tmpdir):
 
     assert mock_env.run_single.call_count == independent_executions
     assert mock_env.store_experiment.call_count == independent_executions
+
+
+# ------------------------
+# create_agents: remaining policy branches
+# ------------------------
+
+
+def test_create_agents_linucb():
+    """LinUCBPolicy should produce a single ContextualAgent (no window sizes)."""
+    from coleman.agent import ContextualAgent
+    from coleman.policy import LinUCBPolicy
+    from coleman.runner import create_agents
+
+    policy = Mock(spec=LinUCBPolicy)
+    reward_fun = Mock()
+
+    agents = create_agents(policy, reward_fun, [])
+    assert len(agents) == 1
+    assert isinstance(agents[0], ContextualAgent)
+
+
+def test_create_agents_default_policy():
+    """Unknown (non-MAB) policies should produce a single RewardAgent."""
+    from coleman.agent import RewardAgent
+    from coleman.runner import create_agents
+
+    policy = Mock()
+    reward_fun = Mock()
+
+    agents = create_agents(policy, reward_fun, [])
+    assert len(agents) == 1
+    assert isinstance(agents[0], RewardAgent)
+
+
+# ------------------------
+# get_scenario_provider: error branches
+# ------------------------
+
+
+def test_get_scenario_provider_hcs_and_context_raises():
+    """use_hcs=True and use_context=True must raise NotImplementedError."""
+    with pytest.raises(NotImplementedError):
+        get_scenario_provider(
+            datasets_dir="examples",
+            dataset="fakedata",
+            sched_time_ratio=0.5,
+            use_hcs=True,
+            use_context=True,
+            context_config={"previous_build": ["Duration"]},
+            feature_groups={"feature_group_name": "g", "feature_group_values": ["Duration"]},
+        )
+
+
+def test_get_scenario_provider_context_invalid_feature_group_values():
+    """Non-list feature_group_values must raise TypeError."""
+    with pytest.raises(TypeError, match="feature_group_values"):
+        get_scenario_provider(
+            datasets_dir="examples",
+            dataset="alibaba@druid",
+            sched_time_ratio=0.5,
+            use_hcs=False,
+            use_context=True,
+            context_config={"previous_build": ["Duration"]},
+            feature_groups={"feature_group_name": "g", "feature_group_values": "not_a_list"},
+        )
+
+
+def test_get_scenario_provider_context_invalid_previous_build():
+    """Non-list previous_build values must raise TypeError."""
+    with pytest.raises(TypeError, match="previous_build"):
+        get_scenario_provider(
+            datasets_dir="examples",
+            dataset="alibaba@druid",
+            sched_time_ratio=0.5,
+            use_hcs=False,
+            use_context=True,
+            context_config={"previous_build": "not_a_list"},
+            feature_groups={"feature_group_name": "g", "feature_group_values": ["Duration"]},
+        )
+
+
+# ------------------------
+# build_agents_from_config
+# ------------------------
+
+
+def test_build_agents_from_config_basic():
+    """build_agents_from_config returns one agent per policy×reward combination."""
+    from coleman.runner import build_agents_from_config
+
+    agents = build_agents_from_config(
+        algorithm_configs={},
+        policy_names=["Random"],
+        rewards_names=["RNFail"],
+    )
+    assert len(agents) == 1
+
+
+def test_build_agents_from_config_multiple_policies():
+    """Multiple policies × rewards × window sizes expand correctly."""
+    from coleman.runner import build_agents_from_config
+
+    agents = build_agents_from_config(
+        algorithm_configs={"frrmab": {"rnfail": {"c": 0.5}, "window_sizes": [5, 10]}},
+        policy_names=["FRRMAB"],
+        rewards_names=["RNFail"],
+    )
+    # FRRMAB × 1 reward × 2 window sizes = 2 agents
+    assert len(agents) == 2
+
+
+# ------------------------
+# build_environment
+# ------------------------
+
+
+def test_build_environment_returns_environment_and_trial_count():
+    """build_environment should construct a valid Environment and report max_builds."""
+    from coleman.environment import Environment
+    from coleman.runner import EnvironmentBuildConfig, build_environment
+
+    config = EnvironmentBuildConfig(
+        datasets_dir="examples",
+        dataset="fakedata",
+        sched_time_ratio=0.5,
+        use_hcs=False,
+        use_context=False,
+        context_config={},
+        feature_groups={},
+        results_config={},
+        checkpoint_config={},
+        telemetry_config={},
+        algorithm_configs={},
+        rewards_names=["RNFail"],
+        policy_names=["Random"],
+    )
+    runtime_metadata = {"execution_id": "test-exec", "worker_id": "1", "parallel_mode": "sequential"}
+    env, max_builds = build_environment(config, runtime_metadata)
+
+    assert isinstance(env, Environment)
+    assert max_builds > 0
+
+
+# ------------------------
+# exp_run_industrial_dataset_isolated
+# ------------------------
+
+
+@patch("coleman.runner.build_environment")
+@patch("coleman.runner.exp_run_industrial_dataset")
+def test_exp_run_industrial_dataset_isolated(mock_run, mock_build_env):
+    """exp_run_industrial_dataset_isolated should call build_environment then run."""
+    from coleman.runner import EnvironmentBuildConfig, ExecutionPlan, exp_run_industrial_dataset_isolated
+
+    mock_env = Mock()
+    mock_build_env.return_value = (mock_env, 5)
+
+    config = EnvironmentBuildConfig(
+        datasets_dir="examples",
+        dataset="fakedata",
+        sched_time_ratio=0.5,
+        use_hcs=False,
+        use_context=False,
+        context_config={},
+        feature_groups={},
+        results_config={},
+        checkpoint_config={},
+        telemetry_config={},
+        algorithm_configs={},
+        rewards_names=["RNFail"],
+        policy_names=["Random"],
+    )
+    plan = ExecutionPlan(
+        iteration=1,
+        trials=5,
+        level=20,
+        execution_id="exec-1",
+        worker_id="1",
+        parallel_mode="sequential",
+    )
+
+    exp_run_industrial_dataset_isolated(config, plan)
+
+    mock_build_env.assert_called_once()
+    mock_run.assert_called_once()
+
+
+# ------------------------
+# _is_scalene_active
+# ------------------------
+
+
+def test_is_scalene_active_false_by_default():
+    from unittest.mock import patch
+
+    from coleman.runner import _is_scalene_active
+
+    with patch.dict("os.environ", {}, clear=True):
+        assert not _is_scalene_active()
+
+
+def test_is_scalene_active_true_with_scalene_env():
+    from unittest.mock import patch
+
+    from coleman.runner import _is_scalene_active
+
+    with patch.dict("os.environ", {"SCALENE_ALLOCATION_SAMPLING_WINDOW": "1024"}, clear=True):
+        assert _is_scalene_active()
+
+
+# ------------------------
+# _dispatch_executions
+# ------------------------
+
+
+@patch("coleman.runner.run_parallel_executions")
+@patch("coleman.runner.exp_run_industrial_dataset_isolated")
+def test_dispatch_executions_sequential(mock_isolated, mock_parallel):
+    """Pool size of 1 should run sequentially, not via process pool."""
+    from coleman.runner import EnvironmentBuildConfig, ExecutionPlan, _dispatch_executions
+
+    config = EnvironmentBuildConfig(
+        datasets_dir="examples",
+        dataset="fakedata",
+        sched_time_ratio=0.5,
+        use_hcs=False,
+        use_context=False,
+        context_config={},
+        feature_groups={},
+        results_config={},
+        checkpoint_config={},
+        telemetry_config={},
+        algorithm_configs={},
+        rewards_names=["RNFail"],
+        policy_names=["Random"],
+    )
+    plans = [
+        ExecutionPlan(iteration=1, trials=5, level=20, execution_id="e1", worker_id="1", parallel_mode="sequential")
+    ]
+    _dispatch_executions(1, config, plans)
+    mock_isolated.assert_called_once_with(config, plans[0])
+    mock_parallel.assert_not_called()
+
+
+@patch("coleman.runner.run_parallel_executions")
+@patch("coleman.runner.exp_run_industrial_dataset_isolated")
+def test_dispatch_executions_parallel(mock_isolated, mock_parallel):
+    """Pool size > 1 should delegate to run_parallel_executions."""
+    from coleman.runner import EnvironmentBuildConfig, ExecutionPlan, _dispatch_executions
+
+    config = EnvironmentBuildConfig(
+        datasets_dir="examples",
+        dataset="fakedata",
+        sched_time_ratio=0.5,
+        use_hcs=False,
+        use_context=False,
+        context_config={},
+        feature_groups={},
+        results_config={},
+        checkpoint_config={},
+        telemetry_config={},
+        algorithm_configs={},
+        rewards_names=["RNFail"],
+        policy_names=["Random"],
+    )
+    plans = [
+        ExecutionPlan(
+            iteration=i + 1, trials=5, level=20, execution_id=f"e{i}", worker_id=str(i), parallel_mode="process"
+        )
+        for i in range(3)
+    ]
+    _dispatch_executions(3, config, plans)
+    mock_parallel.assert_called_once_with(3, config, plans)
+    mock_isolated.assert_not_called()

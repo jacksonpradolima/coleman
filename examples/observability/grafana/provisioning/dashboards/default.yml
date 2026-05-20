@@ -1,9 +1,9 @@
 apiVersion: 1
 
 providers:
-  - name: coleman4hcs
+  - name: coleman
     orgId: 1
-    folder: Coleman4HCS
+    folder: Coleman
     type: file
     disableDeletion: false
     editable: true

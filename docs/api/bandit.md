@@ -1,3 +1,3 @@
 # Bandit
 
-::: coleman4hcs.bandit
+::: coleman.bandit

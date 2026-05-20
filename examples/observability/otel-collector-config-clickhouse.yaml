@@ -1,5 +1,5 @@
 # =============================================================================
-# OpenTelemetry Collector Configuration for Coleman4HCS – ClickHouse Mode
+# OpenTelemetry Collector Configuration for Coleman – ClickHouse Mode
 # =============================================================================
 #
 # This configuration extends the base config by adding ClickHouse exporters

@@ -1,5 +1,5 @@
 [project]
-name = "coleman4hcs"
+name = "coleman"
 version = "2.3.0"
 description = "Multi-Armed Bandit based test case prioritization for continuous integration environments"
 license = "MIT"
@@ -7,71 +7,74 @@ authors = [{ name = "Jackson Antonio do Prado Lima", email = "jacksonpradolima@g
 requires-python = ">=3.14"
 readme = "README.md"
 dependencies = [
-    "duckdb",
-    "numpy",
-    "polars",
-    "pyarrow",
-    "scipy",
-    "scikit-posthocs",
-    "pydantic>=2.12.5",
-    "pyyaml>=6.0.3",
+    "duckdb==1.5.0",
+    "numpy==2.4.3",
+    "polars==1.39.3",
+    "pyarrow==23.0.1",
+    "scipy==1.17.1",
+    "scikit-posthocs==0.12.0",
+    "pydantic==2.12.5",
+    "pyyaml==6.0.3",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "ruff",
-    "pyright",
-    "ty",
-    "pre-commit",
-    "interrogate",
-    "numpydoc",
-    "pytest",
-    "pytest-benchmark",
-    "pytest-cov",
-    "pytest-mock",
-    "pytest-profiling",
-    "pytest-xdist",
-    "radon>=6.0.1",
-    "xenon>=0.9.3",
-    "scalene>=2.2.1",
-    "py-spy>=0.4.1",
-    "codecarbon>=3.2.6",
-    "wily>=1.12.2",
-    "pyrapl>=0.2.3.1",
+    "ruff==0.15.9",
+    "pyright==1.1.408",
+    "ty==0.0.21",
+    "pre-commit==4.5.1",
+    "interrogate==1.7.0",
+    "numpydoc==1.10.0",
+    "pytest==9.0.3",
+    "pytest-benchmark==5.2.3",
+    "pytest-cov==7.1.0",
+    "pytest-mock==3.15.1",
+    "pytest-profiling==1.8.1",
+    "pytest-xdist==3.8.0",
+    "radon==6.0.1",
+    "xenon==0.9.3",
+    "scalene==2.2.1",
+    "py-spy==0.4.1",
+    "codecarbon==3.2.6",
+    "wily==1.12.2",
+    "pyrapl==0.2.3.1",
 ]
 docs = [
-    "zensical",
-    "mkdocstrings[python]",
-    "mkdocs-jupyter",
+    "zensical==0.0.28",
+    "mkdocstrings[python]==1.0.3",
+    "mkdocs-jupyter==0.26.1",
 ]
 release = [
-    "python-semantic-release",
+    "python-semantic-release==10.5.3",
 ]
 notebook = [
-    "marimo",
-    "matplotlib",
-    "pandas",
-    "seaborn",
+    "marimo==0.23.0",
+    "matplotlib==3.10.8",
+    "pandas==3.0.1",
+    "seaborn==0.13.2",
 ]
 telemetry = [
-    "opentelemetry-api",
-    "opentelemetry-sdk",
-    "opentelemetry-exporter-otlp-proto-http",
+    "opentelemetry-api==1.41.0",
+    "opentelemetry-sdk==1.41.0",
+    "opentelemetry-exporter-otlp-proto-http==1.41.0",
 ]
 clickhouse = [
-    "clickhouse-connect",
+    "clickhouse-connect==0.13.0",
 ]
 
 [project.scripts]
-coleman = "coleman4hcs.cli:main"
+coleman = "coleman.cli:main"
 
 [project.urls]
-homepage = "https://github.com/jacksonpradolima/coleman4hcs"
-repository = "https://github.com/jacksonpradolima/coleman4hcs"
+homepage = "https://github.com/jacksonpradolima/coleman"
+repository = "https://github.com/jacksonpradolima/coleman"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["coleman"]
 
 [tool.ruff]
 target-version = "py313"
@@ -83,7 +86,7 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "N", "D"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D100", "D101", "D102", "D103", "D104", "D107", "D200", "D205", "D400", "D401"]
 "notebooks/**" = ["D", "E501", "F821", "F841", "B023", "B905", "N", "UP", "SIM", "W"]
-"coleman4hcs/exceptions.py" = ["N818"]
+"coleman/exceptions.py" = ["N818"]
 "examples/**" = ["D", "E501"]
 "scripts/**" = ["D"]
 
@@ -98,17 +101,36 @@ typeCheckingMode = "basic"
 addopts = [
     "--durations=25",
     "--durations-min=0.05",
+    "--benchmark-disable",
     "--benchmark-min-rounds=1",
     "--benchmark-max-time=0.05",
     "--benchmark-sort=mean",
+    "--cov=coleman",
+    "--cov-report=term-missing",
+    "--cov-report=xml:coverage.xml",
 ]
 markers = [
     "performance: Mark a test as a performance benchmark.",
 ]
 
+[tool.coverage.run]
+source = ["coleman"]
+omit = ["*/__init__.py", "*/py.typed"]
+
+[tool.coverage.report]
+fail_under = 95
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abc.abstractmethod",
+]
+
 [tool.interrogate]
 ignore-init-module = true
-fail-under = 80
+fail-under = 100
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
@@ -116,3 +138,9 @@ branch = "main"
 commit_message = "chore(release): {version}"
 build_command = "uv build"
 
+[dependency-groups]
+dev = [
+    "pytest==9.0.3",
+    "pytest-benchmark==5.2.3",
+    "ruff==0.15.9",
+]

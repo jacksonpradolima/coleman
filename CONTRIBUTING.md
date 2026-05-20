@@ -1,6 +1,6 @@
-# Contributing to Coleman4HCS
+# Contributing to Coleman
 
-Thank you for your interest in contributing to **Coleman4HCS**! This document
+Thank you for your interest in contributing to **Coleman**! This document
 provides guidelines and instructions for contributing.
 
 ## Getting Started
@@ -30,8 +30,8 @@ Everything you need (Python, uv, Docker, extensions) is pre-configured.
 
 ```bash
 # Clone the repository
-git clone https://github.com/jacksonpradolima/coleman4hcs.git
-cd coleman4hcs
+git clone https://github.com/jacksonpradolima/coleman.git
+cd coleman
 
 # Install all dependencies (including dev extras)
 make install
@@ -112,12 +112,12 @@ runtime profiling and energy estimation.
 The project uses a **typed run specification system** based on Pydantic v2.
 When working with experiment configuration:
 
-- Models live in `coleman4hcs/spec/models.py` — every new config field should
+- Models live in `coleman/spec/models.py` — every new config field should
   be added as a typed Pydantic field, not a raw dict key.
 - Config packs live under `packs/<category>/<name>.yaml`.  When adding a new
   pack, follow the existing directory structure (policy, reward, runtime,
   results, telemetry).
-- The sweep engine (`coleman4hcs/spec/sweep.py`) supports grid and zip modes.
+- The sweep engine (`coleman/spec/sweep.py`) supports grid and zip modes.
   Zip-mode parameter lists **must** have equal length.
 - `_set_nested()` validates intermediate path components — never silently
   overwrite a non-dict value.

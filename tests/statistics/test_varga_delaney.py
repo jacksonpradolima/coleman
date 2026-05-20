@@ -1,8 +1,8 @@
 """
-Unit tests for the coleman4hcs evaluation metrics module.
+Unit tests for the coleman evaluation metrics module.
 
 This test suite covers the functionality of the evaluation metrics implemented
-in the coleman4hcs package, specifically the NAPFDMetric and NAPFDVerdictMetric classes.
+in the coleman package, specifically the NAPFDMetric and NAPFDVerdictMetric classes.
 It ensures that the metrics behave as expected under various scenarios, including:
 
 - Standard test records
@@ -30,7 +30,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from coleman4hcs.statistics.vargha_delaney import reduce, vd_a, vd_a_df
+from coleman.statistics.vargha_delaney import reduce, vd_a, vd_a_df
 
 
 def test_vd_a():
@@ -88,6 +88,36 @@ def test_reduce():
         "Expected only comparisons involving 'A'"
     )
     assert "effect_size_symbol" in reduced_data.columns
+
+
+def test_reduce_includes_bigstar_for_best_comparison():
+    r"""Covers get_symbol() branch returning '$\\bigstar$'."""
+    data = pl.DataFrame(
+        {
+            "base": ["A", "B"],
+            "compared_with": ["A", "A"],
+            "estimate": [0.5, 0.6],
+            "magnitude": ["negligible", "small"],
+        }
+    )
+
+    reduced_data = reduce(data, best="A", symbols=True)
+    assert "$\\bigstar$" in reduced_data["effect_size_symbol"].to_list()
+
+
+def test_reduce_fallback_symbol_empty_when_temp_not_matchable():
+    """Cover fallback branch returning empty symbol (line 187)."""
+    data = pl.DataFrame(
+        {
+            "base": ["A"],
+            "compared_with": [None],
+            "estimate": [0.5],
+            "magnitude": ["negligible"],
+        }
+    )
+
+    reduced_data = reduce(data, best="A", symbols=True)
+    assert "" in reduced_data["effect_size_symbol"].to_list()
 
 
 def test_vd_a_negligible():
@@ -252,3 +282,74 @@ def test_vd_a_distribution_comparisons():
     # Ensure the magnitude is valid for all cases
     assert magnitude_uniform in valid_magnitudes, f"Unexpected magnitude: {magnitude_uniform}"
     assert magnitude_normal in valid_magnitudes, f"Unexpected magnitude: {magnitude_normal}"
+
+
+# ---------------------------------------------------------------------------
+# Additional edge-case coverage
+# ---------------------------------------------------------------------------
+
+
+def test_reduce_symbols_false():
+    """reduce(symbols=False) should return filtered rows without the effect_size_symbol column."""
+    data = pl.DataFrame(
+        {
+            "base": ["A", "A", "B"],
+            "compared_with": ["B", "C", "C"],
+            "estimate": [0.7, 0.6, 0.4],
+            "magnitude": ["medium", "small", "negligible"],
+        }
+    )
+    result = reduce(data, best="A", symbols=False)
+    assert "effect_size_symbol" not in result.columns
+    assert all((result["base"] == "A") | (result["compared_with"] == "A"))
+
+
+def test_reduce_best_not_in_data_returns_empty():
+    """Return empty result when best value is absent from the DataFrame."""
+    data = pl.DataFrame(
+        {
+            "base": ["A", "B"],
+            "compared_with": ["B", "C"],
+            "estimate": [0.6, 0.4],
+            "magnitude": ["small", "negligible"],
+        }
+    )
+    result = reduce(data, best="X", symbols=False)
+    assert result.height == 0
+
+
+def test_vd_a_df_raises_without_val_col():
+    """vd_a_df should raise ValueError when val_col is not provided."""
+    data = pl.DataFrame({"values": [1, 2, 3, 4], "group": ["A", "A", "B", "B"]})
+    with pytest.raises(ValueError, match="val_col"):
+        vd_a_df(data, group_col="group")
+
+
+def test_vd_a_df_raises_without_group_col():
+    """vd_a_df should raise ValueError when group_col is not provided."""
+    data = pl.DataFrame({"values": [1, 2, 3, 4], "group": ["A", "A", "B", "B"]})
+    with pytest.raises(ValueError, match="group_col"):
+        vd_a_df(data, val_col="values")
+
+
+def test_vd_a_df_sort_false():
+    """vd_a_df with sort=False should still return valid pairwise comparisons."""
+    data = pl.DataFrame({"values": [1.0, 2.0, 3.0, 4.0], "group": ["A", "A", "B", "B"]})
+    result = vd_a_df(data, val_col="values", group_col="group", sort=False)
+    assert result.height == 1
+    assert set(result.columns) >= {"base", "compared_with", "estimate", "magnitude"}
+
+
+def test_reduce_symbol_for_best_itself():
+    r"""When the 'best' column matches itself, the symbol should be \bigstar."""
+    data = pl.DataFrame(
+        {
+            "base": ["A"],
+            "compared_with": ["A"],
+            "estimate": [0.5],
+            "magnitude": ["negligible"],
+        }
+    )
+    result = reduce(data, best="A", symbols=True)
+    assert result.height == 1
+    assert result["effect_size_symbol"][0] == "$\\bigstar$"

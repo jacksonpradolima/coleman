@@ -1071,7 +1071,7 @@
   "schemaVersion": 39,
   "style": "dark",
   "tags": [
-    "coleman4hcs",
+    "coleman",
     "observability"
   ],
   "templating": {
@@ -1216,8 +1216,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Coleman4HCS Overview",
-  "uid": "coleman4hcs-overview",
+  "title": "Coleman Overview",
+  "uid": "coleman-overview",
   "version": 11,
   "weekStart": ""
 }

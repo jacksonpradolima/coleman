@@ -2,9 +2,9 @@
 
 import pytest
 
-from coleman4hcs.spec.models import RunSpec
-from coleman4hcs.spec.run_id import compute_run_id
-from coleman4hcs.spec.sweep import SweepAxis, SweepSpec, _expand_axis, _set_nested, expand_sweep
+from coleman.spec.models import RunSpec
+from coleman.spec.run_id import compute_run_id
+from coleman.spec.sweep import SweepAxis, SweepSpec, _expand_axis, _set_nested, expand_sweep
 
 
 class TestSetNested:
@@ -27,6 +27,16 @@ class TestSetNested:
         d = {"a": "not_a_dict"}
         with pytest.raises(ValueError, match="is not a mapping"):
             _set_nested(d, "a.b.c", 42)
+
+    def test_initial_data_not_dict_with_multiple_parts_raises(self):
+        """Covers the guard at the top of the for-loop (lines 73-79)."""
+        with pytest.raises(ValueError, match="is not a mapping"):
+            _set_nested("not_a_dict", "a.b", 42)
+
+    def test_initial_data_not_dict_single_part_raises(self):
+        """Covers the post-loop guard (lines 98-104)."""
+        with pytest.raises(ValueError, match="is not a mapping"):
+            _set_nested("not_a_dict", "key", 42)
 
 
 class TestExpandAxis:
@@ -60,6 +70,12 @@ class TestExpandAxis:
     def test_zip_unequal_lengths_raises(self):
         axis = SweepAxis(mode="zip", params={"a": [1, 2, 3], "b": [10, 20]})
         with pytest.raises(ValueError, match="same length"):
+            _expand_axis(axis)
+
+    def test_unknown_mode_raises(self):
+        """Covers the else-branch (lines 138-139) for an unknown sweep mode."""
+        axis = SweepAxis.model_construct(mode="unknown", params={"key": [1, 2]})
+        with pytest.raises(ValueError, match="Unknown sweep mode"):
             _expand_axis(axis)
 
 

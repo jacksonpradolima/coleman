@@ -1,9 +1,10 @@
 """Tests for the checkpoint store interface and implementations."""
 
 import json
+from unittest.mock import patch
 
-from coleman4hcs.checkpoint.checkpoint_store import CheckpointStore, LocalCheckpointStore, NullCheckpointStore
-from coleman4hcs.checkpoint.state import CheckpointPayload
+from coleman.checkpoint.checkpoint_store import CheckpointStore, LocalCheckpointStore, NullCheckpointStore
+from coleman.checkpoint.state import CheckpointPayload
 
 # ============================================================================
 # NullCheckpointStore
@@ -102,8 +103,15 @@ class TestLocalCheckpointStore:
         payload = CheckpointPayload(run_id="run1", experiment=1, step=100)
         store.save(payload)
 
-        # Request experiment 2, but checkpoint is for experiment 1
-        assert store.load("run1", 2) is None
+        # Keep the same progress file path (progress_ex1.json), but force payload mismatch.
+        progress_path = tmp_path / "ckpts" / "run1" / "progress_ex1.json"
+        with open(progress_path, encoding="utf-8") as f:
+            progress = json.load(f)
+        progress["experiment"] = 2
+        with open(progress_path, "w", encoding="utf-8") as f:
+            json.dump(progress, f)
+
+        assert store.load("run1", 1) is None
 
     def test_overwrite_checkpoint(self, tmp_path):
         store = LocalCheckpointStore(base_dir=str(tmp_path / "ckpts"))
@@ -138,6 +146,38 @@ class TestLocalCheckpointStore:
 
         assert store.load("run1", 1) is None
 
+    def test_load_progress_with_missing_checkpoint_path_returns_none(self, tmp_path):
+        """If progress points to a missing checkpoint, load() must return None."""
+        store = LocalCheckpointStore(base_dir=str(tmp_path / "ckpts"))
+        payload = CheckpointPayload(run_id="run1", experiment=1, step=100)
+        store.save(payload)
+
+        progress_path = tmp_path / "ckpts" / "run1" / "progress_ex1.json"
+        with open(progress_path, encoding="utf-8") as f:
+            progress = json.load(f)
+        progress["checkpoint_path"] = str(tmp_path / "ckpts" / "run1" / "does_not_exist.pkl")
+        with open(progress_path, "w", encoding="utf-8") as f:
+            json.dump(progress, f)
+
+        assert store.load("run1", 1) is None
+
+    def test_load_missing_checkpoint_emits_warning(self, tmp_path):
+        """Cover warning line for missing checkpoint file (line 188)."""
+        store = LocalCheckpointStore(base_dir=str(tmp_path / "ckpts"))
+        payload = CheckpointPayload(run_id="run1", experiment=1, step=100)
+        store.save(payload)
+
+        progress_path = tmp_path / "ckpts" / "run1" / "progress_ex1.json"
+        with open(progress_path, encoding="utf-8") as f:
+            progress = json.load(f)
+        progress["checkpoint_path"] = str(tmp_path / "missing.pkl")
+        with open(progress_path, "w", encoding="utf-8") as f:
+            json.dump(progress, f)
+
+        with patch("coleman.checkpoint.checkpoint_store.logger.warning") as warn:
+            assert store.load("run1", 1) is None
+        warn.assert_called_once()
+
     def test_multi_experiment_isolation(self, tmp_path):
         """Multiple experiments for the same run_id must not overwrite each other."""
         store = LocalCheckpointStore(base_dir=str(tmp_path / "ckpts"))
@@ -157,3 +197,20 @@ class TestLocalCheckpointStore:
         assert loaded2.experiment == 2
         assert loaded2.step == 75
         assert loaded2.agents == ["a2"]
+
+    def test_atomic_json_write_cleans_tmp_on_exception(self, tmp_path):
+        """When os.replace fails, temporary file should be unlinked and error re-raised."""
+        target = str(tmp_path / "target.json")
+
+        with (
+            patch("coleman.checkpoint.checkpoint_store.os.replace", side_effect=OSError("replace failed")),
+            patch("coleman.checkpoint.checkpoint_store.Path.unlink") as unlink_mock,
+        ):
+            try:
+                LocalCheckpointStore._atomic_json_write(target, {"ok": True})
+            except OSError:
+                pass
+            else:
+                raise AssertionError("Expected OSError from os.replace")
+
+        unlink_mock.assert_called_once()

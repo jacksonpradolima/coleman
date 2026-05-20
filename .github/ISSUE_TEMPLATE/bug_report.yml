@@ -9,10 +9,10 @@ body:
   - type: checkboxes
     id: non_api
     attributes:
-      label: Confirm this is an issue with the coleman4hcs library.
+      label: Confirm this is an issue with the coleman library.
       description: Issues relevant to other tools should be directed to their respective repositories.
       options:
-        - label: This is an issue with the coleman4hcs library
+        - label: This is an issue with the coleman library
           required: true
   - type: textarea
     id: what-happened
@@ -59,6 +59,6 @@ body:
     id: lib-version
     attributes:
       label: Library version
-      placeholder: coleman4hcs v1.0.0
+      placeholder: coleman v1.0.0
     validations:
       required: true

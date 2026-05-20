@@ -1,4 +1,4 @@
 telemetry:
   enabled: true
   otlp_endpoint: http://localhost:4318
-  service_name: coleman4hcs
+  service_name: coleman

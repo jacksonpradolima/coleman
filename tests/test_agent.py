@@ -1,8 +1,8 @@
 """
-coleman4hcs.agent.tests
+coleman.agent.tests
 -----------------------
 
-This module contains unit and performance tests for the `Agent` module in the Coleman4HCS framework.
+This module contains unit and performance tests for the `Agent` module in the Coleman framework.
 
 Tests ensure the functionality and efficiency of the following classes:
 - `Agent`: Base class for agents, including action management, selection, and reward observation.
@@ -29,15 +29,15 @@ from unittest.mock import MagicMock
 import polars as pl
 import pytest
 
-from coleman4hcs.agent import (
+from coleman.agent import (
     Agent,
     ContextualAgent,
     RewardAgent,
     RewardSlidingWindowAgent,
     SlidingWindowContextualAgent,
 )
-from coleman4hcs.bandit import Bandit
-from coleman4hcs.evaluation import EvaluationMetric
+from coleman.bandit import Bandit
+from coleman.evaluation import EvaluationMetric
 
 
 @pytest.fixture
@@ -115,6 +115,21 @@ def test_agent_choose(mock_policy, mock_bandit):
         assert chosen == mock_policy.choose_all.return_value
 
 
+def test_agent_choose_delegates_after_first_turn(mock_policy, mock_bandit):
+    """Cover Agent.choose() for t > 0 and null Q filling."""
+    mock_policy.choose_all.return_value = ["Test3", "Test2", "Test1"]
+    agent = Agent(mock_policy, mock_bandit)
+    agent.update_actions(["Test1", "Test2", "Test3"])
+    agent.t = 1
+    agent.actions = agent.actions.with_columns(pl.lit(None).alias("Q"))
+
+    chosen = agent.choose()
+
+    assert chosen == ["Test3", "Test2", "Test1"]
+    mock_policy.choose_all.assert_called_once_with(agent)
+    assert agent.actions["Q"].null_count() == 0
+
+
 def test_reward_agent_observe(mock_policy, mock_bandit, mock_evaluation_metric):
     """
     Test the observe method of RewardAgent.
@@ -157,6 +172,23 @@ def test_reward_sliding_window_agent_observe(mock_policy, mock_bandit, mock_eval
     assert "T" in agent.history.columns
 
 
+def test_reward_sliding_window_agent_observe_empty_prioritization(mock_policy, mock_bandit, mock_evaluation_metric):
+    """Cover the empty-prioritization branch in RewardSlidingWindowAgent.observe()."""
+    reward_function = MagicMock()
+    reward_function.evaluate.return_value = []
+
+    agent = RewardSlidingWindowAgent(mock_policy, reward_function, window_size=2)
+    agent.update_bandit(mock_bandit)
+    agent.update_actions(["Test1", "Test2"])
+    agent.last_prioritization = []
+
+    agent.observe(mock_evaluation_metric)
+
+    assert agent.last_reward == []
+    assert agent.t == 1
+    assert agent.actions["ValueEstimates"].to_list() == [0.0, 0.0]
+
+
 def test_sliding_window_contextual_agent_history_truncation():
     """
     Test the history truncation logic of SlidingWindowContextualAgent.
@@ -175,6 +207,46 @@ def test_sliding_window_contextual_agent_history_truncation():
     agent.update_history()
     assert len(agent.history) == 2
     assert agent.history["T"].min() == 2
+
+
+def test_reward_sliding_window_agent_update_history_empty_history(mock_policy):
+    """Cover RewardSlidingWindowAgent.update_history() with no rows."""
+    reward_function = MagicMock()
+    agent = RewardSlidingWindowAgent(mock_policy, reward_function, window_size=2)
+
+    agent.update_history()
+
+    assert agent.history.is_empty()
+
+
+def test_sliding_window_contextual_agent_observe_empty_prioritization(mock_evaluation_metric):
+    """Cover the empty-prioritization branch in SlidingWindowContextualAgent.observe()."""
+    policy = MagicMock()
+    policy.choose_all.return_value = []
+    policy.credit_assignment = MagicMock()
+    policy.update_actions = MagicMock()
+
+    reward_function = MagicMock()
+    reward_function.evaluate.return_value = []
+
+    agent = SlidingWindowContextualAgent(policy, reward_function, window_size=5)
+    agent.update_actions(["A", "B"])
+    agent.last_prioritization = []
+
+    agent.observe(mock_evaluation_metric)
+
+    assert agent.last_reward == []
+    assert agent.t == 1
+    assert agent.actions["ValueEstimates"].to_list() == [0.0, 0.0]
+
+
+def test_sliding_window_contextual_agent_update_history_empty_history():
+    """Cover SlidingWindowContextualAgent.update_history() with no rows."""
+    agent = SlidingWindowContextualAgent(MagicMock(), MagicMock(), window_size=2)
+
+    agent.update_history()
+
+    assert agent.history.is_empty()
 
 
 @pytest.mark.benchmark(group="agent")
@@ -213,3 +285,140 @@ def test_reward_agent_performance(benchmark, mock_policy, action_count):
 
     benchmark(observe)
     assert len(agent.actions) == action_count
+
+
+def test_agent_observe_direct(mock_policy, mock_bandit):
+    """Test Agent.observe() with a direct reward list (base class path)."""
+    agent = Agent(mock_policy, mock_bandit)
+    agent.update_actions(["Test1", "Test2", "Test3"])
+    agent.choose()
+    t_before = agent.t
+    agent.observe([1.0, 0.5, 0.0])
+    assert agent.t == t_before + 1
+    assert "ValueEstimates" in agent.actions.columns
+
+
+def test_agent_observe_empty_reward_list_increments_time(mock_policy, mock_bandit):
+    """Cover the early-return branch in Agent.observe()."""
+    agent = Agent(mock_policy, mock_bandit)
+    agent.update_actions(["Test1", "Test2"])
+    agent.last_prioritization = ["Test1", "Test2"]
+    t_before = agent.t
+
+    agent.observe([])
+
+    assert agent.t == t_before + 1
+    assert agent.actions["ValueEstimates"].to_list() == [0.0, 0.0]
+
+
+def test_agent_observe_keeps_estimate_when_reward_missing(mock_policy, mock_bandit):
+    """Cover observe() branch where an action has no mapped reward (lines 200-201)."""
+    agent = Agent(mock_policy, mock_bandit)
+    agent.update_actions(["A", "B", "C"])
+    agent.last_prioritization = ["A", "B", "C"]
+    agent.actions = agent.actions.with_columns([pl.Series("ActionAttempts", [1.0, 1.0, 1.0])])
+    before = agent.actions["ValueEstimates"].to_list()
+
+    # Missing reward for action C -> observed_reward is None for that row.
+    agent.observe([1.0, 0.0])
+
+    after = agent.actions["ValueEstimates"].to_list()
+    assert after[2] == before[2]
+
+
+def test_contextual_agent_str():
+    """Test ContextualAgent.__str__ returns the policy string."""
+    policy = MagicMock()
+    policy.__str__ = MagicMock(return_value="MockPolicy")
+    agent = ContextualAgent(policy, MagicMock())
+    assert str(agent) == "MockPolicy"
+
+
+def test_contextual_agent_choose():
+    """Test ContextualAgent.choose() delegates to policy.choose_all."""
+    policy = MagicMock()
+    policy.choose_all.return_value = ["A", "B", "C"]
+    agent = ContextualAgent(policy, MagicMock())
+    agent.update_actions(["A", "B", "C"])
+    result = agent.choose()
+    assert result == ["A", "B", "C"]
+    policy.choose_all.assert_called_once_with(agent)
+
+
+def test_contextual_agent_update_actions():
+    """Test ContextualAgent.update_actions filters and adds actions."""
+    policy = MagicMock()
+    policy.update_actions = MagicMock()
+    agent = ContextualAgent(policy, MagicMock())
+    agent.update_actions(["A", "B"])
+    assert "A" in agent.actions["Name"].to_list()
+    assert "B" in agent.actions["Name"].to_list()
+    agent.update_actions(["B", "C"])
+    assert "A" not in agent.actions["Name"].to_list()
+    assert "C" in agent.actions["Name"].to_list()
+
+
+def test_contextual_agent_update_bandit():
+    """Test ContextualAgent.update_bandit sets the bandit and updates actions."""
+    policy = MagicMock()
+    policy.update_actions = MagicMock()
+    bandit = MagicMock()
+    bandit.get_arms.return_value = ["TC1", "TC2"]
+    agent = ContextualAgent(policy, MagicMock())
+    agent.update_bandit(bandit)
+    assert agent.bandit is bandit
+    assert "TC1" in agent.actions["Name"].to_list()
+
+
+def test_contextual_agent_update_features():
+    """Test ContextualAgent.update_features stores the features list."""
+    agent = ContextualAgent(MagicMock(), MagicMock())
+    agent.update_features(["feat1", "feat2"])
+    assert agent.features == ["feat1", "feat2"]
+
+
+def test_reward_sliding_window_agent_history_truncation(mock_policy, mock_bandit, mock_evaluation_metric):
+    """Test RewardSlidingWindowAgent.update_history prunes old T entries beyond window."""
+    reward_function = MagicMock()
+    reward_function.evaluate.return_value = [1.0, 0.5, 0.0]
+
+    agent = RewardSlidingWindowAgent(mock_policy, reward_function, window_size=1)
+    agent.update_bandit(mock_bandit)
+
+    # Observe twice to force truncation (window_size=1 means only 1 unique T kept)
+    agent.choose()
+    agent.observe(mock_evaluation_metric)
+    agent.choose()
+    agent.observe(mock_evaluation_metric)
+
+    # Only the latest T should remain after truncation
+    unique_t = agent.history["T"].unique().to_list()
+    assert len(unique_t) <= 1
+
+
+def test_sliding_window_contextual_agent_str():
+    """Test SlidingWindowContextualAgent.__str__ includes window size."""
+    policy = MagicMock()
+    policy.__str__ = MagicMock(return_value="SWLinUCB (Alpha=0.5")
+    agent = SlidingWindowContextualAgent(policy, MagicMock(), window_size=7)
+    result = str(agent)
+    assert "7" in result
+
+
+def test_sliding_window_contextual_agent_observe(mock_evaluation_metric):
+    """Test SlidingWindowContextualAgent.observe updates value estimates via reward function."""
+    policy = MagicMock()
+    policy.choose_all.return_value = ["A", "B"]
+    policy.credit_assignment = MagicMock()
+    policy.update_actions = MagicMock()
+
+    reward_function = MagicMock()
+    reward_function.evaluate.return_value = [1.0, 0.0]
+
+    agent = SlidingWindowContextualAgent(policy, reward_function, window_size=5)
+    agent.update_actions(["A", "B"])
+    agent.choose()
+    agent.observe(mock_evaluation_metric)
+
+    assert agent.t == 1
+    assert len(agent.history) > 0

@@ -1,16 +1,16 @@
-# Coleman4HCS
+# Coleman
 
 **Multi-Armed Bandit based Test Case Prioritization for Continuous Integration**
 
-Coleman4HCS is a framework that applies Multi-Armed Bandit (MAB) algorithms to
+Coleman is a framework that applies Multi-Armed Bandit (MAB) algorithms to
 solve the Test Case Prioritization problem in Continuous Integration (CI)
 environments.
 
 ## Features
 
 - Adaptive learning from test execution feedback
-- Multiple MAB policies: Random, Greedy, EpsilonGreedy, UCB, FRRMAB
-- Contextual bandits: LinUCB, SWLinUCB
+- Multiple MAB policies: baseline, Bayesian/stochastic, adversarial, and non-stationary variants
+- Contextual bandits: LinUCB/SWLinUCB plus LinTS and contextual epsilon-greedy variants
 - HCS support with WTS and VTS strategies
 - Cost-effective prioritization under time budgets
 - **Typed configuration** — Pydantic v2 models with YAML configs and composable config packs
@@ -23,14 +23,14 @@ environments.
 ## Quick Start
 
 ```bash
-pip install coleman4hcs
+pip install coleman
 coleman run --config my-experiment.yaml
 ```
 
 Or use the library API:
 
 ```python
-from coleman4hcs.api import run, load_spec
+from coleman.api import run, load_spec
 
 spec = load_spec("my-experiment.yaml")
 result = run(spec)

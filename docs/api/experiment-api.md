@@ -1,5 +1,5 @@
-# coleman4hcs.api
+# coleman.api
 
 Library-first public API for driving experiments programmatically.
 
-::: coleman4hcs.api
+::: coleman.api

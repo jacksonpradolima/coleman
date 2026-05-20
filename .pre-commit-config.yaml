@@ -43,5 +43,5 @@ repos:
         entry: make check-precommit
         language: system
         pass_filenames: false
-        stages: [pre-commit, pre-push]
+        stages: [pre-commit]
         require_serial: true

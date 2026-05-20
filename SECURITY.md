@@ -8,7 +8,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in **Coleman4HCS**, please report it
+If you discover a security vulnerability in **Coleman**, please report it
 responsibly.
 
 **Do not open a public GitHub issue.**
@@ -31,7 +31,7 @@ mitigation plan within **7 days** of confirmation.
 
 ## Scope
 
-This policy applies to the `coleman4hcs` Python package and its dependencies as
+This policy applies to the `coleman` Python package and its dependencies as
 distributed through this repository. Third-party dependencies are managed via
 `uv` and pinned in `uv.lock`.
 
@@ -47,4 +47,4 @@ The experiment system adds two new direct dependencies:
 All YAML loading uses `yaml.safe_load()` — untrusted YAML with arbitrary
 Python constructors is never evaluated.
 
-Thank you for helping keep Coleman4HCS safe.
+Thank you for helping keep Coleman safe.

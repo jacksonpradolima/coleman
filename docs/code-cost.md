@@ -1,6 +1,6 @@
 # Code Cost Evaluation
 
-Coleman4HCS treats code cost as a **multi-dimensional scorecard**, not a
+Coleman treats code cost as a **multi-dimensional scorecard**, not a
 single number.  This guide explains the tooling and commands available for
 evaluating four complementary cost dimensions.
 
@@ -33,18 +33,18 @@ uv sync --extra dev
 ```bash
 make cost-complexity
 # or
-uv run radon cc -s -a coleman4hcs/
+uv run radon cc -s -a coleman/
 ```
 
 **Example output:**
 
 ```text
-coleman4hcs/runner.py
+coleman/runner.py
     F 175:0 get_scenario_provider - C (12)
     F 420:0 run_experiment - B (10)
     F 145:0 create_agents - B (6)
     ...
-coleman4hcs/bandit.py
+coleman/bandit.py
     M 110:4 Bandit.add_arms - B (8)
     C 47:0 Bandit - A (3)
     ...
@@ -63,7 +63,7 @@ anything worse than **C** for a single block.
 ```bash
 make cost-maintainability
 # or
-uv run radon mi -s coleman4hcs/
+uv run radon mi -s coleman/
 ```
 
 **Example output (all modules pass):**
@@ -82,7 +82,7 @@ below this threshold.
 
 ```text
 ❌ Modules below maintainability threshold (MI < 20):
-coleman4hcs/legacy.py - C (14.32)
+coleman/legacy.py - C (14.32)
 ```
 
 ### Raw metrics (Radon raw)
@@ -90,13 +90,13 @@ coleman4hcs/legacy.py - C (14.32)
 ```bash
 make cost-raw
 # or
-uv run radon raw coleman4hcs/
+uv run radon raw coleman/
 ```
 
 **Example output:**
 
 ```text
-coleman4hcs/runner.py
+coleman/runner.py
     LOC: 524
     LLOC: 202
     SLOC: 290
@@ -123,7 +123,7 @@ thresholds are exceeded.  This is the first CI guardrail:
 ```bash
 make cost-xenon
 # or
-uv run xenon --max-absolute C --max-modules B --max-average A coleman4hcs/
+uv run xenon --max-absolute C --max-modules B --max-average A coleman/
 ```
 
 **Example output (all thresholds met):**
@@ -168,13 +168,13 @@ Git history.  It is included as a dev dependency:
 ```bash
 make cost-wily
 # custom file:
-make cost-wily-file WILY_FILE=coleman4hcs/bandit.py
+make cost-wily-file WILY_FILE=coleman/bandit.py
 
 # or individually:
-uv run wily build coleman4hcs
+uv run wily build coleman
 uv run wily index
-uv run wily report coleman4hcs/runner.py
-uv run wily diff coleman4hcs/runner.py -r HEAD^1
+uv run wily report coleman/runner.py
+uv run wily diff coleman/runner.py -r HEAD^1
 ```
 
 !!! note
@@ -190,7 +190,7 @@ Running operators - raw,cyclomatic,maintainability,halstead
 Processing |################################| 200/200
 Completed building wily history.
 
------------History for coleman4hcs/runner.py-----------
+-----------History for coleman/runner.py-----------
 ╒════════════╤═══════════╤════════╤══════════╤══════╤══════════╕
 │ Revision   │ Author    │ Date   │ Lines    │ CC   │ MI       │
 ╞════════════╪═══════════╪════════╪══════════╪══════╪══════════╡
@@ -216,14 +216,14 @@ memory allocation, and copy volume line-by-line:
 ```bash
 make cost-profile-scalene
 # or
-uv run scalene run coleman4hcs/cli.py --- --help
+uv run scalene run coleman/cli.py --- --help
 ```
 
 Replace `--help` with a real workload for meaningful results.  For
 example, profile an actual experiment run:
 
 ```bash
-uv run scalene run coleman4hcs/cli.py --- run --config run.yaml
+uv run scalene run coleman/cli.py --- run --config run.yaml
 ```
 
 !!! note
@@ -239,10 +239,10 @@ uv run scalene run coleman4hcs/cli.py --- run --config run.yaml
       parallel_pool_size: 4
       force_sequential_under_scalene: true
     ```
-    uv run wily build coleman4hcs
+    uv run wily build coleman
     uv run wily index
-    uv run wily report coleman4hcs/runner.py
-    uv run wily diff coleman4hcs/runner.py -r HEAD^1
+    uv run wily report coleman/runner.py
+    uv run wily diff coleman/runner.py -r HEAD^1
 [py-spy](https://github.com/benfred/py-spy) is a sampling profiler that
 attaches to a running process with minimal overhead:
 
@@ -252,7 +252,7 @@ make cost-profile-pyspy
 uv python install 3.13
 uv venv .venv-pyspy --python 3.13
 uv pip install --python .venv-pyspy/bin/python duckdb numpy polars pyarrow scipy scikit-posthocs "pydantic>=2.12.5" "pyyaml>=6.0.3"
-PYTHONPATH=. .venv/bin/py-spy record --rate 20 --subprocesses -o profile.svg -- .venv-pyspy/bin/python -m coleman4hcs.cli run --config run.yaml
+PYTHONPATH=. .venv/bin/py-spy record --rate 20 --subprocesses -o profile.svg -- .venv-pyspy/bin/python -m coleman.cli run --config run.yaml
 ```
 
 !!! note
@@ -272,7 +272,7 @@ PYTHONPATH=. .venv/bin/py-spy record --rate 20 --subprocesses -o profile.svg -- 
     If you want a live view instead of a saved report, run:
 
     ```bash
-    PYTHONPATH=. .venv/bin/py-spy top --rate 20 --subprocesses -- .venv-pyspy/bin/python -m coleman4hcs.cli run --config run.yaml
+    PYTHONPATH=. .venv/bin/py-spy top --rate 20 --subprocesses -- .venv-pyspy/bin/python -m coleman.cli run --config run.yaml
     ```
 
 ---
@@ -396,7 +396,7 @@ For more realistic profiling, replace `--help` with an actual experiment
 configuration:
 
 ```bash
-uv run scalene run coleman4hcs/cli.py --- run --config run.yaml
+uv run scalene run coleman/cli.py --- run --config run.yaml
 ```
 
 ---

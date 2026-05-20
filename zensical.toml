@@ -1,15 +1,15 @@
 [project]
 
 # Project information
-site_name = "Coleman4HCS"
+site_name = "Coleman"
 site_description = "Multi-Armed Bandit based test case prioritization for CI environments"
 site_author = "Jackson Antonio do Prado Lima"
-site_url = "https://jacksonpradolima.github.io/coleman4hcs/"
+site_url = "https://jacksonpradolima.github.io/coleman/"
 copyright = "Copyright &copy; 2026 Jackson Antonio do Prado Lima"
 
 # Repository
-repo_name = "jacksonpradolima/coleman4hcs"
-repo_url = "https://github.com/jacksonpradolima/coleman4hcs"
+repo_name = "jacksonpradolima/coleman"
+repo_url = "https://github.com/jacksonpradolima/coleman"
 
 # Navigation
 nav = [
@@ -62,7 +62,7 @@ toggle.name = "Switch to light mode"
 # ----------------------------------------------------------------------------
 [[project.extra.social]]
 icon = "fontawesome/brands/github"
-link = "https://github.com/jacksonpradolima/coleman4hcs"
+link = "https://github.com/jacksonpradolima/coleman"
 
 # ----------------------------------------------------------------------------
 # Plugins

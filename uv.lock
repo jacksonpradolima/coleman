@@ -310,7 +310,7 @@ wheels = [
 ]
 
 [[package]]
-name = "coleman4hcs"
+name = "coleman"
 version = "2.3.0"
 source = { editable = "." }
 dependencies = [
@@ -369,49 +369,63 @@ telemetry = [
     { name = "opentelemetry-sdk" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-benchmark" },
+    { name = "ruff" },
+]
+
 [package.metadata]
 requires-dist = [
-    { name = "clickhouse-connect", marker = "extra == 'clickhouse'" },
-    { name = "codecarbon", marker = "extra == 'dev'", specifier = ">=3.2.6" },
-    { name = "duckdb" },
-    { name = "interrogate", marker = "extra == 'dev'" },
-    { name = "marimo", marker = "extra == 'notebook'" },
-    { name = "matplotlib", marker = "extra == 'notebook'" },
-    { name = "mkdocs-jupyter", marker = "extra == 'docs'" },
-    { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'" },
-    { name = "numpy" },
-    { name = "numpydoc", marker = "extra == 'dev'" },
-    { name = "opentelemetry-api", marker = "extra == 'telemetry'" },
-    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'telemetry'" },
-    { name = "opentelemetry-sdk", marker = "extra == 'telemetry'" },
-    { name = "pandas", marker = "extra == 'notebook'" },
-    { name = "polars" },
-    { name = "pre-commit", marker = "extra == 'dev'" },
-    { name = "py-spy", marker = "extra == 'dev'", specifier = ">=0.4.1" },
-    { name = "pyarrow" },
-    { name = "pydantic", specifier = ">=2.12.5" },
-    { name = "pyrapl", marker = "extra == 'dev'", specifier = ">=0.2.3.1" },
-    { name = "pyright", marker = "extra == 'dev'" },
-    { name = "pytest", marker = "extra == 'dev'" },
-    { name = "pytest-benchmark", marker = "extra == 'dev'" },
-    { name = "pytest-cov", marker = "extra == 'dev'" },
-    { name = "pytest-mock", marker = "extra == 'dev'" },
-    { name = "pytest-profiling", marker = "extra == 'dev'" },
-    { name = "pytest-xdist", marker = "extra == 'dev'" },
-    { name = "python-semantic-release", marker = "extra == 'release'" },
-    { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "radon", marker = "extra == 'dev'", specifier = ">=6.0.1" },
-    { name = "ruff", marker = "extra == 'dev'" },
-    { name = "scalene", marker = "extra == 'dev'", specifier = ">=2.2.1" },
-    { name = "scikit-posthocs" },
-    { name = "scipy" },
-    { name = "seaborn", marker = "extra == 'notebook'" },
-    { name = "ty", marker = "extra == 'dev'" },
-    { name = "wily", marker = "extra == 'dev'", specifier = ">=1.12.2" },
-    { name = "xenon", marker = "extra == 'dev'", specifier = ">=0.9.3" },
-    { name = "zensical", marker = "extra == 'docs'" },
+    { name = "clickhouse-connect", marker = "extra == 'clickhouse'", specifier = "==0.13.0" },
+    { name = "codecarbon", marker = "extra == 'dev'", specifier = "==3.2.6" },
+    { name = "duckdb", specifier = "==1.5.0" },
+    { name = "interrogate", marker = "extra == 'dev'", specifier = "==1.7.0" },
+    { name = "marimo", marker = "extra == 'notebook'", specifier = "==0.23.0" },
+    { name = "matplotlib", marker = "extra == 'notebook'", specifier = "==3.10.8" },
+    { name = "mkdocs-jupyter", marker = "extra == 'docs'", specifier = "==0.26.1" },
+    { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = "==1.0.3" },
+    { name = "numpy", specifier = "==2.4.3" },
+    { name = "numpydoc", marker = "extra == 'dev'", specifier = "==1.10.0" },
+    { name = "opentelemetry-api", marker = "extra == 'telemetry'", specifier = "==1.41.0" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'telemetry'", specifier = "==1.41.0" },
+    { name = "opentelemetry-sdk", marker = "extra == 'telemetry'", specifier = "==1.41.0" },
+    { name = "pandas", marker = "extra == 'notebook'", specifier = "==3.0.1" },
+    { name = "polars", specifier = "==1.39.3" },
+    { name = "pre-commit", marker = "extra == 'dev'", specifier = "==4.5.1" },
+    { name = "py-spy", marker = "extra == 'dev'", specifier = "==0.4.1" },
+    { name = "pyarrow", specifier = "==23.0.1" },
+    { name = "pydantic", specifier = "==2.12.5" },
+    { name = "pyrapl", marker = "extra == 'dev'", specifier = "==0.2.3.1" },
+    { name = "pyright", marker = "extra == 'dev'", specifier = "==1.1.408" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = "==9.0.3" },
+    { name = "pytest-benchmark", marker = "extra == 'dev'", specifier = "==5.2.3" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = "==7.1.0" },
+    { name = "pytest-mock", marker = "extra == 'dev'", specifier = "==3.15.1" },
+    { name = "pytest-profiling", marker = "extra == 'dev'", specifier = "==1.8.1" },
+    { name = "pytest-xdist", marker = "extra == 'dev'", specifier = "==3.8.0" },
+    { name = "python-semantic-release", marker = "extra == 'release'", specifier = "==10.5.3" },
+    { name = "pyyaml", specifier = "==6.0.3" },
+    { name = "radon", marker = "extra == 'dev'", specifier = "==6.0.1" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = "==0.15.9" },
+    { name = "scalene", marker = "extra == 'dev'", specifier = "==2.2.1" },
+    { name = "scikit-posthocs", specifier = "==0.12.0" },
+    { name = "scipy", specifier = "==1.17.1" },
+    { name = "seaborn", marker = "extra == 'notebook'", specifier = "==0.13.2" },
+    { name = "ty", marker = "extra == 'dev'", specifier = "==0.0.21" },
+    { name = "wily", marker = "extra == 'dev'", specifier = "==1.12.2" },
+    { name = "xenon", marker = "extra == 'dev'", specifier = "==0.9.3" },
+    { name = "zensical", marker = "extra == 'docs'", specifier = "==0.0.28" },
 ]
 provides-extras = ["dev", "docs", "release", "notebook", "telemetry", "clickhouse"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = "==9.0.3" },
+    { name = "pytest-benchmark", specifier = "==5.2.3" },
+    { name = "ruff", specifier = "==0.15.9" },
+]
 
 [[package]]
 name = "colorama"

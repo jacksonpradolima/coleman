@@ -1,3 +1,3 @@
 # Scenarios
 
-::: coleman4hcs.scenarios
+::: coleman.scenarios

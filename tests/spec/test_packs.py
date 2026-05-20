@@ -5,7 +5,7 @@ import contextlib
 import pytest
 import yaml
 
-from coleman4hcs.spec.packs import _deep_merge, resolve_packs
+from coleman.spec.packs import _deep_merge, resolve_packs
 
 
 class TestDeepMerge:

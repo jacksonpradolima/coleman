@@ -35,7 +35,7 @@ jobs:
       - name: Install Python Semantic Release
         run: |
           python -m pip install --upgrade pip
-          pip install python-semantic-release==9.17.0 build uv
+          pip install python-semantic-release==10.5.3 build uv
 
       - name: Python Semantic Release (Version & Tag)
         id: release
@@ -44,15 +44,15 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           # Store current tag before running semantic-release
           BEFORE_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
-          
+
           # Run semantic-release and handle potential failure
           if semantic-release version; then
             # Check if a new tag was created
             AFTER_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
-            
+
             if [ "$BEFORE_TAG" != "$AFTER_TAG" ] && [ "$AFTER_TAG" != "none" ]; then
               NEW_VERSION=$(echo "$AFTER_TAG" | sed 's/^v//')
               echo "released=true" >> $GITHUB_OUTPUT
