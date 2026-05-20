@@ -48,7 +48,7 @@ release = [
     "python-semantic-release==10.5.3",
 ]
 notebook = [
-    "marimo==0.23.0",
+    "marimo==0.23.6",
     "matplotlib==3.10.8",
     "pandas==3.0.3",
     "seaborn==0.13.2",
