@@ -29,6 +29,48 @@ _WRITE_OR_DDL_PATTERN = re.compile(
 )
 
 
+def _handle_line_comment(out: list[str], sql: str, i: int, ch: str) -> tuple[bool, int]:
+    """Process characters while in line comment state."""
+    if ch == "\n":
+        out.append(ch)
+        return False, i + 1
+    out.append(" ")
+    return True, i + 1
+
+
+def _handle_block_comment(out: list[str], sql: str, i: int, ch: str, nxt: str) -> tuple[bool, int]:
+    """Process characters while in block comment state."""
+    if ch == "*" and nxt == "/":
+        out.extend([" ", " "])
+        return False, i + 2
+    out.append("\n" if ch == "\n" else " ")
+    return True, i + 1
+
+
+def _handle_single_quote(out: list[str], sql: str, i: int, ch: str, nxt: str) -> tuple[bool, int]:
+    """Process characters while in single-quoted string state."""
+    if ch == "'" and nxt == "'":
+        out.extend([" ", " "])
+        return True, i + 2
+    if ch == "'":
+        out.append("\n" if ch == "\n" else " ")
+        return False, i + 1
+    out.append("\n" if ch == "\n" else " ")
+    return True, i + 1
+
+
+def _handle_double_quote(out: list[str], sql: str, i: int, ch: str, nxt: str) -> tuple[bool, int]:
+    """Process characters while in double-quoted string state."""
+    if ch == '"' and nxt == '"':
+        out.extend([" ", " "])
+        return True, i + 2
+    if ch == '"':
+        out.append("\n" if ch == "\n" else " ")
+        return False, i + 1
+    out.append("\n" if ch == "\n" else " ")
+    return True, i + 1
+
+
 def _strip_sql_literals_and_comments(sql: str) -> str:
     """Return SQL with literals/comments blanked out for guard checks."""
     out: list[str] = []
@@ -44,44 +86,19 @@ def _strip_sql_literals_and_comments(sql: str) -> str:
         nxt = sql[i + 1] if i + 1 < n else ""
 
         if in_line_comment:
-            if ch == "\n":
-                in_line_comment = False
-                out.append(ch)
-            else:
-                out.append(" ")
-            i += 1
+            in_line_comment, i = _handle_line_comment(out, sql, i, ch)
             continue
 
         if in_block_comment:
-            if ch == "*" and nxt == "/":
-                in_block_comment = False
-                out.extend([" ", " "])
-                i += 2
-            else:
-                out.append("\n" if ch == "\n" else " ")
-                i += 1
+            in_block_comment, i = _handle_block_comment(out, sql, i, ch, nxt)
             continue
 
         if in_single:
-            if ch == "'" and nxt == "'":
-                out.extend([" ", " "])
-                i += 2
-                continue
-            if ch == "'":
-                in_single = False
-            out.append("\n" if ch == "\n" else " ")
-            i += 1
+            in_single, i = _handle_single_quote(out, sql, i, ch, nxt)
             continue
 
         if in_double:
-            if ch == '"' and nxt == '"':
-                out.extend([" ", " "])
-                i += 2
-                continue
-            if ch == '"':
-                in_double = False
-            out.append("\n" if ch == "\n" else " ")
-            i += 1
+            in_double, i = _handle_double_quote(out, sql, i, ch, nxt)
             continue
 
         if ch == "-" and nxt == "-":
