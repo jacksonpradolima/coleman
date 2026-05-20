@@ -73,6 +73,7 @@ class ExecutionPlan:
     execution_id: str
     worker_id: str
     parallel_mode: str
+    seed: int | None = None
 
 
 @dataclass(frozen=True)
@@ -92,6 +93,7 @@ class EnvironmentBuildConfig:
     algorithm_configs: dict[str, Any]
     rewards_names: list[str]
     policy_names: list[str]
+    seed: int | None = None
 
 
 # taken from https://stackoverflow.com/questions/641420/how-should-i-log-while-using-multiprocessing-in-python
@@ -262,7 +264,10 @@ def get_scenario_provider(  # pylint: disable=too-many-positional-arguments
 
 
 def build_agents_from_config(
-    algorithm_configs: dict[str, Any], policy_names: list[str], rewards_names: list[str]
+    algorithm_configs: dict[str, Any],
+    policy_names: list[str],
+    rewards_names: list[str],
+    seed: int | None = None,
 ) -> list[RewardAgent | RewardSlidingWindowAgent | ContextualAgent | SlidingWindowContextualAgent]:
     """Build all agents from config values in a process-local way."""
     policies = {
@@ -283,6 +288,7 @@ def build_agents_from_config(
             policy,
             load_class_from_module(coleman.reward, reward_name + "Reward")(),
             algorithm_configs.get(policy_name.lower(), {}).get("window_sizes", []),
+            seed=seed,
         )
     ]
 
@@ -310,6 +316,7 @@ def build_environment(
         build_config.algorithm_configs,
         build_config.policy_names,
         build_config.rewards_names,
+        seed=build_config.seed,
     )
     scenario = get_scenario_provider(
         build_config.datasets_dir,
@@ -363,6 +370,10 @@ def exp_run_industrial_dataset(
 
 def exp_run_industrial_dataset_isolated(build_config: EnvironmentBuildConfig, plan: ExecutionPlan) -> None:
     """Execute one run by constructing an isolated Environment inside the worker process."""
+    if plan.seed is not None:
+        coleman.policy.base._rng = np.random.default_rng(plan.seed)
+        pl.set_random_seed(plan.seed)
+
     runtime_metadata = {
         "execution_id": plan.execution_id,
         "worker_id": plan.worker_id,
@@ -511,7 +522,7 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
     context_config = contextual_info.get("config", {})
     feature_groups = contextual_info.get("feature_group", {})
 
-    agents = build_agents_from_config(algorithm_configs, policy_names, rewards_names)
+    agents = build_agents_from_config(algorithm_configs, policy_names, rewards_names, seed=seed)
 
     has_sliding_window_contextual_agent = any(isinstance(agent, SlidingWindowContextualAgent) for agent in agents)
     has_contextual_agent = any(isinstance(agent, ContextualAgent) for agent in agents)
@@ -549,6 +560,7 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
                 algorithm_configs=algorithm_configs,
                 rewards_names=rewards_names,
                 policy_names=policy_names,
+                seed=seed,
             )
 
             logging.info(
@@ -569,6 +581,7 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
                     execution_id=build_runtime_metadata(dataset, tr, i + 1, parallel_mode)["execution_id"],
                     worker_id=str(i + 1),
                     parallel_mode=parallel_mode,
+                    seed=None if seed is None else seed + i,
                 )
                 for i in range(independent_executions)
             ]

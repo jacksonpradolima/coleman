@@ -7,6 +7,8 @@ type-safe defaults and validation.
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -154,6 +156,8 @@ class ResultsSpec(BaseModel):
         Rows per write batch.
     top_k_prioritization : int
         Top-k value for prioritisation metrics (0 = disabled).
+    clickhouse : dict[str, Any]
+        Optional ClickHouse sink kwargs (e.g., ``host``, ``port``, ``secure``).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -163,6 +167,7 @@ class ResultsSpec(BaseModel):
     out_dir: str = "./runs"
     batch_size: int = 1000
     top_k_prioritization: int = 0
+    clickhouse: dict[str, Any] = Field(default_factory=dict)
 
 
 class CheckpointSpec(BaseModel):

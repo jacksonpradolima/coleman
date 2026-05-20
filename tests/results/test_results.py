@@ -363,3 +363,29 @@ class TestDuckDBCatalog:
         df = cat.query("SELECT COUNT(*) AS cnt FROM results")
         assert df["cnt"][0] == 1
         cat.close()
+
+    def test_query_allows_semicolon_inside_string_literal(self, tmp_path):
+        """Semicolons inside string literals should not be treated as multi-statement SQL."""
+        from coleman.results.duckdb_catalog import DuckDBCatalog
+
+        sink = ParquetSink(out_dir=str(tmp_path / "runs"), batch_size=100)
+        sink.write_row(_make_row())
+        sink.close()
+
+        cat = DuckDBCatalog(str(tmp_path / "runs"))
+        df = cat.query("SELECT ';' AS marker")
+        assert df["marker"][0] == ";"
+        cat.close()
+
+    def test_query_allows_write_keyword_inside_string_literal(self, tmp_path):
+        """Write keywords inside literals should not trigger read-only mutation guard."""
+        from coleman.results.duckdb_catalog import DuckDBCatalog
+
+        sink = ParquetSink(out_dir=str(tmp_path / "runs"), batch_size=100)
+        sink.write_row(_make_row())
+        sink.close()
+
+        cat = DuckDBCatalog(str(tmp_path / "runs"))
+        df = cat.query("SELECT 'DROP TABLE results' AS statement_text")
+        assert df["statement_text"][0] == "DROP TABLE results"
+        cat.close()

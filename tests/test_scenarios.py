@@ -221,6 +221,24 @@ def test_scenario_loader_unsupported_format_raises(tmp_path):
         ScenarioLoader(str(bad_file), sched_time_ratio=0.5)
 
 
+def test_scenario_loader_rejects_invalid_build_id_values(tmp_path):
+    """Loader should fail fast when BuildId values are missing/non-numeric."""
+    parquet_file = tmp_path / "invalid_build_id.parquet"
+    pl.DataFrame(
+        {
+            "BuildId": ["1", None, "x"],
+            "Name": ["A", "B", "C"],
+            "Duration": [1.0, 2.0, 3.0],
+            "CalcPrio": [0, 0, 0],
+            "LastRun": ["2023-01-01", "2023-01-02", "2023-01-03"],
+            "Verdict": [1, 0, 1],
+        }
+    ).write_parquet(parquet_file)
+
+    with pytest.raises(ValueError, match="BuildId"):
+        ScenarioLoader(str(parquet_file), sched_time_ratio=0.5)
+
+
 def test_scenario_loader_collect_build_with_columns(mock_csv_data, tmp_path):
     """Exercise _collect_build projection path with explicit columns."""
     parquet_file = tmp_path / "testcases.parquet"

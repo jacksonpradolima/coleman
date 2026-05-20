@@ -29,6 +29,98 @@ _WRITE_OR_DDL_PATTERN = re.compile(
 )
 
 
+def _strip_sql_literals_and_comments(sql: str) -> str:
+    """Return SQL with literals/comments blanked out for guard checks."""
+    out: list[str] = []
+    i = 0
+    n = len(sql)
+    in_single = False
+    in_double = False
+    in_line_comment = False
+    in_block_comment = False
+
+    while i < n:
+        ch = sql[i]
+        nxt = sql[i + 1] if i + 1 < n else ""
+
+        if in_line_comment:
+            if ch == "\n":
+                in_line_comment = False
+                out.append(ch)
+            else:
+                out.append(" ")
+            i += 1
+            continue
+
+        if in_block_comment:
+            if ch == "*" and nxt == "/":
+                in_block_comment = False
+                out.extend([" ", " "])
+                i += 2
+            else:
+                out.append("\n" if ch == "\n" else " ")
+                i += 1
+            continue
+
+        if in_single:
+            if ch == "'" and nxt == "'":
+                out.extend([" ", " "])
+                i += 2
+                continue
+            if ch == "'":
+                in_single = False
+            out.append("\n" if ch == "\n" else " ")
+            i += 1
+            continue
+
+        if in_double:
+            if ch == '"' and nxt == '"':
+                out.extend([" ", " "])
+                i += 2
+                continue
+            if ch == '"':
+                in_double = False
+            out.append("\n" if ch == "\n" else " ")
+            i += 1
+            continue
+
+        if ch == "-" and nxt == "-":
+            in_line_comment = True
+            out.extend([" ", " "])
+            i += 2
+            continue
+
+        if ch == "/" and nxt == "*":
+            in_block_comment = True
+            out.extend([" ", " "])
+            i += 2
+            continue
+
+        if ch == "'":
+            in_single = True
+            out.append(" ")
+            i += 1
+            continue
+
+        if ch == '"':
+            in_double = True
+            out.append(" ")
+            i += 1
+            continue
+
+        out.append(ch)
+        i += 1
+
+    return "".join(out)
+
+
+def _count_sql_statements(sql: str) -> int:
+    """Count non-empty statements in SQL after removing literals/comments."""
+    scrubbed = _strip_sql_literals_and_comments(sql)
+    statements = [chunk.strip() for chunk in scrubbed.split(";")]
+    return sum(1 for stmt in statements if stmt)
+
+
 class DuckDBCatalog:
     """Read-only DuckDB view layer over a Parquet results dataset.
 
@@ -102,11 +194,12 @@ class DuckDBCatalog:
             raise ValueError(msg)
 
         # Only allow a single statement in read-only mode.
-        if ";" in normalized.rstrip(";"):
+        if _count_sql_statements(normalized) > 1:
             msg = "Multiple SQL statements are not allowed in read-only mode"
             raise ValueError(msg)
 
-        if _WRITE_OR_DDL_PATTERN.search(normalized):
+        guard_view = _strip_sql_literals_and_comments(normalized)
+        if _WRITE_OR_DDL_PATTERN.search(guard_view):
             msg = "Mutating/DDL SQL is not allowed in read-only mode"
             raise ValueError(msg)
 

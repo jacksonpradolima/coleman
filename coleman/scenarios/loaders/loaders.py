@@ -114,8 +114,20 @@ class ScenarioLoader:
             msg = f"Unsupported scenario file format: {tcfile!r}. Supported formats: .parquet, .csv"
             raise ValueError(msg)
 
+        build_id_expr = pl.col("BuildId").cast(pl.Int64, strict=False)
+        invalid_build_id_count = cast(
+            int,
+            cast(
+                pl.DataFrame,
+                df.select(build_id_expr.is_null().sum().alias("invalid_build_ids")).collect(),
+            ).item(0, "invalid_build_ids"),
+        )
+        if invalid_build_id_count > 0:
+            msg = "Scenario file contains missing/non-numeric BuildId values; please clean the dataset before loading."
+            raise ValueError(msg)
+
         expressions = [
-            pl.col("BuildId").cast(pl.Int64, strict=False).fill_null(0),
+            build_id_expr.alias("BuildId"),
             pl.col("Name").cast(pl.Utf8, strict=False),
             pl.col("Duration").cast(pl.Float64, strict=False).fill_null(0.0),
         ]

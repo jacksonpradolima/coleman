@@ -181,7 +181,11 @@ class Environment(AbstractEnvironment):
         if sink_type == "clickhouse":
             from coleman.results.clickhouse_sink import ClickHouseSink
 
-            return ClickHouseSink()
+            clickhouse_cfg = results_config.get("clickhouse", {})
+            if not isinstance(clickhouse_cfg, dict):
+                msg = "results.clickhouse must be a dictionary of ClickHouseSink keyword arguments"
+                raise TypeError(msg)
+            return ClickHouseSink(**clickhouse_cfg)
         msg = f"Unsupported results sink type: {sink_type!r}. Valid options are 'parquet' or 'clickhouse'."
         raise ValueError(msg)
 

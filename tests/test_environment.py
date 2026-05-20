@@ -436,14 +436,32 @@ def test_build_sink_unsupported_type_raises(mock_agent, mock_scenario_provider, 
 def test_environment_clickhouse_sink_branch(mock_agent, mock_scenario_provider, mock_evaluation_metric):
     """Cover _build_sink clickhouse import/return branch (lines 181-183)."""
     fake_sink = MagicMock()
-    with patch("coleman.results.clickhouse_sink.ClickHouseSink", return_value=fake_sink):
+    with patch("coleman.results.clickhouse_sink.ClickHouseSink", return_value=fake_sink) as sink_cls:
         env = Environment(
             agents=[mock_agent],
             scenario_provider=mock_scenario_provider,
             evaluation_metric=mock_evaluation_metric,
-            results_config={"enabled": True, "sink": "clickhouse"},
+            results_config={
+                "enabled": True,
+                "sink": "clickhouse",
+                "clickhouse": {"host": "localhost", "port": 8123, "secure": False, "verify": False},
+            },
         )
+    sink_cls.assert_called_once_with(host="localhost", port=8123, secure=False, verify=False)
     assert env.monitor.sink is fake_sink
+
+
+def test_environment_clickhouse_sink_invalid_config_type_raises(
+    mock_agent, mock_scenario_provider, mock_evaluation_metric
+):
+    """results.clickhouse must be a mapping for ClickHouseSink kwargs."""
+    with pytest.raises(TypeError, match="results.clickhouse"):
+        Environment(
+            agents=[mock_agent],
+            scenario_provider=mock_scenario_provider,
+            evaluation_metric=mock_evaluation_metric,
+            results_config={"enabled": True, "sink": "clickhouse", "clickhouse": "invalid"},
+        )
 
 
 def test_run_single_breaks_when_t_exceeds_trials(environment):

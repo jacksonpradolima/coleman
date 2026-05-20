@@ -1,12 +1,13 @@
-"""Base Policy class and shared RNG."""
+"""Base Policy class."""
 
 import numpy as np
 import polars as pl
 
 from coleman.agent import Agent
 
-_DEFAULT_POLICY_SEED = 0
-_rng = np.random.default_rng(_DEFAULT_POLICY_SEED)
+# Shared RNG used by policy implementations. Keep unseeded by default so runs
+# without execution.seed are non-deterministic.
+_rng = np.random.default_rng()
 
 
 class Policy:
