@@ -33,7 +33,7 @@ dev = [
     "pytest-xdist==3.8.0",
     "radon==6.0.1",
     "xenon==0.9.3",
-    "scalene==2.2.1",
+    "scalene==2.3.0",
     "py-spy==0.4.1",
     "codecarbon==3.2.6",
     "wily==1.12.2",

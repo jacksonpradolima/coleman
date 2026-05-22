@@ -409,7 +409,7 @@ requires-dist = [
     { name = "pyyaml", specifier = "==6.0.3" },
     { name = "radon", marker = "extra == 'dev'", specifier = "==6.0.1" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.15.9" },
-    { name = "scalene", marker = "extra == 'dev'", specifier = "==2.2.1" },
+    { name = "scalene", marker = "extra == 'dev'", specifier = "==2.3.0" },
     { name = "scikit-posthocs", specifier = "==0.12.0" },
     { name = "scipy", specifier = "==1.17.1" },
     { name = "seaborn", marker = "extra == 'notebook'", specifier = "==0.13.2" },
@@ -2569,7 +2569,7 @@ wheels = [
 
 [[package]]
 name = "scalene"
-version = "2.2.1"
+version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cloudpickle" },
@@ -2581,11 +2581,11 @@ dependencies = [
     { name = "pyyaml" },
     { name = "rich" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/66/fc/ed550649058e9ad4bc262039c2c146c92e4d5d0b9d305c7d33d709c151f5/scalene-2.2.1.tar.gz", hash = "sha256:642f809e34d84cae5712bbe8cca76450af81f2dc4c02762b714d1710160dd791", size = 9483401, upload-time = "2026-03-22T14:49:36.825Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/91/96/e2ea55e8d1d981fb2d0fe76c38c1d7ab7b91c2229176bbeed771b9da0f1f/scalene-2.3.0.tar.gz", hash = "sha256:57212ceeeeeef9891c344275592413f4b90fb407ecdec75b5b164f0eef2e6261", size = 9457857, upload-time = "2026-05-12T18:45:43.894Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4b/38/6ee3bbd6eb983bf6f25427b4110b2f2d34359e78fbb02b79b4e9c11ca565/scalene-2.2.1-cp314-cp314-macosx_15_0_universal2.whl", hash = "sha256:7e13ceaaea670c385825b9b21b58596f86f4d0b6e2a0927eefa9dcbf1444380b", size = 1229918, upload-time = "2026-03-22T14:49:37.607Z" },
-    { url = "https://files.pythonhosted.org/packages/94/1a/0e7a49db2440c31e66479c93567cc4e4f0198dbe413699a2de9d2095a8e3/scalene-2.2.1-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:edb511df0097d3091b4967c70023698306e5fa2c75e9532216904b882e3bd02e", size = 1537041, upload-time = "2026-03-22T14:42:40.067Z" },
-    { url = "https://files.pythonhosted.org/packages/c8/13/a11f6b081c7235a66da71c5230adf5a7a87ef92a6cd98c659494ec20d22e/scalene-2.2.1-cp314-cp314-win_amd64.whl", hash = "sha256:8af3834504d3a4f4ebaa489bb9266563be818972c83a826337936b6809c145e7", size = 1165782, upload-time = "2026-03-22T14:45:13.804Z" },
+    { url = "https://files.pythonhosted.org/packages/64/59/53e513a6cd926e1b222491aa7105891f7b0b5f0fcfe713c8046769746358/scalene-2.3.0-cp314-cp314-macosx_15_0_universal2.whl", hash = "sha256:b8400014d4af47410f6ba5250e27f19f1addf0f534cef7013b1a7827170f5ea8", size = 1134328, upload-time = "2026-05-12T18:46:29.283Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/ad/99f345fb1030fb1eca7d9bc8bc77d52a642bb81dbd6efb7d599d490b2c9e/scalene-2.3.0-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:2c6acc3bb76e32dfbfc7a0fe75986cde8eb8e98cee2515aea541631d440bc465", size = 1495627, upload-time = "2026-05-12T18:46:01.128Z" },
+    { url = "https://files.pythonhosted.org/packages/1d/35/2c8ba0472df79511e3a903100d95348c6d3113d2e2fdca89e2ca5141f265/scalene-2.3.0-cp314-cp314-win_amd64.whl", hash = "sha256:dec3398f6166bbe65494241506745ed088395c6298d31394461bf7061729edef", size = 1054162, upload-time = "2026-05-12T18:49:17.465Z" },
 ]
 
 [[package]]
