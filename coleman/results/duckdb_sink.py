@@ -92,7 +92,7 @@ _INSERT_COLS = [
 
 def _hash_order(order: Any) -> str:
     """Return a stable SHA-256 hex digest for prioritization order."""
-    raw = json.dumps(order, sort_keys=False, default=str)
+    raw = json.dumps(order, sort_keys=True, default=str)
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
@@ -267,8 +267,19 @@ class DuckDBSink(ResultsSink):
 
     def close(self) -> None:
         """Flush and close all DuckDB connections."""
+        first_error: Exception | None = None
         with self._lock:
             for idx in range(self.file_count):
-                self._flush_bucket_locked(idx)
+                try:
+                    self._flush_bucket_locked(idx)
+                except Exception as exc:  # noqa: BLE001
+                    if first_error is None:
+                        first_error = exc
             for conn in self._conns.values():
-                conn.close()
+                try:
+                    conn.close()
+                except Exception as exc:  # noqa: BLE001
+                    if first_error is None:
+                        first_error = exc
+        if first_error is not None:
+            raise first_error

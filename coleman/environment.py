@@ -22,6 +22,7 @@ Environment
 """
 
 import logging
+import re
 import time
 import warnings
 from typing import Any
@@ -153,8 +154,7 @@ class Environment(AbstractEnvironment):
         self.forecast_prioritizations: list[dict[str, Any]] = []
         self.reset()
 
-    @staticmethod
-    def _build_sink(results_config: dict) -> ResultsSink:
+    def _build_sink(self, results_config: dict) -> ResultsSink:
         """Create a ResultsSink from the ``[results]`` config section.
 
         Parameters
@@ -186,13 +186,25 @@ class Environment(AbstractEnvironment):
                 msg = "results.duckdb must be a dictionary of DuckDBSink keyword arguments"
                 raise TypeError(msg)
 
+            duckdb_kwargs = dict(duckdb_cfg)
+            # DuckDB allows only one writer process per database file. In process
+            # parallel mode we isolate each execution into its own database file
+            # by default to avoid cross-process file locking collisions.
+            isolate_per_execution = bool(duckdb_kwargs.pop("isolate_per_execution", True))
+            if isolate_per_execution and self.runtime_metadata.get("parallel_mode") == "process":
+                execution_id = self.runtime_metadata.get("execution_id", "unknown")
+                safe_execution_id = re.sub(r"[^A-Za-z0-9_.-]+", "_", execution_id).strip("._") or "unknown"
+                base_name = str(duckdb_kwargs.get("base_name", "results"))
+                duckdb_kwargs["base_name"] = f"{base_name}_{safe_execution_id}"
+                duckdb_kwargs["file_count"] = 1
+
             top_k_raw = results_config.get("top_k_prioritization", 0)
             top_k = top_k_raw if top_k_raw and top_k_raw > 0 else None
             return DuckDBSink(
                 out_dir=results_config.get("out_dir", "./runs"),
                 batch_size=results_config.get("batch_size", 1000),
                 top_k=top_k,
-                **duckdb_cfg,
+                **duckdb_kwargs,
             )
         if sink_type == "clickhouse":
             from coleman.results.clickhouse_sink import ClickHouseSink

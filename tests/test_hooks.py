@@ -46,3 +46,8 @@ def test_dispatch_hook_event_fail_fast_true_raises():
 
     with pytest.raises(RuntimeError, match="boom"):
         dispatch_hook_event([bad], "on_run_start", ctx, fail_fast=True)
+
+
+def test_load_hook_plugin_class_requires_no_args_message():
+    with pytest.raises(ValueError, match="must be instantiable without arguments"):
+        load_hook_plugins(["tests.support.hook_plugins.NeedsArgsHook"])

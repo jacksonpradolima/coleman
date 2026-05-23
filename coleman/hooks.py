@@ -98,7 +98,11 @@ def _load_hook_plugin(path: str) -> RunnerHook:
     symbol = getattr(module, symbol_name)
 
     if inspect.isclass(symbol):
-        return cast(RunnerHook, symbol())
+        try:
+            return cast(RunnerHook, symbol())
+        except TypeError as exc:
+            msg = f"Hook class {path!r} must be instantiable without arguments (constructor signature is incompatible)."
+            raise ValueError(msg) from exc
 
     if callable(symbol):
         return FunctionHookAdapter(func=cast(Callable[[str, HookContext, Any | None], Any], symbol))

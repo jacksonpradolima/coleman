@@ -887,3 +887,88 @@ def test_exp_run_isolated_dispatches_execution_hooks():
 
     hook.on_execution_start.assert_called_once()
     hook.on_execution_end.assert_called_once()
+
+
+def test_exp_run_isolated_dispatches_error_when_build_environment_fails():
+    hook = Mock()
+
+    config = EnvironmentBuildConfig(
+        datasets_dir="examples",
+        dataset="fakedata",
+        sched_time_ratio=0.5,
+        use_hcs=False,
+        use_context=False,
+        context_config={},
+        feature_groups={},
+        results_config={},
+        checkpoint_config={},
+        telemetry_config={},
+        algorithm_configs={},
+        rewards_names=["RNFail"],
+        policy_names=["Random"],
+        run_id="rid-999",
+        extensions={},
+        hook_plugin_paths=["tests.support.hook_plugins.RecordingHook"],
+        hook_fail_fast=True,
+    )
+    plan = ExecutionPlan(
+        iteration=1,
+        trials=3,
+        level=20,
+        execution_id="exec-1",
+        worker_id="1",
+        parallel_mode="sequential",
+    )
+
+    with (
+        patch("coleman.runner.load_hook_plugins", return_value=[hook]),
+        patch("coleman.runner.build_environment", side_effect=RuntimeError("bad env")),
+        pytest.raises(RuntimeError, match="bad env"),
+    ):
+        exp_run_industrial_dataset_isolated(config, plan)
+
+    hook.on_execution_start.assert_called_once()
+    hook.on_error.assert_called_once()
+
+
+def test_run_experiment_dispatches_error_with_dataset_context():
+    from coleman.runner import run_experiment
+
+    hook = Mock()
+    scenario = Mock()
+    scenario.max_builds = 3
+
+    cfg = {
+        "_run_id": "rid-123",
+        "execution": {
+            "seed": 7,
+            "independent_executions": 1,
+            "parallel_pool_size": 1,
+            "verbose": False,
+        },
+        "experiment": {
+            "scheduled_time_ratio": [0.1],
+            "datasets_dir": "examples",
+            "datasets": ["fakedata"],
+            "rewards": ["RNFail"],
+            "policies": ["Random"],
+        },
+        "hooks": {
+            "fail_fast": True,
+            "plugins": ["tests.support.hook_plugins.RecordingHook"],
+        },
+        "results": {"enabled": False},
+    }
+
+    with (
+        patch("coleman.runner.get_scenario_provider", return_value=scenario),
+        patch("coleman.runner.build_agents_from_config", return_value=[]),
+        patch("coleman.runner.load_hook_plugins", return_value=[hook]),
+        patch("coleman.runner._dispatch_executions", side_effect=RuntimeError("boom")),
+        pytest.raises(RuntimeError, match="boom"),
+    ):
+        run_experiment(cfg)
+
+    hook.on_error.assert_called_once()
+    error_context = hook.on_error.call_args.args[0]
+    assert error_context.dataset_id == "fakedata"

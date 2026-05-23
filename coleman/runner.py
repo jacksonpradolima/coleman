@@ -417,8 +417,8 @@ def exp_run_industrial_dataset_isolated(build_config: EnvironmentBuildConfig, pl
     )
 
     started_at = time.time()
-    env, _ = build_environment(build_config, runtime_metadata, agent_seed=plan.seed)
     try:
+        env, _ = build_environment(build_config, runtime_metadata, agent_seed=plan.seed)
         exp_run_industrial_dataset(plan.iteration, plan.trials, env, plan.level, runtime_metadata)
         dispatch_hook_event(
             execution_hooks,
@@ -601,6 +601,7 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
 
     run_started_at = time.time()
     dispatch_hook_event(coordinator_hooks, "on_run_start", run_context, fail_fast=hook_fail_fast)
+    current_error_context = run_context
 
     try:
         for tr in sched_time_ratio:
@@ -615,6 +616,7 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
                     sched_time_ratio=tr,
                     extensions=extensions,
                 )
+                current_error_context = dataset_context
                 dispatch_hook_event(coordinator_hooks, "on_dataset_start", dataset_context, fail_fast=hook_fail_fast)
                 dataset_started_at = time.time()
 
@@ -695,7 +697,7 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
         dispatch_hook_event(
             coordinator_hooks,
             "on_error",
-            run_context,
+            current_error_context,
             exc,
             fail_fast=hook_fail_fast,
         )

@@ -503,6 +503,35 @@ def test_environment_duckdb_sink_invalid_config_type_raises(mock_agent, mock_sce
         )
 
 
+def test_environment_duckdb_sink_process_mode_isolates_per_execution(
+    mock_agent, mock_scenario_provider, mock_evaluation_metric
+):
+    """In process parallel mode, DuckDB sink should isolate file name by execution id."""
+    fake_sink = MagicMock()
+    with patch("coleman.results.duckdb_sink.DuckDBSink", return_value=fake_sink) as sink_cls:
+        Environment(
+            agents=[mock_agent],
+            scenario_provider=mock_scenario_provider,
+            evaluation_metric=mock_evaluation_metric,
+            runtime_metadata={"parallel_mode": "process", "execution_id": "exec:42/a"},
+            results_config={
+                "enabled": True,
+                "sink": "duckdb",
+                "out_dir": "./runs",
+                "batch_size": 25,
+                "duckdb": {"file_count": 8, "base_name": "exp"},
+            },
+        )
+
+    sink_cls.assert_called_once_with(
+        out_dir="./runs",
+        batch_size=25,
+        top_k=None,
+        file_count=1,
+        base_name="exp_exec_42_a",
+    )
+
+
 def test_run_single_breaks_when_t_exceeds_trials(environment):
     """Cover run_single early-break branch around line 322."""
 

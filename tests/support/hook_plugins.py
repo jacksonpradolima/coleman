@@ -17,3 +17,8 @@ class RecordingHook:
 def functional_hook(event_name, context, payload=None):
     del payload
     EVENTS.append((event_name, context.run_id))
+
+
+class NeedsArgsHook:
+    def __init__(self, required: str):
+        self.required = required

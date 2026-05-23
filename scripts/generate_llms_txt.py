@@ -12,6 +12,23 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "llms.txt"
 
 
+def _resolve_repo_path(rel: str) -> Path:
+    """Resolve one repository-relative path and prevent path traversal."""
+    rel_path = Path(rel)
+    if rel_path.is_absolute():
+        msg = f"Absolute source path is not allowed: {rel}"
+        raise ValueError(msg)
+
+    resolved = (ROOT / rel_path).resolve()
+    root_resolved = ROOT.resolve()
+    try:
+        resolved.relative_to(root_resolved)
+    except ValueError as exc:
+        msg = f"Source path escapes repository root: {rel}"
+        raise ValueError(msg) from exc
+    return resolved
+
+
 def _discover_sources() -> list[str]:
     """Return deterministic source list for llms.txt generation.
 
@@ -62,7 +79,7 @@ def _build_consolidated() -> str:
     chunks.append("\n## Consolidated Documentation\n")
 
     for rel in sources:
-        path = ROOT / rel
+        path = _resolve_repo_path(rel)
         if not path.exists():
             chunks.append(f"\n### FILE: {rel}\n")
             chunks.append("(missing)\n")
