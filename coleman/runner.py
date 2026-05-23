@@ -138,6 +138,276 @@ class AgentBuildIssue:
     hint: str | None = None
 
 
+def _add_issue(
+    issues: list[AgentBuildIssue],
+    *,
+    code: str,
+    message: str,
+    policy_name: str,
+    reward_name: str | None = None,
+    hint: str | None = None,
+) -> None:
+    """Append one normalized agent-build validation issue."""
+    issues.append(
+        AgentBuildIssue(
+            code=code,
+            message=message,
+            policy_name=policy_name,
+            reward_name=reward_name,
+            hint=hint,
+        )
+    )
+
+
+def _resolve_policy_config(
+    *,
+    normalized: dict[str, Any],
+    policy_name: str,
+    policy_lookup: dict[str, str],
+    issues: list[AgentBuildIssue],
+) -> tuple[str, dict[str, Any] | None]:
+    """Resolve and validate one top-level policy config block."""
+    if policy_name.lower() not in policy_lookup:
+        _add_issue(
+            issues,
+            code="unknown_policy",
+            message=f"Unknown policy {policy_name!r}.",
+            policy_name=policy_name,
+            hint="Use one of the canonical policy names exported by coleman.policy.",
+        )
+        return policy_name.lower(), None
+
+    cfg_key = policy_name.lower()
+    policy_cfg = normalized.get(cfg_key, {})
+    if not isinstance(policy_cfg, dict):
+        _add_issue(
+            issues,
+            code="invalid_policy_config",
+            message=f"Algorithm config for policy {policy_name!r} must be a dictionary.",
+            policy_name=policy_name,
+        )
+        return cfg_key, None
+
+    return cfg_key, policy_cfg
+
+
+def _validate_window_size_requirements(
+    *,
+    policy_name: str,
+    cfg_key: str,
+    policy_cfg: dict[str, Any],
+    issues: list[AgentBuildIssue],
+) -> None:
+    """Validate non-empty window_sizes for sliding-window policies."""
+    if policy_name not in {"FRRMAB", "SWLinUCB"}:
+        return
+
+    window_sizes = policy_cfg.get("window_sizes", [])
+    if isinstance(window_sizes, list) and window_sizes:
+        return
+
+    _add_issue(
+        issues,
+        code="missing_window_sizes",
+        message=f"Policy {policy_name!r} requires a non-empty window_sizes list.",
+        policy_name=policy_name,
+        hint=f"Define algorithm.{cfg_key}.window_sizes: [5, 10] (example).",
+    )
+
+
+def _resolve_portfolio_candidates(
+    *,
+    candidate_policies_raw: list[str],
+    available_policy_names: list[str],
+    policy_name: str,
+    reward_name: str,
+    issues: list[AgentBuildIssue],
+) -> list[str]:
+    """Resolve nested PortfolioUCB candidate policy names and report issues."""
+    resolved_candidates, unknown_candidates = resolve_requested_names(
+        candidate_policies_raw,
+        available_policy_names,
+    )
+
+    for unknown_name in unknown_candidates:
+        _add_issue(
+            issues,
+            code="unknown_portfolio_policy",
+            message=f"Unknown nested portfolio policy {unknown_name!r} for reward {reward_name!r}.",
+            policy_name=policy_name,
+            reward_name=reward_name,
+        )
+
+    if any(candidate == "PortfolioUCB" for candidate in resolved_candidates):
+        _add_issue(
+            issues,
+            code="portfolio_recursive_reference",
+            message="PortfolioUCB cannot include itself as a nested candidate policy.",
+            policy_name=policy_name,
+            reward_name=reward_name,
+        )
+        return []
+
+    return resolved_candidates if not unknown_candidates else []
+
+
+def _instantiate_portfolio_candidates(
+    *,
+    normalized: dict[str, Any],
+    reward_key: str,
+    resolved_candidates: list[str],
+    policy_name: str,
+    reward_name: str,
+    issues: list[AgentBuildIssue],
+) -> list[Any]:
+    """Instantiate nested policies for one PortfolioUCB reward branch."""
+    candidate_instances: list[Any] = []
+    for candidate in resolved_candidates:
+        params = normalized.get(candidate.lower(), {}).get(reward_key, {})
+        if not isinstance(params, dict):
+            params = {}
+        try:
+            candidate_instances.append(load_class_from_module(coleman.policy, candidate + "Policy")(**params))
+        except Exception as exc:  # noqa: BLE001
+            _add_issue(
+                issues,
+                code="portfolio_policy_init_error",
+                message=f"Failed to initialize nested policy {candidate!r} for reward {reward_name!r}: {exc}",
+                policy_name=policy_name,
+                reward_name=reward_name,
+                hint=f"Provide required parameters under algorithm.{candidate.lower()}.{reward_key}.",
+            )
+    return candidate_instances
+
+
+def _normalize_portfolio_reward_branch(
+    *,
+    normalized: dict[str, Any],
+    policy_name: str,
+    policy_cfg: dict[str, Any],
+    reward_name: str,
+    reward_lookup: dict[str, str],
+    available_policy_names: list[str],
+    cfg_key: str,
+    issues: list[AgentBuildIssue],
+) -> None:
+    """Validate and normalize one PortfolioUCB reward configuration branch."""
+    if reward_name.lower() not in reward_lookup:
+        _add_issue(
+            issues,
+            code="unknown_reward",
+            message=f"Unknown reward {reward_name!r}.",
+            policy_name=policy_name,
+            reward_name=reward_name,
+            hint="Use one of the canonical reward names exported by coleman.reward.",
+        )
+        return
+
+    reward_key = reward_name.lower()
+    reward_cfg = policy_cfg.get(reward_key, {})
+    if not isinstance(reward_cfg, dict):
+        _add_issue(
+            issues,
+            code="invalid_reward_policy_config",
+            message=f"Config for policy {policy_name!r} and reward {reward_name!r} must be a dictionary.",
+            policy_name=policy_name,
+            reward_name=reward_name,
+        )
+        return
+
+    candidate_policies_raw = reward_cfg.get("policies")
+    if not isinstance(candidate_policies_raw, list):
+        _add_issue(
+            issues,
+            code="portfolio_missing_policies",
+            message=f"Policy {policy_name!r} requires '{reward_key}.policies' as a non-empty list.",
+            policy_name=policy_name,
+            reward_name=reward_name,
+            hint=(
+                f"Define algorithm.portfolioucb.{reward_key}.policies with canonical "
+                "policy names, e.g. ['UCB1', 'Random']."
+            ),
+        )
+        return
+
+    if not candidate_policies_raw:
+        _add_issue(
+            issues,
+            code="portfolio_empty_policies",
+            message=f"Policy {policy_name!r} received an empty policies list.",
+            policy_name=policy_name,
+            reward_name=reward_name,
+        )
+        return
+
+    if not all(isinstance(item, str) for item in candidate_policies_raw):
+        return
+
+    resolved_candidates = _resolve_portfolio_candidates(
+        candidate_policies_raw=candidate_policies_raw,
+        available_policy_names=available_policy_names,
+        policy_name=policy_name,
+        reward_name=reward_name,
+        issues=issues,
+    )
+    if not resolved_candidates:
+        return
+
+    candidate_instances = _instantiate_portfolio_candidates(
+        normalized=normalized,
+        reward_key=reward_key,
+        resolved_candidates=resolved_candidates,
+        policy_name=policy_name,
+        reward_name=reward_name,
+        issues=issues,
+    )
+
+    reward_cfg = dict(reward_cfg)
+    reward_cfg["policies"] = candidate_instances
+    policy_cfg[reward_key] = reward_cfg
+    normalized[cfg_key] = policy_cfg
+
+
+def _normalize_portfolio_policy(
+    *,
+    normalized: dict[str, Any],
+    policy_name: str,
+    cfg_key: str,
+    policy_cfg: dict[str, Any],
+    rewards_names: list[str],
+    reward_lookup: dict[str, str],
+    available_policy_names: list[str],
+    issues: list[AgentBuildIssue],
+) -> None:
+    """Normalize nested PortfolioUCB policy definitions across rewards."""
+    if policy_name != "PortfolioUCB":
+        return
+
+    for reward_name in rewards_names:
+        _normalize_portfolio_reward_branch(
+            normalized=normalized,
+            policy_name=policy_name,
+            policy_cfg=policy_cfg,
+            reward_name=reward_name,
+            reward_lookup=reward_lookup,
+            available_policy_names=available_policy_names,
+            cfg_key=cfg_key,
+            issues=issues,
+        )
+
+
+def _raise_if_strict_issues(*, strict: bool, issues: list[AgentBuildIssue]) -> None:
+    """Raise consolidated validation error when strict mode is enabled."""
+    if not (strict and issues):
+        return
+
+    lines = [
+        "Invalid agent/policy configuration detected:",
+        *["- " + issue.message + (f" Hint: {issue.hint}" if issue.hint else "") for issue in issues],
+    ]
+    raise ValueError("\n".join(lines))
+
+
 # taken from https://stackoverflow.com/questions/641420/how-should-i-log-while-using-multiprocessing-in-python
 def create_logger(level):
     """Create and configure a logger for multiprocessing-safe logging.
@@ -644,162 +914,33 @@ def normalize_and_validate_agent_build(
     reward_lookup = {name.lower(): name for name in available_reward_names}
 
     for policy_name in policy_names:
-        if policy_name.lower() not in policy_lookup:
-            issues.append(
-                AgentBuildIssue(
-                    code="unknown_policy",
-                    message=f"Unknown policy {policy_name!r}.",
-                    policy_name=policy_name,
-                    hint="Use one of the canonical policy names exported by coleman.policy.",
-                )
-            )
+        cfg_key, policy_cfg = _resolve_policy_config(
+            normalized=normalized,
+            policy_name=policy_name,
+            policy_lookup=policy_lookup,
+            issues=issues,
+        )
+        if policy_cfg is None:
             continue
 
-        cfg_key = policy_name.lower()
-        policy_cfg = normalized.get(cfg_key, {})
-        if not isinstance(policy_cfg, dict):
-            issues.append(
-                AgentBuildIssue(
-                    code="invalid_policy_config",
-                    message=f"Algorithm config for policy {policy_name!r} must be a dictionary.",
-                    policy_name=policy_name,
-                )
-            )
-            continue
+        _validate_window_size_requirements(
+            policy_name=policy_name,
+            cfg_key=cfg_key,
+            policy_cfg=policy_cfg,
+            issues=issues,
+        )
+        _normalize_portfolio_policy(
+            normalized=normalized,
+            policy_name=policy_name,
+            cfg_key=cfg_key,
+            policy_cfg=policy_cfg,
+            rewards_names=rewards_names,
+            reward_lookup=reward_lookup,
+            available_policy_names=available_policy_names,
+            issues=issues,
+        )
 
-        if policy_name in {"FRRMAB", "SWLinUCB"}:
-            window_sizes = policy_cfg.get("window_sizes", [])
-            if not isinstance(window_sizes, list) or len(window_sizes) == 0:
-                issues.append(
-                    AgentBuildIssue(
-                        code="missing_window_sizes",
-                        message=f"Policy {policy_name!r} requires a non-empty window_sizes list.",
-                        policy_name=policy_name,
-                        hint=f"Define algorithm.{cfg_key}.window_sizes: [5, 10] (example).",
-                    )
-                )
-
-        if policy_name == "PortfolioUCB":
-            for reward_name in rewards_names:
-                if reward_name.lower() not in reward_lookup:
-                    issues.append(
-                        AgentBuildIssue(
-                            code="unknown_reward",
-                            message=f"Unknown reward {reward_name!r}.",
-                            policy_name=policy_name,
-                            reward_name=reward_name,
-                            hint="Use one of the canonical reward names exported by coleman.reward.",
-                        )
-                    )
-                    continue
-
-                reward_key = reward_name.lower()
-                reward_cfg = policy_cfg.get(reward_key, {})
-                if not isinstance(reward_cfg, dict):
-                    issues.append(
-                        AgentBuildIssue(
-                            code="invalid_reward_policy_config",
-                            message=(
-                                f"Config for policy {policy_name!r} and reward {reward_name!r} must be a dictionary."
-                            ),
-                            policy_name=policy_name,
-                            reward_name=reward_name,
-                        )
-                    )
-                    continue
-
-                candidate_policies_raw = reward_cfg.get("policies")
-                if not isinstance(candidate_policies_raw, list):
-                    issues.append(
-                        AgentBuildIssue(
-                            code="portfolio_missing_policies",
-                            message=(f"Policy {policy_name!r} requires '{reward_key}.policies' as a non-empty list."),
-                            policy_name=policy_name,
-                            reward_name=reward_name,
-                            hint=(
-                                f"Define algorithm.portfolioucb.{reward_key}.policies with canonical "
-                                "policy names, e.g. ['UCB1', 'Random']."
-                            ),
-                        )
-                    )
-                    continue
-
-                if not candidate_policies_raw:
-                    issues.append(
-                        AgentBuildIssue(
-                            code="portfolio_empty_policies",
-                            message=f"Policy {policy_name!r} received an empty policies list.",
-                            policy_name=policy_name,
-                            reward_name=reward_name,
-                        )
-                    )
-                    continue
-
-                if all(isinstance(item, str) for item in candidate_policies_raw):
-                    resolved_candidates, unknown_candidates = resolve_requested_names(
-                        candidate_policies_raw,
-                        available_policy_names,
-                    )
-                    for unknown_name in unknown_candidates:
-                        issues.append(
-                            AgentBuildIssue(
-                                code="unknown_portfolio_policy",
-                                message=(
-                                    f"Unknown nested portfolio policy {unknown_name!r} for reward {reward_name!r}."
-                                ),
-                                policy_name=policy_name,
-                                reward_name=reward_name,
-                            )
-                        )
-
-                    if any(candidate == "PortfolioUCB" for candidate in resolved_candidates):
-                        issues.append(
-                            AgentBuildIssue(
-                                code="portfolio_recursive_reference",
-                                message="PortfolioUCB cannot include itself as a nested candidate policy.",
-                                policy_name=policy_name,
-                                reward_name=reward_name,
-                            )
-                        )
-                        continue
-
-                    if not unknown_candidates and resolved_candidates:
-                        candidate_instances = []
-                        for candidate in resolved_candidates:
-                            params = normalized.get(candidate.lower(), {}).get(reward_key, {})
-                            if not isinstance(params, dict):
-                                params = {}
-                            try:
-                                candidate_instances.append(
-                                    load_class_from_module(coleman.policy, candidate + "Policy")(**params)
-                                )
-                            except Exception as exc:  # noqa: BLE001
-                                issues.append(
-                                    AgentBuildIssue(
-                                        code="portfolio_policy_init_error",
-                                        message=(
-                                            f"Failed to initialize nested policy {candidate!r} "
-                                            f"for reward {reward_name!r}: {exc}"
-                                        ),
-                                        policy_name=policy_name,
-                                        reward_name=reward_name,
-                                        hint=(
-                                            f"Provide required parameters under algorithm.{candidate.lower()}.{reward_key}."  # noqa: E501
-                                        ),
-                                    )
-                                )
-                                continue
-                        reward_cfg = dict(reward_cfg)
-                        reward_cfg["policies"] = candidate_instances
-                        policy_cfg[reward_key] = reward_cfg
-                        normalized[cfg_key] = policy_cfg
-
-    if strict and issues:
-        lines = [
-            "Invalid agent/policy configuration detected:",
-            *["- " + issue.message + (f" Hint: {issue.hint}" if issue.hint else "") for issue in issues],
-        ]
-        raise ValueError("\n".join(lines))
+    _raise_if_strict_issues(strict=strict, issues=issues)
 
     return normalized, issues
 

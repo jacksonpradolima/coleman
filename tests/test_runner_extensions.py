@@ -79,3 +79,85 @@ def test_normalize_and_validate_agent_build_raises_for_missing_window_sizes():
             rewards_names=["RNFail"],
             strict=True,
         )
+
+
+def test_normalize_and_validate_agent_build_collects_unknown_policy_when_not_strict():
+    normalized, issues = normalize_and_validate_agent_build(
+        algorithm_configs={},
+        policy_names=["NoSuchPolicy"],
+        rewards_names=["RNFail"],
+        strict=False,
+    )
+
+    assert normalized == {}
+    assert len(issues) == 1
+    assert issues[0].code == "unknown_policy"
+
+
+def test_normalize_and_validate_agent_build_portfolio_requires_reward_dict():
+    _, issues = normalize_and_validate_agent_build(
+        algorithm_configs={
+            "portfolioucb": {
+                "rnfail": [],
+            }
+        },
+        policy_names=["PortfolioUCB"],
+        rewards_names=["RNFail"],
+        strict=False,
+    )
+
+    assert any(issue.code == "invalid_reward_policy_config" for issue in issues)
+
+
+def test_normalize_and_validate_agent_build_portfolio_requires_non_empty_policy_list():
+    _, issues = normalize_and_validate_agent_build(
+        algorithm_configs={
+            "portfolioucb": {
+                "rnfail": {
+                    "policies": [],
+                }
+            }
+        },
+        policy_names=["PortfolioUCB"],
+        rewards_names=["RNFail"],
+        strict=False,
+    )
+
+    assert any(issue.code == "portfolio_empty_policies" for issue in issues)
+
+
+def test_normalize_and_validate_agent_build_portfolio_reports_unknown_and_recursive_candidates():
+    _, issues = normalize_and_validate_agent_build(
+        algorithm_configs={
+            "portfolioucb": {
+                "rnfail": {
+                    "policies": ["PortfolioUCB", "NotExisting"],
+                }
+            }
+        },
+        policy_names=["PortfolioUCB"],
+        rewards_names=["RNFail"],
+        strict=False,
+    )
+
+    codes = {issue.code for issue in issues}
+    assert "unknown_portfolio_policy" in codes
+    assert "portfolio_recursive_reference" in codes
+
+
+def test_normalize_and_validate_agent_build_portfolio_init_error_is_collected():
+    with patch("coleman.runner.load_class_from_module", side_effect=RuntimeError("boom")):
+        _, issues = normalize_and_validate_agent_build(
+            algorithm_configs={
+                "portfolioucb": {
+                    "rnfail": {
+                        "policies": ["Random"],
+                    }
+                }
+            },
+            policy_names=["PortfolioUCB"],
+            rewards_names=["RNFail"],
+            strict=False,
+        )
+
+    assert any(issue.code == "portfolio_policy_init_error" for issue in issues)
