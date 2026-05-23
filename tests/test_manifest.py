@@ -27,3 +27,18 @@ def test_generate_manifest_includes_relative_artifacts(tmp_path):
     assert "spec.resolved.json" in rel_paths
     assert "provenance.json" in rel_paths
     assert "results/part-1.parquet" in rel_paths
+
+
+def test_generate_manifest_includes_duckdb_results(tmp_path):
+    run_dir = tmp_path / "rid456"
+    results_dir = run_dir / "results"
+    results_dir.mkdir(parents=True)
+    (results_dir / "part-1.duckdb").write_bytes(b"DUCK")
+
+    manifest_path = generate_manifest(run_dir, run_id="rid456")
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    result_entries = [item for item in data["artifacts"] if item["type"] == "results"]
+    assert result_entries
+    assert any(item["format"] == "duckdb" for item in result_entries)
+    assert any(item["relative_path"] == "results/part-1.duckdb" for item in result_entries)

@@ -84,6 +84,18 @@ class TestBudgetSpec:
         with pytest.raises(ValidationError, match="subset_size"):
             BudgetSpec(mode=BudgetMode.SUBSET_SIZE, values=[0])
 
+    def test_budget_values_must_not_be_empty(self):
+        with pytest.raises(ValidationError, match="must contain at least one value"):
+            BudgetSpec(mode=BudgetMode.RATIO, values=[])
+
+    def test_ratio_requires_values_within_open_closed_interval(self):
+        with pytest.raises(ValidationError, match=r"within \(0, 1\]"):
+            BudgetSpec(mode=BudgetMode.RATIO, values=[0.0, 1.2])
+
+    def test_fixed_time_requires_positive_values(self):
+        with pytest.raises(ValidationError, match="fixed_time"):
+            BudgetSpec(mode=BudgetMode.FIXED_TIME, values=[0.0])
+
 
 class TestAlgorithmSpec:
     def test_extra_allowed(self):

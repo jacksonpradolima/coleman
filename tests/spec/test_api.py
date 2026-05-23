@@ -101,6 +101,16 @@ class TestRun:
             r2 = run(spec2)
             assert r1.run_id == r2.run_id
 
+    def test_run_generates_manifest_when_enabled(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            spec = _light_run_spec(tmpdir)
+            spec.results.manifest_enabled = True
+
+            result = run(spec)
+
+            assert result.artifacts_dir is not None
+            assert os.path.exists(os.path.join(result.artifacts_dir, "manifest.json"))
+
 
 class TestRunWithExtension:
     def test_run_with_extension_sequential(self):
@@ -137,6 +147,16 @@ class TestRunWithExtension:
             assert len(result.run_id) == 12
             assert result.artifacts_dir is not None
             assert os.path.exists(os.path.join(result.artifacts_dir, "spec.resolved.json"))
+
+    def test_run_with_extension_generates_manifest_when_enabled(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            spec = _light_run_spec(tmpdir)
+            spec.results.manifest_enabled = True
+
+            result = run_with_extension(spec, _PICKLABLE_EXTENSION)
+
+            assert result.artifacts_dir is not None
+            assert os.path.exists(os.path.join(result.artifacts_dir, "manifest.json"))
 
 
 class TestRunMany:

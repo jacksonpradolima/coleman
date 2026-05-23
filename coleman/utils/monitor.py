@@ -103,10 +103,13 @@ class MonitorCollector:
         else:
             budget_mode = BudgetMode.RATIO.value
 
+        # If caller explicitly provides budget_mode in CollectParams, treat
+        # CollectParams as authoritative for the budget pair and do not
+        # fallback to scenario_provider.budget_value when value is omitted.
         raw_budget_value = (
             params.budget_value
             if params.budget_value is not None
-            else getattr(params.scenario_provider, "budget_value", None)
+            else (None if params.budget_mode is not None else getattr(params.scenario_provider, "budget_value", None))
         )
         if isinstance(raw_budget_value, int | float) and not isinstance(raw_budget_value, bool):
             budget_value = float(raw_budget_value)

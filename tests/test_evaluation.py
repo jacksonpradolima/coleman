@@ -383,6 +383,40 @@ def test_apfdc_metric(sample_records, available_time):
     assert metric.testcase_costs == [item["Duration"] for item in sample_records]
 
 
+def test_apfdc_metric_without_failures_sets_defaults_and_keeps_costs():
+    records = [
+        {"Name": "T1", "Duration": 1.0, "NumRan": 1, "NumErrors": 0, "Verdict": 0},
+        {"Name": "T2", "Duration": 2.0, "NumRan": 1, "NumErrors": 0, "Verdict": 0},
+    ]
+    metric = APFDcMetric()
+    metric.update_available_time(10.0)
+    metric.evaluate(records)
+
+    assert metric.testcase_costs == [1.0, 2.0]
+    assert metric.fitness == pytest.approx(1.0)
+    assert metric.cost == pytest.approx(1.0)
+
+
+def test_apfdc_compute_metrics_without_detected_ranks_sets_zero_cost():
+    metric = APFDcMetric()
+    metric.detection_ranks = []
+    metric.detection_ranks_failures = []
+
+    metric.compute_metrics(costs=[1.0, 2.0], total_failure_count=1, total_failed_tests=1, no_testcases=2)
+
+    assert metric.cost == pytest.approx(0.0)
+    assert metric.fitness == pytest.approx(0.0)
+    assert metric.avg_precision == pytest.approx(0.0)
+
+
+def test_topk_base_compute_fitness_raises_not_implemented():
+    from coleman.evaluation.topk import _TopKVerdictMetric
+
+    metric = _TopKVerdictMetric(top_k=1)
+    with pytest.raises(NotImplementedError):
+        metric._compute_fitness(1, 1, 1)
+
+
 def test_evaluation_metric_as_suite_frame_empty_list():
     """Cover _as_suite_frame when test_suite is an empty list."""
     metric = NAPFDMetric()

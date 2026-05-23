@@ -206,6 +206,40 @@ def test_collect_derives_fixed_time_budget_value_from_available_time(mock_scenar
     assert sink.rows[0]["budget_value"] == pytest.approx(42.0)
 
 
+def test_collect_falls_back_to_ratio_mode_when_budget_mode_is_invalid(mock_scenario_provider, mock_metric):
+    sink = _CaptureSink()
+    mc = MonitorCollector(sink=sink)
+
+    params = _make_params(
+        mock_scenario_provider,
+        mock_metric,
+        budget_mode="not-a-valid-mode",
+        budget_value=0.5,
+    )
+
+    mc.collect(params)
+
+    assert sink.rows[0]["budget_mode"] == BudgetMode.RATIO.value
+
+
+def test_collect_defaults_budget_value_to_zero_for_non_ratio_and_non_fixed_time(mock_scenario_provider, mock_metric):
+    sink = _CaptureSink()
+    mc = MonitorCollector(sink=sink)
+
+    params = _make_params(
+        mock_scenario_provider,
+        mock_metric,
+        budget_mode=BudgetMode.SUBSET_SIZE.value,
+        budget_value=None,
+        total_build_duration=0.0,
+    )
+
+    mc.collect(params)
+
+    assert sink.rows[0]["budget_mode"] == BudgetMode.SUBSET_SIZE.value
+    assert sink.rows[0]["budget_value"] == pytest.approx(0.0)
+
+
 @pytest.mark.benchmark(group="monitor_collector")
 @pytest.mark.parametrize("num_records", [1000, 10_000, 100_000])
 def test_collect_performance(benchmark, num_records):
