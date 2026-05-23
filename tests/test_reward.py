@@ -16,7 +16,14 @@ import numpy as np
 import pytest
 
 from coleman.evaluation import EvaluationMetric
-from coleman.reward import APFDcReward, DiscountedFailureReward, RNFailReward, TimeRankReward, TopKRNFailReward
+from coleman.reward import (
+    APFDcReward,
+    DiscountedFailureReward,
+    ReciprocalRankReward,
+    RNFailReward,
+    TimeRankReward,
+    TopKRNFailReward,
+)
 
 
 @pytest.fixture
@@ -185,6 +192,69 @@ def test_apfdc_reward_matches_cost_contributions():
     expected_third = (3.0 - 0.5 * 3.0) / (total_cost * 3)
     assert np.allclose(values, [expected_first, 0.0, expected_third])
     assert sum(values) == pytest.approx(expected_first + expected_third)
+
+
+def test_apfdc_reward_handles_empty_prioritization():
+    reward_metric = MagicMock(spec=EvaluationMetric)
+    reward_metric.detection_ranks = [1]
+    reward_metric.detected_failures = 1
+    reward_metric.undetected_failures = 0
+    reward_metric.testcase_costs = [1.0]
+
+    reward = APFDcReward()
+    assert reward.evaluate(reward_metric, []) == []
+
+
+def test_apfdc_reward_returns_zeros_when_costs_missing_or_invalid():
+    reward = APFDcReward()
+    prioritization = ["Test1", "Test2"]
+
+    no_costs_metric = MagicMock(spec=EvaluationMetric)
+    no_costs_metric.detection_ranks = [1]
+    no_costs_metric.detected_failures = 1
+    no_costs_metric.undetected_failures = 0
+    no_costs_metric.testcase_costs = None
+    assert reward.evaluate(no_costs_metric, prioritization) == [0.0, 0.0]
+
+    zero_cost_metric = MagicMock(spec=EvaluationMetric)
+    zero_cost_metric.detection_ranks = [1]
+    zero_cost_metric.detected_failures = 1
+    zero_cost_metric.undetected_failures = 0
+    zero_cost_metric.testcase_costs = [0.0, 0.0]
+    assert reward.evaluate(zero_cost_metric, prioritization) == [0.0, 0.0]
+
+
+def test_discounted_failure_reward_handles_empty_inputs():
+    reward = DiscountedFailureReward()
+    empty_metric = MagicMock(spec=EvaluationMetric)
+    empty_metric.detection_ranks = []
+    assert reward.evaluate(empty_metric, []) == []
+    assert reward.evaluate(empty_metric, ["Test1", "Test2"]) == [0.0, 0.0]
+
+
+def test_reciprocal_rank_reward_handles_empty_inputs():
+    reward = ReciprocalRankReward()
+    empty_metric = MagicMock(spec=EvaluationMetric)
+    empty_metric.detection_ranks = []
+    assert reward.evaluate(empty_metric, []) == []
+    assert reward.evaluate(empty_metric, ["Test1", "Test2"]) == [0.0, 0.0]
+
+
+def test_topk_rn_fail_reward_rejects_non_positive_k():
+    with pytest.raises(ValueError, match="top_k must be a positive integer"):
+        TopKRNFailReward(top_k=0)
+
+
+def test_topk_rn_fail_reward_handles_empty_prioritization_and_budget_cap():
+    reward = TopKRNFailReward(top_k=4, use_time_budget=True)
+    mock_metric = MagicMock(spec=EvaluationMetric)
+    mock_metric.detection_ranks = [1, 2]
+    mock_metric.scheduled_testcases = []
+    assert reward.evaluate(mock_metric, []) == []
+
+    prioritization = ["Test1", "Test2"]
+    values = reward.evaluate(mock_metric, prioritization)
+    assert values == [0.0, 0.0]
 
 
 @pytest.mark.benchmark(group="reward")

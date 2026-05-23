@@ -2,6 +2,7 @@
 
 import json
 import threading
+from unittest.mock import Mock
 
 import pyarrow.parquet as pq
 import pytest
@@ -292,6 +293,18 @@ class TestDuckDBSink:
         count = count_row[0]
         assert count == 3
 
+    def test_target_idx_falls_back_when_shard_key_missing(self, tmp_path):
+        sink = DuckDBSink(out_dir=str(tmp_path / "runs"), batch_size=10, file_count=2, shard_key="missing_key")
+        idx = sink._target_idx(_make_row(execution_id=None, scenario="scenario-x"))
+        assert idx in {0, 1}
+        sink.close()
+
+    def test_auto_flush_on_batch_size(self, tmp_path):
+        sink = DuckDBSink(out_dir=str(tmp_path / "runs"), batch_size=1, file_count=1)
+        sink.write_row(_make_row(step=1))
+        assert sink._buffers[0] == []
+        sink.close()
+
     def test_multiple_files_respected(self, tmp_path):
         sink = DuckDBSink(out_dir=str(tmp_path / "runs"), batch_size=100, file_count=2)
         for i in range(20):
@@ -329,6 +342,13 @@ class TestDuckDBSink:
         assert isinstance(row[0], str)
         assert json.loads(row[1]) == ["a", "b"]
 
+    def test_close_attempts_all_shards_even_if_one_flush_fails(self, tmp_path):
+        sink = DuckDBSink(out_dir=str(tmp_path / "runs"), batch_size=10, file_count=2)
+        sink._flush_bucket_locked = Mock(side_effect=[RuntimeError("boom"), None])  # type: ignore[attr-defined]
+
+        with pytest.raises(RuntimeError, match="boom"):
+            sink.close()
+
 
 # ============================================================================
 # DuckDBCatalog
@@ -336,6 +356,17 @@ class TestDuckDBSink:
 
 
 class TestDuckDBCatalog:
+    def test_sql_scrubbing_helpers_handle_comments_and_literals(self):
+        from coleman.results.duckdb_catalog import _count_sql_statements, _strip_sql_literals_and_comments
+
+        sql = "SELECT 'a''b' AS s -- comment with DROP\n/* block comment INSERT */ SELECT \"x; y\" AS c"
+        scrubbed = _strip_sql_literals_and_comments(sql)
+
+        assert "DROP" not in scrubbed
+        assert "INSERT" not in scrubbed
+        assert _count_sql_statements("SELECT 1; -- trailing comment\nSELECT 2") == 2
+        assert _count_sql_statements("SELECT ';' AS marker") == 1
+
     def test_create_view_and_query(self, tmp_path):
         """DuckDBCatalog should create a view over Parquet and return query results."""
         from coleman.results.duckdb_catalog import DuckDBCatalog
@@ -452,4 +483,17 @@ class TestDuckDBCatalog:
         cat = DuckDBCatalog(str(tmp_path / "runs"))
         df = cat.query("SELECT 'DROP TABLE results' AS statement_text")
         assert df["statement_text"][0] == "DROP TABLE results"
+        cat.close()
+
+    def test_query_blocks_mutating_keyword_in_block_comment(self, tmp_path):
+        """Mutating keywords inside comments should still be ignored by the read-only guard."""
+        from coleman.results.duckdb_catalog import DuckDBCatalog
+
+        sink = ParquetSink(out_dir=str(tmp_path / "runs"), batch_size=100)
+        sink.write_row(_make_row())
+        sink.close()
+
+        cat = DuckDBCatalog(str(tmp_path / "runs"))
+        df = cat.query("SELECT 1 /* DROP TABLE results */ AS one")
+        assert df["one"][0] == 1
         cat.close()
