@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from coleman.artifacts import ArtifactWriter
+from coleman.budget import BudgetMode
 
 
 def test_artifact_writer_path_is_deterministic(tmp_path):
@@ -57,7 +58,7 @@ def test_artifact_writer_path_uses_budget_segment_for_non_ratio(tmp_path):
         run_id="run123",
         dataset_id="my-dataset",
         sched_time_ratio=None,
-        budget_mode="fixed_time",
+        budget_mode=BudgetMode.FIXED_TIME.value,
         budget_value=30.0,
         execution_id="exec-1",
         artifact_type="quality",
