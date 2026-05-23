@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 from typing import Any
 
+from coleman.analysis import format_rows, run_report
 from coleman.api import load_spec, run, run_many, save_resolved, sweep
 from coleman.spec.io import load_sweep_spec
 from coleman.spec.run_id import compute_run_id
@@ -131,6 +133,21 @@ def _cmd_validate(args: argparse.Namespace) -> None:
         print(f"Resolved spec written to {out}")  # noqa: T201
 
 
+def _cmd_analyze(args: argparse.Namespace) -> None:
+    """Handle ``coleman analyze <report>``."""
+    columns, rows = run_report(args.report, args.input)
+    rendered = format_rows(columns, rows, args.format)
+
+    if args.out:
+        out_path = Path(args.out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(rendered, encoding="utf-8")
+        print(f"analysis written to {out_path}")  # noqa: T201
+        return
+
+    print(rendered, end="")  # noqa: T201
+
+
 def main(argv: list[str] | None = None) -> None:
     """CLI entry-point.
 
@@ -161,12 +178,29 @@ def main(argv: list[str] | None = None) -> None:
     p_validate.add_argument("--config", required=True, help="Path to YAML config")
     p_validate.add_argument("--resolve", default=None, help="Write resolved spec to this path")
 
+    # --- analyze ---
+    p_analyze = sub.add_parser("analyze", help="Generate post-run analysis reports")
+    p_analyze.add_argument(
+        "report",
+        choices=["quality", "cost", "stability", "pareto", "sensitivity", "resources"],
+        help="Report type",
+    )
+    p_analyze.add_argument("--input", required=True, help="Run output root path (duckdb/parquet)")
+    p_analyze.add_argument(
+        "--format",
+        default="table",
+        choices=["table", "csv", "markdown"],
+        help="Output format",
+    )
+    p_analyze.add_argument("--out", default=None, help="Optional output file path")
+
     args = parser.parse_args(argv)
 
     dispatch = {
         "run": _cmd_run,
         "sweep": _cmd_sweep,
         "validate": _cmd_validate,
+        "analyze": _cmd_analyze,
     }
     dispatch[args.command](args)
 

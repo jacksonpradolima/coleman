@@ -58,6 +58,8 @@ def _canonical_json(spec: RunSpec) -> str:
         duckdb_cfg = results.get("duckdb")
         if isinstance(duckdb_cfg, dict) and not duckdb_cfg:
             results.pop("duckdb", None)
+        if results.get("manifest_enabled", False) is False:
+            results.pop("manifest_enabled", None)
 
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 

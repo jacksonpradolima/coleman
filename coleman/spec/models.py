@@ -160,6 +160,8 @@ class ResultsSpec(BaseModel):
         Optional ClickHouse sink kwargs (e.g., ``host``, ``port``, ``secure``).
     duckdb : dict[str, Any]
         Optional DuckDB sink kwargs (e.g., ``file_count``, ``base_name``, ``shard_key``).
+    manifest_enabled : bool
+        When ``True``, generate ``manifest.json`` under each run root.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -171,6 +173,7 @@ class ResultsSpec(BaseModel):
     top_k_prioritization: int = 0
     clickhouse: dict[str, Any] = Field(default_factory=dict)
     duckdb: dict[str, Any] = Field(default_factory=dict)
+    manifest_enabled: bool = False
 
 
 class CheckpointSpec(BaseModel):

@@ -36,6 +36,9 @@ import logging
 import os
 import sys
 import time
+import warnings
+from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import dataclass, field
 from multiprocessing import TimeoutError, get_context
 from typing import Any
@@ -69,6 +72,8 @@ from coleman.scenarios import (
     HCSScenarioLoader,
     ScenarioLoader,
 )
+from coleman.spec import RunSpec
+from coleman.spec.selection import resolve_requested_names
 
 
 @dataclass(frozen=True)
@@ -106,6 +111,28 @@ class EnvironmentBuildConfig:
     extensions: dict[str, Any] = field(default_factory=dict)
     hook_plugin_paths: list[str] = field(default_factory=list)
     hook_fail_fast: bool = True
+    extension: RunnerExtension | None = None
+    resolved_spec: RunSpec | None = None
+
+
+@dataclass(frozen=True)
+class RunnerExtension:
+    """Typed extension points for core runner orchestration."""
+
+    build_environment_fn: Callable[[EnvironmentBuildConfig, dict[str, str], int | None], tuple[Any, int]]
+    build_metric_fn: Callable[[RunSpec, str, float], Any] | None = None
+    post_execution_fn: Callable[[HookContext, Any], None] | None = None
+
+
+@dataclass(frozen=True)
+class AgentBuildIssue:
+    """Validation issue produced during agent build normalization."""
+
+    code: str
+    message: str
+    policy_name: str
+    reward_name: str | None = None
+    hint: str | None = None
 
 
 # taken from https://stackoverflow.com/questions/641420/how-should-i-log-while-using-multiprocessing-in-python
@@ -327,6 +354,10 @@ def build_environment(
 ) -> tuple[Environment, int]:
     """Create a fresh environment for one execution."""
     effective_agent_seed = build_config.seed if agent_seed is None else agent_seed
+
+    if build_config.extension is not None and build_config.extension.build_environment_fn is not None:
+        return build_config.extension.build_environment_fn(build_config, runtime_metadata, effective_agent_seed)
+
     agents = build_agents_from_config(
         build_config.algorithm_configs,
         build_config.policy_names,
@@ -345,13 +376,25 @@ def build_environment(
     env = Environment(
         agents,
         scenario,
-        NAPFDVerdictMetric(),
+        _resolve_metric(build_config),
         results_config=build_config.results_config,
         checkpoint_config=build_config.checkpoint_config,
         telemetry_config=build_config.telemetry_config,
         runtime_metadata=runtime_metadata,
     )
     return env, scenario.max_builds
+
+
+def _resolve_metric(build_config: EnvironmentBuildConfig) -> Any:
+    """Resolve execution metric from extension callback or default metric."""
+    extension = build_config.extension
+    if extension is not None and extension.build_metric_fn is not None and build_config.resolved_spec is not None:
+        return extension.build_metric_fn(
+            build_config.resolved_spec,
+            build_config.dataset,
+            build_config.sched_time_ratio,
+        )
+    return NAPFDVerdictMetric()
 
 
 def exp_run_industrial_dataset(
@@ -419,6 +462,8 @@ def exp_run_industrial_dataset_isolated(build_config: EnvironmentBuildConfig, pl
         )
         env, _ = build_environment(build_config, runtime_metadata, agent_seed=plan.seed)
         exp_run_industrial_dataset(plan.iteration, plan.trials, env, plan.level, runtime_metadata)
+        if build_config.extension is not None and build_config.extension.post_execution_fn is not None:
+            build_config.extension.post_execution_fn(hook_context, env)
         dispatch_hook_event(
             execution_hooks,
             "on_execution_end",
@@ -528,7 +573,209 @@ def _effective_parallel_pool_size(
     return parallel_pool_size
 
 
-def run_experiment(spec_dict: dict[str, Any]) -> None:
+def effective_parallel_pool_size(
+    configured_pool_size: int,
+    *,
+    force_sequential_under_scalene: bool = True,
+) -> int:
+    """Public helper mirroring runner Scalene-safe pool-size behavior."""
+    return _effective_parallel_pool_size(
+        configured_pool_size,
+        force_sequential_under_scalene=force_sequential_under_scalene,
+    )
+
+
+def _available_policy_names() -> list[str]:
+    """Return canonical policy names exported by ``coleman.policy``."""
+    names = [name[:-6] for name in coleman.policy.__all__ if name.endswith("Policy") and name != "Policy"]
+    return sorted(set(names), key=str.lower)
+
+
+def _available_reward_names() -> list[str]:
+    """Return canonical reward names exported by ``coleman.reward``."""
+    names = [name[:-6] for name in coleman.reward.__all__ if name.endswith("Reward") and name != "Reward"]
+    return sorted(set(names), key=str.lower)
+
+
+def normalize_and_validate_agent_build(
+    *,
+    algorithm_configs: dict[str, Any],
+    policy_names: list[str],
+    rewards_names: list[str],
+    strict: bool = True,
+) -> tuple[dict[str, Any], list[AgentBuildIssue]]:
+    """Normalize policy configs and validate compatibility before execution."""
+    normalized = deepcopy(algorithm_configs)
+    issues: list[AgentBuildIssue] = []
+
+    available_policy_names = _available_policy_names()
+    available_reward_names = _available_reward_names()
+
+    policy_lookup = {name.lower(): name for name in available_policy_names}
+    reward_lookup = {name.lower(): name for name in available_reward_names}
+
+    for policy_name in policy_names:
+        if policy_name.lower() not in policy_lookup:
+            issues.append(
+                AgentBuildIssue(
+                    code="unknown_policy",
+                    message=f"Unknown policy {policy_name!r}.",
+                    policy_name=policy_name,
+                    hint="Use one of the canonical policy names exported by coleman.policy.",
+                )
+            )
+            continue
+
+        cfg_key = policy_name.lower()
+        policy_cfg = normalized.get(cfg_key, {})
+        if not isinstance(policy_cfg, dict):
+            issues.append(
+                AgentBuildIssue(
+                    code="invalid_policy_config",
+                    message=f"Algorithm config for policy {policy_name!r} must be a dictionary.",
+                    policy_name=policy_name,
+                )
+            )
+            continue
+
+        if policy_name in {"FRRMAB", "SWLinUCB"}:
+            window_sizes = policy_cfg.get("window_sizes", [])
+            if not isinstance(window_sizes, list) or len(window_sizes) == 0:
+                issues.append(
+                    AgentBuildIssue(
+                        code="missing_window_sizes",
+                        message=f"Policy {policy_name!r} requires a non-empty window_sizes list.",
+                        policy_name=policy_name,
+                        hint=f"Define algorithm.{cfg_key}.window_sizes: [5, 10] (example).",
+                    )
+                )
+
+        if policy_name == "PortfolioUCB":
+            for reward_name in rewards_names:
+                if reward_name.lower() not in reward_lookup:
+                    issues.append(
+                        AgentBuildIssue(
+                            code="unknown_reward",
+                            message=f"Unknown reward {reward_name!r}.",
+                            policy_name=policy_name,
+                            reward_name=reward_name,
+                            hint="Use one of the canonical reward names exported by coleman.reward.",
+                        )
+                    )
+                    continue
+
+                reward_key = reward_name.lower()
+                reward_cfg = policy_cfg.get(reward_key, {})
+                if not isinstance(reward_cfg, dict):
+                    issues.append(
+                        AgentBuildIssue(
+                            code="invalid_reward_policy_config",
+                            message=(
+                                f"Config for policy {policy_name!r} and reward {reward_name!r} must be a dictionary."
+                            ),
+                            policy_name=policy_name,
+                            reward_name=reward_name,
+                        )
+                    )
+                    continue
+
+                candidate_policies_raw = reward_cfg.get("policies")
+                if not isinstance(candidate_policies_raw, list):
+                    issues.append(
+                        AgentBuildIssue(
+                            code="portfolio_missing_policies",
+                            message=(f"Policy {policy_name!r} requires '{reward_key}.policies' as a non-empty list."),
+                            policy_name=policy_name,
+                            reward_name=reward_name,
+                            hint=(
+                                f"Define algorithm.portfolioucb.{reward_key}.policies with canonical "
+                                "policy names, e.g. ['UCB1', 'Random']."
+                            ),
+                        )
+                    )
+                    continue
+
+                if not candidate_policies_raw:
+                    issues.append(
+                        AgentBuildIssue(
+                            code="portfolio_empty_policies",
+                            message=f"Policy {policy_name!r} received an empty policies list.",
+                            policy_name=policy_name,
+                            reward_name=reward_name,
+                        )
+                    )
+                    continue
+
+                if all(isinstance(item, str) for item in candidate_policies_raw):
+                    resolved_candidates, unknown_candidates = resolve_requested_names(
+                        candidate_policies_raw,
+                        available_policy_names,
+                    )
+                    for unknown_name in unknown_candidates:
+                        issues.append(
+                            AgentBuildIssue(
+                                code="unknown_portfolio_policy",
+                                message=(
+                                    f"Unknown nested portfolio policy {unknown_name!r} for reward {reward_name!r}."
+                                ),
+                                policy_name=policy_name,
+                                reward_name=reward_name,
+                            )
+                        )
+
+                    if any(candidate == "PortfolioUCB" for candidate in resolved_candidates):
+                        issues.append(
+                            AgentBuildIssue(
+                                code="portfolio_recursive_reference",
+                                message="PortfolioUCB cannot include itself as a nested candidate policy.",
+                                policy_name=policy_name,
+                                reward_name=reward_name,
+                            )
+                        )
+                        continue
+
+                    if not unknown_candidates and resolved_candidates:
+                        candidate_instances = []
+                        for candidate in resolved_candidates:
+                            params = normalized.get(candidate.lower(), {}).get(reward_key, {})
+                            if not isinstance(params, dict):
+                                params = {}
+                            try:
+                                candidate_instances.append(
+                                    load_class_from_module(coleman.policy, candidate + "Policy")(**params)
+                                )
+                            except Exception as exc:  # noqa: BLE001
+                                issues.append(
+                                    AgentBuildIssue(
+                                        code="portfolio_policy_init_error",
+                                        message=(
+                                            f"Failed to initialize nested policy {candidate!r} "
+                                            f"for reward {reward_name!r}: {exc}"
+                                        ),
+                                        policy_name=policy_name,
+                                        reward_name=reward_name,
+                                        hint=(
+                                            f"Provide required parameters under algorithm.{candidate.lower()}.{reward_key}."  # noqa: E501
+                                        ),
+                                    )
+                                )
+                                continue
+                        reward_cfg = dict(reward_cfg)
+                        reward_cfg["policies"] = candidate_instances
+                        policy_cfg[reward_key] = reward_cfg
+                        normalized[cfg_key] = policy_cfg
+
+    if strict and issues:
+        lines = [
+            "Invalid agent/policy configuration detected:",
+            *["- " + issue.message + (f" Hint: {issue.hint}" if issue.hint else "") for issue in issues],
+        ]
+        raise ValueError("\n".join(lines))
+
+    return normalized, issues
+
+
+def _run_experiment_impl(spec_dict: dict[str, Any], extension: RunnerExtension | None = None) -> None:
     """Run a full experiment from a resolved spec dictionary.
 
     This is the bridge between the new YAML/pack-based config system and
@@ -553,6 +800,9 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
     hooks_config = spec_dict.get("hooks", {})
     extensions = spec_dict.get("extensions", {})
     run_id = spec_dict.get("_run_id")
+    resolved_payload = dict(spec_dict)
+    resolved_payload.pop("_run_id", None)
+    resolved_spec = RunSpec.model_validate(resolved_payload)
 
     parallel_pool_size = execution.get("parallel_pool_size", 10)
     independent_executions = execution.get("independent_executions", 10)
@@ -579,12 +829,43 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
     rewards_names = experiment.get("rewards", ["RNFail", "TimeRank"])
     policy_names = experiment.get("policies", ["Random"])
 
+    available_policy_names = _available_policy_names()
+    available_reward_names = _available_reward_names()
+
+    policy_names, unknown_policy_names = resolve_requested_names(policy_names, available_policy_names)
+    rewards_names, unknown_reward_names = resolve_requested_names(rewards_names, available_reward_names)
+
+    if unknown_policy_names:
+        warnings.warn(
+            f"Ignoring unknown policy names: {', '.join(unknown_policy_names)}",
+            stacklevel=2,
+        )
+    if unknown_reward_names:
+        warnings.warn(
+            f"Ignoring unknown reward names: {', '.join(unknown_reward_names)}",
+            stacklevel=2,
+        )
+
+    if not policy_names:
+        msg = "No valid policy names resolved from experiment.policies."
+        raise ValueError(msg)
+    if not rewards_names:
+        msg = "No valid reward names resolved from experiment.rewards."
+        raise ValueError(msg)
+
+    normalized_algorithm_configs, _ = normalize_and_validate_agent_build(
+        algorithm_configs=algorithm_configs,
+        policy_names=policy_names,
+        rewards_names=rewards_names,
+        strict=True,
+    )
+
     use_hcs = hcs_config.get("wts_strategy", False)
 
     context_config = contextual_info.get("config", {})
     feature_groups = contextual_info.get("feature_group", {})
 
-    agents = build_agents_from_config(algorithm_configs, policy_names, rewards_names, seed=seed)
+    agents = build_agents_from_config(normalized_algorithm_configs, policy_names, rewards_names, seed=seed)
 
     has_sliding_window_contextual_agent = any(isinstance(agent, SlidingWindowContextualAgent) for agent in agents)
     has_contextual_agent = any(isinstance(agent, ContextualAgent) for agent in agents)
@@ -635,7 +916,7 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
                     results_config=results_config,
                     checkpoint_config=checkpoint_config,
                     telemetry_config=telemetry_config,
-                    algorithm_configs=algorithm_configs,
+                    algorithm_configs=normalized_algorithm_configs,
                     rewards_names=rewards_names,
                     policy_names=policy_names,
                     seed=seed,
@@ -643,6 +924,8 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
                     extensions=extensions,
                     hook_plugin_paths=hook_plugin_paths,
                     hook_fail_fast=hook_fail_fast,
+                    extension=extension,
+                    resolved_spec=resolved_spec,
                 )
 
                 logging.info(
@@ -701,3 +984,13 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
             fail_fast=hook_fail_fast,
         )
         raise
+
+
+def run_experiment(spec_dict: dict[str, Any]) -> None:
+    """Run a full experiment from a resolved spec dictionary."""
+    _run_experiment_impl(spec_dict, extension=None)
+
+
+def run_experiment_with_extension(spec_dict: dict[str, Any], extension: RunnerExtension) -> None:
+    """Run experiment preserving orchestration while delegating extension callbacks."""
+    _run_experiment_impl(spec_dict, extension=extension)

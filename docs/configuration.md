@@ -65,6 +65,7 @@ results:
   out_dir: ./runs
   batch_size: 1000
   top_k_prioritization: 0    # 0 = hash only
+  manifest_enabled: false    # true = write manifest.json under each run_id
   duckdb:
     file_count: 1
     base_name: results
@@ -113,7 +114,7 @@ the following typed sub-specs:
 | `algorithm` | `AlgorithmSpec` | Free-form nested dict — any algorithm can store its own parameters |
 | `hcs_configuration` | `HCSConfigurationSpec` | `wts_strategy` |
 | `contextual_information` | `ContextualInformationSpec` | `config` (previous build columns), `feature_group` |
-| `results` | `ResultsSpec` | `enabled`, `sink`, `out_dir`, `batch_size`, `top_k_prioritization`, `duckdb`, `clickhouse` |
+| `results` | `ResultsSpec` | `enabled`, `sink`, `out_dir`, `batch_size`, `top_k_prioritization`, `manifest_enabled`, `duckdb`, `clickhouse` |
 | `checkpoint` | `CheckpointSpec` | `enabled`, `interval`, `base_dir` |
 | `telemetry` | `TelemetrySpec` | `enabled`, `otlp_endpoint`, `service_name`, `export_interval_millis` |
 | `hooks` | `HooksSpec` | `fail_fast`, `plugins` |
@@ -135,6 +136,17 @@ Coleman supports two independent parallelism layers:
 
 When Scalene profiling is active, `force_sequential_under_scalene: true`
 forces intra-run pool size to `1` for profiling stability.
+
+## Policy and reward name resolution
+
+`experiment.policies` and `experiment.rewards` are resolved case-insensitively.
+
+Supported wildcard aliases:
+
+1. `*`
+2. `all`
+
+Unknown names are ignored with warnings and reported before execution starts.
 
 ## Runner hooks and extensions
 

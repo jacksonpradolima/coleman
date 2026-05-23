@@ -95,6 +95,7 @@ def run(spec: RunSpec) -> RunResult:
         Outcome container with deterministic ``run_id`` and summary
         metrics.
     """
+    from coleman.manifest import generate_manifest
     from coleman.runner import run_experiment
     from coleman.spec.provenance import save_provenance
 
@@ -114,6 +115,36 @@ def run(spec: RunSpec) -> RunResult:
     if isinstance(checkpoint_cfg, dict) and "base_dir" in checkpoint_cfg:
         checkpoint_cfg["base_dir"] = str(run_dir / "checkpoints")
     run_experiment(execution_spec)
+
+    if spec.results.manifest_enabled:
+        generate_manifest(run_dir, run_id=rid)
+
+    return RunResult(run_id=rid, spec=spec, artifacts_dir=str(run_dir))
+
+
+def run_with_extension(spec: RunSpec, extension: Any) -> RunResult:
+    """Execute one run using runner extension callbacks without replacing orchestration."""
+    from coleman.manifest import generate_manifest
+    from coleman.runner import run_experiment_with_extension
+    from coleman.spec.provenance import save_provenance
+
+    rid = compute_run_id(spec)
+
+    run_dir = Path(spec.results.out_dir) / rid
+    save_resolved(spec, run_dir / "spec.resolved.json", redact_sensitive=True)
+    save_provenance(run_dir, redact_sensitive=True)
+
+    execution_spec = spec.model_dump()
+    execution_spec["_run_id"] = rid
+    execution_spec["results"]["out_dir"] = str(run_dir / "results")
+    checkpoint_cfg = execution_spec.get("checkpoint")
+    if isinstance(checkpoint_cfg, dict) and "base_dir" in checkpoint_cfg:
+        checkpoint_cfg["base_dir"] = str(run_dir / "checkpoints")
+
+    run_experiment_with_extension(execution_spec, extension)
+
+    if spec.results.manifest_enabled:
+        generate_manifest(run_dir, run_id=rid)
 
     return RunResult(run_id=rid, spec=spec, artifacts_dir=str(run_dir))
 
@@ -185,6 +216,7 @@ __all__ = [
     "load_spec",
     "run",
     "run_many",
+    "run_with_extension",
     "save_resolved",
     "sweep",
 ]

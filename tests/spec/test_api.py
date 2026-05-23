@@ -6,7 +6,8 @@ import tempfile
 import pytest
 import yaml
 
-from coleman.api import RunResult, load_spec, run, run_many, save_resolved, sweep
+from coleman.api import RunResult, load_spec, run, run_many, run_with_extension, save_resolved, sweep
+from coleman.runner import RunnerExtension
 from coleman.spec.models import ExecutionSpec, ExperimentSpec, ResultsSpec, RunSpec
 from coleman.spec.run_id import compute_run_id
 from coleman.spec.sweep import SweepAxis, SweepSpec
@@ -14,7 +15,13 @@ from coleman.spec.sweep import SweepAxis, SweepSpec
 
 def _light_run_spec(tmpdir: str, **execution_overrides) -> RunSpec:
     """Build a minimal spec for fast API tests."""
-    execution = ExecutionSpec(parallel_pool_size=1, independent_executions=1, verbose=False, **execution_overrides)
+    execution_kwargs = {
+        "parallel_pool_size": 1,
+        "independent_executions": 1,
+        "verbose": False,
+    }
+    execution_kwargs.update(execution_overrides)
+    execution = ExecutionSpec(**execution_kwargs)  # ty:ignore[invalid-argument-type]
     experiment = ExperimentSpec(
         scheduled_time_ratio=[0.1],
         datasets_dir="examples",
@@ -24,6 +31,36 @@ def _light_run_spec(tmpdir: str, **execution_overrides) -> RunSpec:
     )
     results = ResultsSpec(out_dir=tmpdir)
     return RunSpec(execution=execution, experiment=experiment, results=results)
+
+
+class _NoOpEnvironment:
+    """Minimal environment used to validate extension flow wiring."""
+
+    def __init__(self) -> None:
+        self.runtime_metadata: dict[str, str] | None = None
+
+    def set_runtime_metadata(self, runtime_metadata):
+        self.runtime_metadata = runtime_metadata
+
+    def run_single(self, iteration, trials):  # noqa: ARG002
+        return None
+
+    def store_experiment(self):
+        return None
+
+
+def _picklable_extension_builder(config, runtime_metadata, agent_seed):  # noqa: ARG001
+    return _NoOpEnvironment(), 1
+
+
+def _picklable_post_execution(context, env):  # noqa: ARG001
+    return None
+
+
+_PICKLABLE_EXTENSION = RunnerExtension(
+    build_environment_fn=_picklable_extension_builder,
+    post_execution_fn=_picklable_post_execution,
+)
 
 
 class TestRunResult:
@@ -62,6 +99,43 @@ class TestRun:
             r1 = run(spec1)
             r2 = run(spec2)
             assert r1.run_id == r2.run_id
+
+
+class TestRunWithExtension:
+    def test_run_with_extension_sequential(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            spec = _light_run_spec(tmpdir)
+            calls: dict[str, int] = {"build": 0, "post": 0}
+
+            def _builder(config, runtime_metadata, agent_seed):  # noqa: ARG001
+                calls["build"] += 1
+                return _NoOpEnvironment(), 1
+
+            def _post(context, env):  # noqa: ARG001
+                calls["post"] += 1
+
+            extension = RunnerExtension(build_environment_fn=_builder, post_execution_fn=_post)
+
+            result = run_with_extension(spec, extension)
+
+            assert len(result.run_id) == 12
+            assert result.run_id == compute_run_id(spec)
+            assert calls["build"] == 1
+            assert calls["post"] == 1
+
+    def test_run_with_extension_parallel(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            spec = _light_run_spec(
+                tmpdir,
+                parallel_pool_size=2,
+                independent_executions=2,
+            )
+
+            result = run_with_extension(spec, _PICKLABLE_EXTENSION)
+
+            assert len(result.run_id) == 12
+            assert result.artifacts_dir is not None
+            assert os.path.exists(os.path.join(result.artifacts_dir, "spec.resolved.json"))
 
 
 class TestRunMany:

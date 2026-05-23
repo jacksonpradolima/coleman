@@ -1,0 +1,25 @@
+execution:
+  parallel_pool_size: 1
+  independent_executions: 1
+
+experiment:
+  datasets_dir: examples
+  datasets:
+    - fakedata
+  scheduled_time_ratio:
+    - 0.5
+  policies:
+    - Random
+  rewards:
+    - RNFail
+
+results:
+  enabled: true
+  sink: parquet
+  out_dir: ./runs
+
+checkpoint:
+  enabled: false
+
+telemetry:
+  enabled: false
