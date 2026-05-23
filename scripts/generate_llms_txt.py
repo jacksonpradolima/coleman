@@ -12,36 +12,30 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "llms.txt"
 
 
-def _resolve_repo_path(rel: str) -> Path:
-    """Resolve one repository-relative path and prevent path traversal."""
-    rel_path = Path(rel)
-    if rel_path.is_absolute():
-        msg = f"Absolute source path is not allowed: {rel}"
-        raise ValueError(msg)
-
-    resolved = (ROOT / rel_path).resolve()
-    root_resolved = ROOT.resolve()
-    try:
-        resolved.relative_to(root_resolved)
-    except ValueError as exc:
-        msg = f"Source path escapes repository root: {rel}"
-        raise ValueError(msg) from exc
-    return resolved
-
-
-def _discover_sources() -> list[str]:
+def _discover_sources() -> list[Path]:
     """Return deterministic source list for llms.txt generation.
 
     Includes README plus every markdown file under docs/, recursively.
     """
-    sources = ["README.md"]
+    sources = [ROOT / "README.md"]
     docs_root = ROOT / "docs"
-    docs_md_files = sorted(path.relative_to(ROOT).as_posix() for path in docs_root.rglob("*.md"))
+    docs_md_files = sorted(docs_root.rglob("*.md"))
     sources.extend(docs_md_files)
     return sources
 
 
 def _read_text(path: Path) -> str:
+    resolved = path.resolve()
+    if resolved.is_symlink():
+        msg = f"Refusing to read symlinked source path: {path.as_posix()}"
+        raise ValueError(msg)
+
+    try:
+        resolved.relative_to(ROOT)
+    except ValueError as exc:
+        msg = f"Source path escapes repository root: {path.as_posix()}"
+        raise ValueError(msg) from exc
+
     return path.read_text(encoding="utf-8").strip()
 
 
@@ -68,8 +62,8 @@ def _build_header() -> str:
 def _build_source_index() -> str:
     sources = _discover_sources()
     lines = []
-    for rel in sources:
-        lines.append(f"- {rel}")
+    for path in sources:
+        lines.append(f"- {path.relative_to(ROOT).as_posix()}")
     return "\n".join(lines)
 
 
@@ -78,8 +72,8 @@ def _build_consolidated() -> str:
     chunks: list[str] = []
     chunks.append("\n## Consolidated Documentation\n")
 
-    for rel in sources:
-        path = _resolve_repo_path(rel)
+    for path in sources:
+        rel = path.relative_to(ROOT).as_posix()
         if not path.exists():
             chunks.append(f"\n### FILE: {rel}\n")
             chunks.append("(missing)\n")
