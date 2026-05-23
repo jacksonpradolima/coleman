@@ -873,6 +873,47 @@ def test_run_experiment_dispatches_coordinator_hooks():
     hook.on_run_end.assert_called_once()
 
 
+def test_run_experiment_with_extension_skips_core_scenario_loading():
+    from coleman.runner import RunnerExtension, run_experiment_with_extension
+
+    extension = RunnerExtension(
+        build_environment_fn=lambda config, runtime_metadata, seed: (Mock(), 5),  # noqa: ARG005
+    )
+    cfg = {
+        "_run_id": "rid-123",
+        "execution": {
+            "seed": 7,
+            "independent_executions": 1,
+            "parallel_pool_size": 1,
+            "verbose": False,
+        },
+        "experiment": {
+            "budget": {"mode": "ratio", "values": [0.1]},
+            "datasets_dir": "examples",
+            "datasets": ["fakedata"],
+            "rewards": ["RNFail"],
+            "policies": ["Random"],
+        },
+        "results": {"enabled": False},
+    }
+
+    with (
+        patch(
+            "coleman.runner.get_scenario_provider", side_effect=AssertionError("must not be called")
+        ) as scenario_patch,
+        patch("coleman.runner.build_agents_from_config", return_value=[]),
+        patch("coleman.runner._dispatch_executions") as dispatch_patch,
+        patch("coleman.runner.load_hook_plugins", return_value=[]),
+    ):
+        run_experiment_with_extension(cfg, extension)
+
+    scenario_patch.assert_not_called()
+    dispatch_patch.assert_called_once()
+    plans = dispatch_patch.call_args.args[2]
+    assert plans
+    assert all(plan.trials == 0 for plan in plans)
+
+
 def test_exp_run_isolated_dispatches_execution_hooks():
     hook = Mock()
     mock_env = Mock()
@@ -914,6 +955,49 @@ def test_exp_run_isolated_dispatches_execution_hooks():
 
     hook.on_execution_start.assert_called_once()
     hook.on_execution_end.assert_called_once()
+
+
+def test_exp_run_isolated_prefers_build_environment_trial_count():
+    hook = Mock()
+    mock_env = Mock()
+
+    config = EnvironmentBuildConfig(
+        datasets_dir="examples",
+        dataset="fakedata",
+        sched_time_ratio=0.5,
+        use_hcs=False,
+        use_context=False,
+        context_config={},
+        feature_groups={},
+        results_config={},
+        checkpoint_config={},
+        telemetry_config={},
+        algorithm_configs={},
+        rewards_names=["RNFail"],
+        policy_names=["Random"],
+        run_id="rid-999",
+        extensions={},
+        hook_plugin_paths=["tests.support.hook_plugins.RecordingHook"],
+        hook_fail_fast=True,
+    )
+    plan = ExecutionPlan(
+        iteration=1,
+        trials=3,
+        level=20,
+        execution_id="exec-1",
+        worker_id="1",
+        parallel_mode="sequential",
+    )
+
+    with (
+        patch("coleman.runner.load_hook_plugins", return_value=[hook]),
+        patch("coleman.runner.build_environment", return_value=(mock_env, 7)),
+        patch("coleman.runner.exp_run_industrial_dataset") as run_patch,
+    ):
+        exp_run_industrial_dataset_isolated(config, plan)
+
+    run_patch.assert_called_once()
+    assert run_patch.call_args.args[1] == 7
 
 
 def test_exp_run_isolated_dispatches_error_when_build_environment_fails():

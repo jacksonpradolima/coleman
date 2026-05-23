@@ -39,7 +39,7 @@ The top row also includes a "Current Cycle By Active Experiment" panel next to
 "Active Runs", so you can see optimization stage progression while runs are
 still active.
 
-The dashboard now has dedicated budget filters (`budget_mode` and `budget_value`)
+The dashboard includes a dedicated `budget_value` filter
 so you can isolate runs by execution-budget configuration.
 
 For operational analysis, use the snapshot panels that focus on current

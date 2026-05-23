@@ -929,7 +929,7 @@
           "editorMode": "code",
           "expr": "100 * max by (scenario, experiment, execution_id, worker_id, budget_value) ({__name__=~\".*cycles_total.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}) / $target_steps",
           "instant": true,
-          "legendFormat": "{{scenario}} | exp {{experiment}} | exec {{execution_id}} | worker {{worker_id}} | tr {{budget_value}}",
+          "legendFormat": "{{scenario}} | exp {{experiment}} | exec {{execution_id}} | worker {{worker_id}} | budget {{budget_value}}",
           "range": false,
           "refId": "A"
         }
@@ -998,7 +998,7 @@
           "editorMode": "code",
           "expr": "clamp_min(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, budget_value) (rate({__name__=~\".*napfd.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", budget_value=~\"$budget_value\"}[2m])) / clamp_min(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, budget_value) (rate({__name__=~\".*napfd.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", budget_value=~\"$budget_value\"}[2m])), 0.000001), 0)",
           "instant": true,
-          "legendFormat": "{{policy}} | {{reward_function}} | exp {{experiment}} | tr {{budget_value}}",
+          "legendFormat": "{{policy}} | {{reward_function}} | exp {{experiment}} | budget {{budget_value}}",
           "range": false,
           "refId": "A"
         }
@@ -1058,7 +1058,7 @@
           "editorMode": "code",
           "expr": "sum by (scenario, experiment, execution_id, worker_id, budget_value) (rate({__name__=~\".*checkpoint_saves_total.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}[5m]))",
           "instant": true,
-          "legendFormat": "{{scenario}} | exp {{experiment}} | exec {{execution_id}} | worker {{worker_id}} | tr {{budget_value}}",
+          "legendFormat": "{{scenario}} | exp {{experiment}} | exec {{execution_id}} | worker {{worker_id}} | budget {{budget_value}}",
           "range": false,
           "refId": "A"
         }

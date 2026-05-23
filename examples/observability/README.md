@@ -28,8 +28,8 @@ No manual datasource setup is required in Grafana.
 The overview dashboard includes "Active Runs" and "Current Cycle By Active
 Experiment" on the top row so optimization progress is visible in real time.
 
-It also includes budget filters (`budget_mode` and `budget_value` labels) so
-you can separate runs by budget strategy and compare behavior under tighter
+It also includes a `budget_value` filter so
+you can separate runs by budget value and compare behavior under tighter
 or broader execution budgets.
 
 For step-oriented analysis, prefer the snapshot panels (current iteration)

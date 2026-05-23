@@ -809,8 +809,13 @@ def exp_run_industrial_dataset_isolated(build_config: EnvironmentBuildConfig, pl
             hook_context,
             fail_fast=build_config.hook_fail_fast,
         )
-        env, _ = build_environment(build_config, runtime_metadata, agent_seed=plan.seed)
-        exp_run_industrial_dataset(plan.iteration, plan.trials, env, plan.level, runtime_metadata)
+        env, max_builds = build_environment(build_config, runtime_metadata, agent_seed=plan.seed)
+        effective_trials = (
+            int(max_builds)
+            if isinstance(max_builds, int | float) and not isinstance(max_builds, bool) and max_builds > 0
+            else plan.trials
+        )
+        exp_run_industrial_dataset(plan.iteration, effective_trials, env, plan.level, runtime_metadata)
         if build_config.extension is not None and build_config.extension.post_execution_fn is not None:
             build_config.extension.post_execution_fn(hook_context, env)
         dispatch_hook_event(
@@ -1122,18 +1127,23 @@ def _run_experiment_impl(spec_dict: dict[str, Any], extension: RunnerExtension |
                 dispatch_hook_event(coordinator_hooks, "on_dataset_start", dataset_context, fail_fast=hook_fail_fast)
                 dataset_started_at = time.time()
 
-                scenario = get_scenario_provider(
-                    datasets_dir,
-                    dataset,
-                    sched_time_ratio,
-                    use_hcs,
-                    use_context,
-                    context_config,
-                    feature_groups,
-                    budget_mode,
-                    budget_value,
-                )
-                trials = scenario.max_builds
+                if extension is None:
+                    scenario = get_scenario_provider(
+                        datasets_dir,
+                        dataset,
+                        sched_time_ratio,
+                        use_hcs,
+                        use_context,
+                        context_config,
+                        feature_groups,
+                        budget_mode,
+                        budget_value,
+                    )
+                    trials = scenario.max_builds
+                else:
+                    # Extension environments may not depend on built-in scenario files.
+                    # The final trial count is provided by build_environment_fn per execution.
+                    trials = 0
 
                 build_config = EnvironmentBuildConfig(
                     datasets_dir=datasets_dir,
