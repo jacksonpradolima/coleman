@@ -9,7 +9,7 @@ readme = "README.md"
 dependencies = [
     "duckdb==1.5.0",
     "numpy==2.4.6",
-    "polars==1.39.3",
+    "polars==1.40.1",
     "pyarrow==23.0.1",
     "scipy==1.17.1",
     "scikit-posthocs==0.12.0",
