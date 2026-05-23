@@ -28,6 +28,7 @@ from coleman.spec.run_id import compute_run_id
 from coleman.spec.sweep import expand_sweep
 
 if TYPE_CHECKING:
+    from coleman.runner import RunnerExtension
     from coleman.spec.models import RunSpec
     from coleman.spec.sweep import SweepSpec
 
@@ -122,7 +123,7 @@ def run(spec: RunSpec) -> RunResult:
     return RunResult(run_id=rid, spec=spec, artifacts_dir=str(run_dir))
 
 
-def run_with_extension(spec: RunSpec, extension: Any) -> RunResult:
+def run_with_extension(spec: RunSpec, extension: RunnerExtension) -> RunResult:
     """Execute one run using runner extension callbacks without replacing orchestration."""
     from coleman.manifest import generate_manifest
     from coleman.runner import run_experiment_with_extension

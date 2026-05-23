@@ -268,7 +268,7 @@ def _instantiate_portfolio_candidates(
             params = {}
         try:
             candidate_instances.append(load_class_from_module(coleman.policy, candidate + "Policy")(**params))
-        except Exception as exc:  # noqa: BLE001
+        except (TypeError, ValueError) as exc:
             _add_issue(
                 issues,
                 code="portfolio_policy_init_error",
@@ -340,7 +340,22 @@ def _normalize_portfolio_reward_branch(
         )
         return
 
-    if not all(isinstance(item, str) for item in candidate_policies_raw):
+    non_string_candidates = [item for item in candidate_policies_raw if not isinstance(item, str)]
+    if non_string_candidates:
+        _add_issue(
+            issues,
+            code="portfolio_invalid_policies_entry",
+            message=(
+                f"Policy {policy_name!r} requires all entries in '{reward_key}.policies' to be strings; "
+                f"got invalid values: {non_string_candidates!r}."
+            ),
+            policy_name=policy_name,
+            reward_name=reward_name,
+            hint=(
+                f"Define algorithm.portfolioucb.{reward_key}.policies with canonical "
+                "policy names, e.g. ['UCB1', 'Random']."
+            ),
+        )
         return
 
     resolved_candidates = _resolve_portfolio_candidates(
@@ -363,7 +378,10 @@ def _normalize_portfolio_reward_branch(
     )
 
     reward_cfg = dict(reward_cfg)
-    reward_cfg["policies"] = candidate_instances
+    # Keep canonical names in config; concrete nested policy instances are
+    # built per-agent/per-run to avoid shared mutable state across executions.
+    if candidate_instances:
+        reward_cfg["policies"] = resolved_candidates
     policy_cfg[reward_key] = reward_cfg
     normalized[cfg_key] = policy_cfg
 
@@ -595,15 +613,41 @@ def build_agents_from_config(
     seed: int | None = None,
 ) -> list[RewardAgent | RewardSlidingWindowAgent | ContextualAgent | SlidingWindowContextualAgent]:
     """Build all agents from config values in a process-local way."""
-    policies = {
-        policy_name: {
-            reward_name: load_class_from_module(coleman.policy, policy_name + "Policy")(
-                **algorithm_configs.get(policy_name.lower(), {}).get(reward_name.lower(), {})
-            )
-            for reward_name in rewards_names
-        }
-        for policy_name in policy_names
-    }
+    policies: dict[str, dict[str, Any]] = {}
+    for policy_name in policy_names:
+        reward_policies: dict[str, Any] = {}
+        policy_cfg = algorithm_configs.get(policy_name.lower(), {})
+        if not isinstance(policy_cfg, dict):
+            policy_cfg = {}
+
+        for reward_name in rewards_names:
+            reward_key = reward_name.lower()
+            reward_cfg = policy_cfg.get(reward_key, {})
+            if not isinstance(reward_cfg, dict):
+                reward_cfg = {}
+
+            if policy_name == "PortfolioUCB":
+                candidate_names = reward_cfg.get("policies", [])
+                if not isinstance(candidate_names, list):
+                    candidate_names = []
+
+                candidate_instances: list[Any] = []
+                for candidate_name in candidate_names:
+                    if not isinstance(candidate_name, str) or candidate_name == "PortfolioUCB":
+                        continue
+                    nested_params = algorithm_configs.get(candidate_name.lower(), {}).get(reward_key, {})
+                    if not isinstance(nested_params, dict):
+                        nested_params = {}
+                    candidate_instances.append(
+                        load_class_from_module(coleman.policy, candidate_name + "Policy")(**nested_params)
+                    )
+
+                reward_cfg = dict(reward_cfg)
+                reward_cfg["policies"] = candidate_instances
+
+            reward_policies[reward_name] = load_class_from_module(coleman.policy, policy_name + "Policy")(**reward_cfg)
+
+        policies[policy_name] = reward_policies
 
     return [
         agent
@@ -645,7 +689,13 @@ def build_environment(
     effective_agent_seed = build_config.seed if agent_seed is None else agent_seed
 
     if build_config.extension is not None and build_config.extension.build_environment_fn is not None:
-        return build_config.extension.build_environment_fn(build_config, runtime_metadata, effective_agent_seed)
+        env, max_builds = build_config.extension.build_environment_fn(
+            build_config, runtime_metadata, effective_agent_seed
+        )
+        metric = _resolve_metric(build_config)
+        if hasattr(env, "evaluation_metric"):
+            env.evaluation_metric = metric
+        return env, max_builds
 
     agents = build_agents_from_config(
         build_config.algorithm_configs,

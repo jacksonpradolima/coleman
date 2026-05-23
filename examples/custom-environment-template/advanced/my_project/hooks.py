@@ -62,6 +62,6 @@ def audit_hook(event_name: str, context: HookContext, payload=None) -> None:
         }
     ]
 
-    # Keep example simple and append-like by rewriting one-row CSV per event.
-    # Real projects can batch rows in memory and flush on on_run_end.
+    # Keep example simple by rewriting a one-row CSV per event.
+    # Real projects should batch rows in memory and flush on on_run_end.
     writer.write_csv_atomic(path, rows)

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import csv
+import io
+import re
 from pathlib import Path
 from typing import Any
 
@@ -156,21 +159,14 @@ def _register_experiment_results(con: duckdb.DuckDBPyConnection, input_path: str
 
     if parquet_files:
         glob_path = (root / "**" / "*.parquet").as_posix() if root.is_dir() else root.as_posix()
-        safe_glob_path = glob_path.replace("'", "''")
-        con.execute(
-            f"""
-            CREATE OR REPLACE VIEW experiment_results AS
-            SELECT *
-            FROM read_parquet('{safe_glob_path}', hive_partitioning=1)
-            """
-        )
+        con.from_parquet(glob_path, hive_partitioning=True).create_view("experiment_results", replace=True)
         return
 
     if duckdb_files:
         union_parts: list[str] = []
         for idx, db_path in enumerate(duckdb_files):
-            alias = f"db_{idx}"
-            con.execute(f"ATTACH '{db_path.as_posix()}' AS {alias}")
+            alias = _safe_attach_alias(idx)
+            con.execute(f"ATTACH {_sql_quote_literal(db_path.as_posix())} AS {alias}")
             union_parts.append(f"SELECT * FROM {alias}.coleman_results")
         con.execute(f"CREATE OR REPLACE VIEW experiment_results AS {' UNION ALL '.join(union_parts)}")
         return
@@ -181,17 +177,18 @@ def _register_experiment_results(con: duckdb.DuckDBPyConnection, input_path: str
 
 def _to_csv(columns: list[str], rows: list[tuple[Any, ...]]) -> str:
     """Render tabular report output as CSV text."""
-    lines = [",".join(columns)]
-    for row in rows:
-        lines.append(",".join(_format_csv_value(value) for value in row))
-    return "\n".join(lines) + "\n"
+    output = io.StringIO()
+    writer = csv.writer(output, lineterminator="\n")
+    writer.writerow(columns)
+    writer.writerows([[_format_value(value) for value in row] for row in rows])
+    return output.getvalue()
 
 
 def _to_markdown(columns: list[str], rows: list[tuple[Any, ...]]) -> str:
     """Render tabular report output as Markdown table text."""
     header = "| " + " | ".join(columns) + " |"
     sep = "| " + " | ".join(["---"] * len(columns)) + " |"
-    body = ["| " + " | ".join(_format_value(value) for value in row) + " |" for row in rows]
+    body = ["| " + " | ".join(_format_value(value).replace("|", "\\|") for value in row) + " |" for row in rows]
     return "\n".join([header, sep, *body]) + "\n"
 
 
@@ -221,9 +218,15 @@ def _format_value(value: Any) -> str:
     return str(value)
 
 
-def _format_csv_value(value: Any) -> str:
-    """Format one scalar value with CSV escaping when needed."""
-    text = _format_value(value)
-    if any(ch in text for ch in [",", '"', "\n"]):
-        return '"' + text.replace('"', '""') + '"'
-    return text
+def _safe_attach_alias(index: int) -> str:
+    """Build a conservative SQL alias for ATTACH statements."""
+    alias = f"db_{index}"
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", alias):
+        msg = f"Unsafe attach alias generated: {alias!r}"
+        raise ValueError(msg)
+    return alias
+
+
+def _sql_quote_literal(value: str) -> str:
+    """Quote a string literal for SQL statements that cannot be parameterized."""
+    return "'" + value.replace("'", "''") + "'"
