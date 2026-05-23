@@ -59,7 +59,7 @@ telemetry = [
     "opentelemetry-exporter-otlp-proto-http==1.41.0",
 ]
 clickhouse = [
-    "clickhouse-connect==0.13.0",
+    "clickhouse-connect==1.0.1",
 ]
 
 [project.scripts]
