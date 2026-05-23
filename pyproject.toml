@@ -1,6 +1,6 @@
 [project]
 name = "coleman"
-version = "3.0.0"
+version = "3.1.0"
 description = "Multi-Armed Bandit based test case prioritization for continuous integration environments"
 license = "MIT"
 authors = [{ name = "Jackson Antonio do Prado Lima", email = "jacksonpradolima@gmail.com" }]
