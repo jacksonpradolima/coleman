@@ -56,6 +56,7 @@ from coleman.agent import (
     RewardSlidingWindowAgent,
     SlidingWindowContextualAgent,
 )
+from coleman.budget import BudgetMode
 from coleman.environment import Environment
 from coleman.evaluation import NAPFDVerdictMetric
 from coleman.hooks import (
@@ -106,6 +107,8 @@ class EnvironmentBuildConfig:
     algorithm_configs: dict[str, Any]
     rewards_names: list[str]
     policy_names: list[str]
+    budget_mode: BudgetMode = BudgetMode.RATIO
+    budget_value: float | None = None
     seed: int | None = None
     run_id: str | None = None
     extensions: dict[str, Any] = field(default_factory=dict)
@@ -120,7 +123,7 @@ class RunnerExtension:
     """Typed extension points for core runner orchestration."""
 
     build_environment_fn: Callable[[EnvironmentBuildConfig, dict[str, str], int | None], tuple[Any, int]]
-    build_metric_fn: Callable[[RunSpec, str, float], Any] | None = None
+    build_metric_fn: Callable[[RunSpec, str, BudgetMode, float], Any] | None = None
     post_execution_fn: Callable[[HookContext, Any], None] | None = None
 
 
@@ -228,6 +231,8 @@ def get_scenario_provider(  # pylint: disable=too-many-positional-arguments
     use_context: bool,
     context_config: dict[str, Any],
     feature_groups: dict[str, Any],
+    budget_mode: BudgetMode = BudgetMode.RATIO,
+    budget_value: float | None = None,
 ) -> ScenarioLoader | HCSScenarioLoader | ContextScenarioLoader:
     """Return the appropriate scenario loader based on the given configuration.
 
@@ -269,9 +274,18 @@ def get_scenario_provider(  # pylint: disable=too-many-positional-arguments
 
     base_tcfile = _prefer_parquet(f"{datasets_dir}/{dataset}/features-engineered")
 
+    effective_budget_mode = BudgetMode(str(budget_mode).lower())
+    effective_budget_value = sched_time_ratio if budget_value is None else float(budget_value)
+
     if use_hcs and not use_context:
         variants_file = _prefer_parquet(f"{datasets_dir}/{dataset}/data-variants")
-        return HCSScenarioLoader(base_tcfile, variants_file, sched_time_ratio)
+        return HCSScenarioLoader(
+            base_tcfile,
+            variants_file,
+            sched_time_ratio,
+            effective_budget_mode,
+            effective_budget_value,
+        )
 
     if use_hcs and use_context:
         raise NotImplementedError
@@ -297,9 +311,11 @@ def get_scenario_provider(  # pylint: disable=too-many-positional-arguments
             feature_group_values_raw,
             previous_build_raw,
             sched_time_ratio,
+            effective_budget_mode,
+            effective_budget_value,
         )
 
-    return ScenarioLoader(base_tcfile, sched_time_ratio)
+    return ScenarioLoader(base_tcfile, sched_time_ratio, effective_budget_mode, effective_budget_value)
 
 
 def build_agents_from_config(
@@ -334,16 +350,19 @@ def build_agents_from_config(
 
 def build_runtime_metadata(
     dataset: str,
-    sched_time_ratio: float,
     iteration: int,
     parallel_mode: str,
+    budget_mode: BudgetMode = BudgetMode.RATIO,
+    budget_value: float = 0.0,
 ) -> dict[str, str]:
     """Build stable execution metadata for telemetry and persisted results."""
-    execution_id = f"{dataset}|tr={sched_time_ratio:.2f}|exp={iteration}|{uuid4().hex[:8]}"
+    execution_id = f"{dataset}|bm={budget_mode.value}|bv={budget_value:g}|exp={iteration}|{uuid4().hex[:8]}"
     return {
         "execution_id": execution_id,
         "worker_id": str(iteration),
         "parallel_mode": parallel_mode,
+        "budget_mode": budget_mode.value,
+        "budget_value": f"{budget_value:g}",
     }
 
 
@@ -372,6 +391,8 @@ def build_environment(
         build_config.use_context,
         build_config.context_config,
         build_config.feature_groups,
+        build_config.budget_mode,
+        build_config.budget_value,
     )
     env = Environment(
         agents,
@@ -392,7 +413,8 @@ def _resolve_metric(build_config: EnvironmentBuildConfig) -> Any:
         return extension.build_metric_fn(
             build_config.resolved_spec,
             build_config.dataset,
-            build_config.sched_time_ratio,
+            build_config.budget_mode,
+            float(build_config.budget_value or 0.0),
         )
     return NAPFDVerdictMetric()
 
@@ -438,6 +460,12 @@ def exp_run_industrial_dataset_isolated(build_config: EnvironmentBuildConfig, pl
         "execution_id": plan.execution_id,
         "worker_id": plan.worker_id,
         "parallel_mode": plan.parallel_mode,
+        "budget_mode": build_config.budget_mode.value,
+        "budget_value": (
+            f"{(build_config.budget_value or 0.0):g}"
+            if build_config.budget_value is None
+            else f"{build_config.budget_value:g}"
+        ),
     }
 
     hook_context = HookContext(
@@ -448,7 +476,8 @@ def exp_run_industrial_dataset_isolated(build_config: EnvironmentBuildConfig, pl
         parallel_mode=plan.parallel_mode,
         iteration=plan.iteration,
         trials=plan.trials,
-        sched_time_ratio=build_config.sched_time_ratio,
+        budget_mode=build_config.budget_mode,
+        budget_value=(0.0 if build_config.budget_value is None else build_config.budget_value),
         extensions=build_config.extensions,
     )
 
@@ -822,7 +851,7 @@ def _run_experiment_impl(spec_dict: dict[str, Any], extension: RunnerExtension |
         coleman.policy.base._rng = np.random.default_rng(seed)
         pl.set_random_seed(seed)
 
-    sched_time_ratio = experiment.get("scheduled_time_ratio", [0.1, 0.5, 0.8])
+    budget_points = _resolve_budget_points(experiment)
     datasets_dir = experiment.get("datasets_dir", "examples")
     datasets = experiment.get("datasets", [])
     experiment_dir = experiment.get("experiment_dir", "results/experiments/")
@@ -884,8 +913,9 @@ def _run_experiment_impl(spec_dict: dict[str, Any], extension: RunnerExtension |
     current_error_context = run_context
 
     try:
-        for tr in sched_time_ratio:
-            experiment_directory = f"{experiment_dir}time_ratio_{int(tr * 100)}/"
+        for budget_mode, budget_value in budget_points:
+            sched_time_ratio = budget_value if budget_mode is BudgetMode.RATIO else 0.0
+            experiment_directory = f"{experiment_dir}{_budget_directory_segment(budget_mode, budget_value)}/"
             Path(experiment_directory).mkdir(parents=True, exist_ok=True)
 
             for dataset in datasets:
@@ -893,7 +923,8 @@ def _run_experiment_impl(spec_dict: dict[str, Any], extension: RunnerExtension |
                     run_id=run_id,
                     dataset_id=dataset,
                     parallel_mode="process" if effective_parallel_pool_size > 1 else "sequential",
-                    sched_time_ratio=tr,
+                    budget_mode=budget_mode,
+                    budget_value=budget_value,
                     extensions=extensions,
                 )
                 current_error_context = dataset_context
@@ -901,14 +932,22 @@ def _run_experiment_impl(spec_dict: dict[str, Any], extension: RunnerExtension |
                 dataset_started_at = time.time()
 
                 scenario = get_scenario_provider(
-                    datasets_dir, dataset, tr, use_hcs, use_context, context_config, feature_groups
+                    datasets_dir,
+                    dataset,
+                    sched_time_ratio,
+                    use_hcs,
+                    use_context,
+                    context_config,
+                    feature_groups,
+                    budget_mode,
+                    budget_value,
                 )
                 trials = scenario.max_builds
 
                 build_config = EnvironmentBuildConfig(
                     datasets_dir=datasets_dir,
                     dataset=dataset,
-                    sched_time_ratio=tr,
+                    sched_time_ratio=sched_time_ratio,
                     use_hcs=use_hcs,
                     use_context=use_context,
                     context_config=context_config,
@@ -919,6 +958,8 @@ def _run_experiment_impl(spec_dict: dict[str, Any], extension: RunnerExtension |
                     algorithm_configs=normalized_algorithm_configs,
                     rewards_names=rewards_names,
                     policy_names=policy_names,
+                    budget_mode=budget_mode,
+                    budget_value=budget_value,
                     seed=seed,
                     run_id=run_id,
                     extensions=extensions,
@@ -929,9 +970,10 @@ def _run_experiment_impl(spec_dict: dict[str, Any], extension: RunnerExtension |
                 )
 
                 logging.info(
-                    "Starting dataset=%s time_ratio=%.2f executions=%s agents=%s trials=%s",
+                    "Starting dataset=%s budget_mode=%s budget_value=%s executions=%s agents=%s trials=%s",
                     dataset,
-                    tr,
+                    budget_mode,
+                    budget_value,
                     independent_executions,
                     len(agents),
                     trials,
@@ -943,7 +985,13 @@ def _run_experiment_impl(spec_dict: dict[str, Any], extension: RunnerExtension |
                         iteration=i + 1,
                         trials=trials,
                         level=level,
-                        execution_id=build_runtime_metadata(dataset, tr, i + 1, parallel_mode)["execution_id"],
+                        execution_id=build_runtime_metadata(
+                            dataset,
+                            i + 1,
+                            parallel_mode,
+                            budget_mode,
+                            budget_value,
+                        )["execution_id"],
                         worker_id=str(i + 1),
                         parallel_mode=parallel_mode,
                         seed=None if seed is None else seed + i,
@@ -984,6 +1032,23 @@ def _run_experiment_impl(spec_dict: dict[str, Any], extension: RunnerExtension |
             fail_fast=hook_fail_fast,
         )
         raise
+
+
+def _resolve_budget_points(experiment: dict[str, Any]) -> list[tuple[BudgetMode, float]]:
+    """Resolve experiment budget points from the explicit budget model."""
+    budget = experiment.get("budget", {})
+    budget_mode = BudgetMode(str(budget.get("mode", BudgetMode.RATIO.value)).lower())
+    budget_values = budget.get("values", [0.1, 0.5, 0.8])
+    return [(budget_mode, float(value)) for value in budget_values]
+
+
+def _budget_directory_segment(budget_mode: BudgetMode, budget_value: float) -> str:
+    """Return deterministic directory segment for one budget point."""
+    if budget_mode is BudgetMode.RATIO:
+        return f"time_ratio_{int(round(budget_value * 100))}"
+
+    normalized_value = str(int(budget_value) if int(budget_value) == budget_value else budget_value).replace(".", "_")
+    return f"budget_{budget_mode.value}_{normalized_value}"
 
 
 def run_experiment(spec_dict: dict[str, Any]) -> None:

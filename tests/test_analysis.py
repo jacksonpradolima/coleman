@@ -22,19 +22,21 @@ def _build_parquet_fixture(root: Path) -> None:
             VALUES
                 (
                     's1', 1, 1, 'e1', '1', 'sequential', 'Random', 'RNFail',
-                    0.5, 1.0, 1.0, 0.1, 1.0, 1.0, 10.0, 1.0, 1.0,
+                    'ratio', 0.5,
+                    1.0, 0.1, 1.0, 1.0, 10.0, 1.0, 1.0,
                     1, 0, 10, 0, 1.0, 1.0, 0.0, 0.70, 0.30, 0.5, 0.5,
                     'h1', '', NULL
                 ),
                 (
                     's1', 1, 2, 'e2', '2', 'sequential', 'UCB1', 'RNFail',
-                    0.5, 1.0, 1.0, 0.2, 2.0, 2.0, 20.0, 2.0, 2.0,
+                    'ratio', 0.5,
+                    1.0, 0.2, 2.0, 2.0, 20.0, 2.0, 2.0,
                     1, 0, 10, 0, 1.0, 1.0, 0.0, 0.90, 0.10, 0.7, 0.7,
                     'h2', '', NULL
                 )
         ) AS x(
             scenario, experiment, step, execution_id, worker_id, parallel_mode,
-            policy, reward_function, sched_time, sched_time_duration,
+            policy, reward_function, budget_mode, budget_value,
             total_build_duration, prioritization_time, process_memory_rss_mib,
             process_memory_peak_rss_mib, process_cpu_utilization_percent,
             process_cpu_time_seconds, wall_time_seconds, detected, missed,

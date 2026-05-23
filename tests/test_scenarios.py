@@ -5,6 +5,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
+from coleman.budget import BudgetMode
 from coleman.runner import get_scenario_provider
 from coleman.scenarios import (
     ContextScenarioLoader,
@@ -798,6 +799,75 @@ def test_smoke_get_scenario_provider_path_resolution(
 
     scenario = next(iter(provider))
     assert scenario is not None
+
+
+def test_get_scenario_provider_fixed_time_budget(tmp_path):
+    """Fixed-time budget should expose mode/value and keep absolute available_time."""
+    datasets_dir = tmp_path / "datasets"
+    dataset_dir = datasets_dir / "toy"
+    dataset_dir.mkdir(parents=True)
+
+    pl.DataFrame(
+        {
+            "Name": ["A", "B"],
+            "Duration": [10.0, 20.0],
+            "CalcPrio": [0, 0],
+            "LastRun": ["2023-01-01", "2023-01-01"],
+            "Verdict": [1, 0],
+            "BuildId": [1, 1],
+        }
+    ).write_parquet(dataset_dir / "features-engineered.parquet")
+
+    provider = get_scenario_provider(
+        str(datasets_dir),
+        "toy",
+        0.5,
+        use_hcs=False,
+        use_context=False,
+        context_config={},
+        feature_groups={},
+        budget_mode=BudgetMode.FIXED_TIME,
+        budget_value=15.0,
+    )
+    scenario = next(provider)
+
+    assert scenario.budget_mode == "fixed_time"
+    assert scenario.budget_value == pytest.approx(15.0)
+    assert scenario.get_available_time() == pytest.approx(15.0)
+
+
+def test_get_scenario_provider_subset_size_budget(tmp_path):
+    """Subset-size budget should propagate mode/value to the scenario."""
+    datasets_dir = tmp_path / "datasets"
+    dataset_dir = datasets_dir / "toy_subset"
+    dataset_dir.mkdir(parents=True)
+
+    pl.DataFrame(
+        {
+            "Name": ["A", "B", "C"],
+            "Duration": [5.0, 5.0, 5.0],
+            "CalcPrio": [0, 0, 0],
+            "LastRun": ["2023-01-01", "2023-01-01", "2023-01-01"],
+            "Verdict": [1, 0, 1],
+            "BuildId": [1, 1, 1],
+        }
+    ).write_parquet(dataset_dir / "features-engineered.parquet")
+
+    provider = get_scenario_provider(
+        str(datasets_dir),
+        "toy_subset",
+        0.5,
+        use_hcs=False,
+        use_context=False,
+        context_config={},
+        feature_groups={},
+        budget_mode=BudgetMode.SUBSET_SIZE,
+        budget_value=2,
+    )
+    scenario = next(provider)
+
+    assert scenario.budget_mode == "subset_size"
+    assert scenario.budget_value == pytest.approx(2.0)
 
 
 # ------------------------ Benchmark Tests ------------------------

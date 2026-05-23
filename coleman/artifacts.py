@@ -21,7 +21,9 @@ class ArtifactWriter:
         *,
         run_id: str,
         dataset_id: str | None,
-        sched_time_ratio: float | None,
+        sched_time_ratio: float | None = None,
+        budget_mode: str | None = None,
+        budget_value: float | None = None,
         execution_id: str | None,
         artifact_type: str,
         ext: str,
@@ -34,9 +36,21 @@ class ArtifactWriter:
         safe_stem = _safe_segment(stem)
         ext = ext.lstrip(".")
 
+        effective_budget_mode = (budget_mode or "ratio").lower()
+        effective_budget_value = budget_value
+        if effective_budget_value is None and sched_time_ratio is not None:
+            effective_budget_value = float(sched_time_ratio)
+
         ratio_segment = "time_ratio_na"
-        if sched_time_ratio is not None:
-            ratio_segment = f"time_ratio_{int(round(float(sched_time_ratio) * 100)):02d}"
+        if effective_budget_mode == "ratio" and effective_budget_value is not None:
+            ratio_segment = f"time_ratio_{int(round(float(effective_budget_value) * 100)):02d}"
+        elif effective_budget_value is not None:
+            value_segment = str(
+                int(effective_budget_value)
+                if int(effective_budget_value) == effective_budget_value
+                else effective_budget_value
+            ).replace(".", "_")
+            ratio_segment = f"budget_{_safe_segment(effective_budget_mode)}_{_safe_segment(value_segment)}"
 
         base = self.run_root / run_id / "artifacts" / safe_type / ratio_segment / safe_dataset / safe_execution
         return base / f"{safe_stem}.{ext}"

@@ -133,7 +133,8 @@ and telemetry can observe broken execution setup paths.
 - `parallel_mode`
 - `iteration`
 - `trials`
-- `sched_time_ratio`
+- `budget_mode`
+- `budget_value`
 - `extensions`
 
 ## Deterministic Hook Artifacts
@@ -148,7 +149,8 @@ writer = ArtifactWriter("./runs")
 path = writer.path_for(
   run_id=context.run_id or "unknown",
   dataset_id=context.dataset_id,
-  sched_time_ratio=context.sched_time_ratio,
+  budget_mode=context.budget_mode.value if context.budget_mode else None,
+  budget_value=context.budget_value,
   execution_id=context.execution_id,
   artifact_type="forecast",
   ext="json",
@@ -162,7 +164,7 @@ Concrete plugin example (class + function hooks):
 
 Default artifact layout:
 
-`<runs>/<run_id>/artifacts/<artifact_type>/time_ratio_XX/<dataset_id>/<execution_id>/<stem>.<ext>`
+`<runs>/<run_id>/artifacts/<artifact_type>/<budget_segment>/<dataset_id>/<execution_id>/<stem>.<ext>`
 
 ## Public Scalene Compatibility Helper
 

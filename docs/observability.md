@@ -39,8 +39,8 @@ The top row also includes a "Current Cycle By Active Experiment" panel next to
 "Active Runs", so you can see optimization stage progression while runs are
 still active.
 
-The dashboard now has a dedicated `Sched Time Ratio` filter (label `time_ratio`)
-so you can isolate runs by available CI budget percentage.
+The dashboard now has dedicated budget filters (`budget_mode` and `budget_value`)
+so you can isolate runs by execution-budget configuration.
 
 For operational analysis, use the snapshot panels that focus on current
 iteration/stage instead of time-based curves:

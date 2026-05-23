@@ -78,7 +78,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"})",
+          "expr": "sum({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"})",
           "instant": true,
           "legendFormat": "active runs",
           "range": false,
@@ -138,7 +138,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (scenario, experiment, execution_id, worker_id, time_ratio) (rate({__name__=~\".*cycles_total.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"}[30s])) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"} > 0)",
+          "expr": "sum by (scenario, experiment, execution_id, worker_id, budget_value) (rate({__name__=~\".*cycles_total.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}[30s])) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"} > 0)",
           "instant": false,
           "legendFormat": "{{scenario}} | exp {{experiment}} | exec {{execution_id}} | worker {{worker_id}}",
           "range": true,
@@ -198,7 +198,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max by (scenario, experiment, execution_id, worker_id, time_ratio) ({__name__=~\".*cycles_total.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"}) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"} > 0)",
+          "expr": "max by (scenario, experiment, execution_id, worker_id, budget_value) ({__name__=~\".*cycles_total.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"} > 0)",
           "instant": false,
           "legendFormat": "{{scenario}} | exp {{experiment}} | exec {{execution_id}} | worker {{worker_id}}",
           "range": true,
@@ -258,7 +258,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, time_ratio) (rate({__name__=~\".*prioritization_latency.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", time_ratio=~\"$sched_time_ratio\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, time_ratio) (rate({__name__=~\".*prioritization_latency.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", time_ratio=~\"$sched_time_ratio\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"} > 0)",
+          "expr": "(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, budget_value) (rate({__name__=~\".*prioritization_latency.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", budget_value=~\"$budget_value\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, budget_value) (rate({__name__=~\".*prioritization_latency.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", budget_value=~\"$budget_value\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"} > 0)",
           "instant": false,
           "legendFormat": "{{policy}} | {{reward_function}} | exp {{experiment}} | worker {{worker_id}}",
           "range": true,
@@ -318,7 +318,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, time_ratio) (rate({__name__=~\".*evaluation_latency.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", time_ratio=~\"$sched_time_ratio\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, time_ratio) (rate({__name__=~\".*evaluation_latency.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", time_ratio=~\"$sched_time_ratio\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"} > 0)",
+          "expr": "(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, budget_value) (rate({__name__=~\".*evaluation_latency.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", budget_value=~\"$budget_value\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, budget_value) (rate({__name__=~\".*evaluation_latency.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", budget_value=~\"$budget_value\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"} > 0)",
           "instant": false,
           "legendFormat": "{{policy}} | {{reward_function}} | exp {{experiment}} | worker {{worker_id}}",
           "range": true,
@@ -378,7 +378,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(sum by (scenario, experiment, execution_id, worker_id, time_ratio) (rate({__name__=~\".*prioritization_latency.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, time_ratio) (rate({__name__=~\".*prioritization_latency.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"} > 0)",
+          "expr": "(sum by (scenario, experiment, execution_id, worker_id, budget_value) (rate({__name__=~\".*prioritization_latency.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, budget_value) (rate({__name__=~\".*prioritization_latency.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"} > 0)",
           "instant": false,
           "legendFormat": "{{scenario}} | exp {{experiment}} | exec {{execution_id}} | worker {{worker_id}}",
           "range": true,
@@ -438,7 +438,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(sum by (scenario, experiment, execution_id, worker_id, time_ratio) (rate({__name__=~\".*evaluation_latency.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, time_ratio) (rate({__name__=~\".*evaluation_latency.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"} > 0)",
+          "expr": "(sum by (scenario, experiment, execution_id, worker_id, budget_value) (rate({__name__=~\".*evaluation_latency.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, budget_value) (rate({__name__=~\".*evaluation_latency.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"} > 0)",
           "instant": false,
           "legendFormat": "{{scenario}} | exp {{experiment}} | exec {{execution_id}} | worker {{worker_id}}",
           "range": true,
@@ -498,7 +498,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, time_ratio) (rate({__name__=~\".*napfd.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", time_ratio=~\"$sched_time_ratio\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, time_ratio) (rate({__name__=~\".*napfd.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", time_ratio=~\"$sched_time_ratio\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"} > 0)",
+          "expr": "(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, budget_value) (rate({__name__=~\".*napfd.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", budget_value=~\"$budget_value\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, budget_value) (rate({__name__=~\".*napfd.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", budget_value=~\"$budget_value\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"} > 0)",
           "instant": false,
           "legendFormat": "{{policy}} | {{reward_function}} | exp {{experiment}} | worker {{worker_id}}",
           "range": true,
@@ -558,7 +558,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, time_ratio) (rate({__name__=~\".*apfdc.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", time_ratio=~\"$sched_time_ratio\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, time_ratio) (rate({__name__=~\".*apfdc.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", time_ratio=~\"$sched_time_ratio\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"} > 0)",
+          "expr": "(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, budget_value) (rate({__name__=~\".*apfdc.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", budget_value=~\"$budget_value\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, budget_value) (rate({__name__=~\".*apfdc.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", budget_value=~\"$budget_value\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"} > 0)",
           "instant": false,
           "legendFormat": "{{policy}} | {{reward_function}} | exp {{experiment}} | worker {{worker_id}}",
           "range": true,
@@ -618,7 +618,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(sum by (scenario, experiment, execution_id, worker_id, time_ratio) (rate({__name__=~\".*bandit_update_latency.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, time_ratio) (rate({__name__=~\".*bandit_update_latency.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"} > 0)",
+          "expr": "(sum by (scenario, experiment, execution_id, worker_id, budget_value) (rate({__name__=~\".*bandit_update_latency.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, budget_value) (rate({__name__=~\".*bandit_update_latency.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"} > 0)",
           "instant": false,
           "legendFormat": "{{scenario}} | exp {{experiment}} | exec {{execution_id}} | worker {{worker_id}}",
           "range": true,
@@ -678,7 +678,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(sum by (scenario, experiment, execution_id, worker_id, time_ratio) (rate({__name__=~\".*process_cpu_utilization.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, time_ratio) (rate({__name__=~\".*process_cpu_utilization.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"} > 0)",
+          "expr": "(sum by (scenario, experiment, execution_id, worker_id, budget_value) (rate({__name__=~\".*process_cpu_utilization.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, budget_value) (rate({__name__=~\".*process_cpu_utilization.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"} > 0)",
           "instant": false,
           "legendFormat": "{{scenario}} | exp {{experiment}} | worker {{worker_id}}",
           "range": true,
@@ -738,7 +738,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(sum by (scenario, experiment, execution_id, worker_id, time_ratio) (rate({__name__=~\".*process_memory_rss.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, time_ratio) (rate({__name__=~\".*process_memory_rss.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"} > 0)",
+          "expr": "(sum by (scenario, experiment, execution_id, worker_id, budget_value) (rate({__name__=~\".*process_memory_rss.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, budget_value) (rate({__name__=~\".*process_memory_rss.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"} > 0)",
           "instant": false,
           "legendFormat": "{{scenario}} | exp {{experiment}} | worker {{worker_id}}",
           "range": true,
@@ -798,7 +798,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, time_ratio) (rate({__name__=~\".*process_cpu_utilization.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", time_ratio=~\"$sched_time_ratio\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, time_ratio) (rate({__name__=~\".*process_cpu_utilization.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", time_ratio=~\"$sched_time_ratio\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"} > 0)",
+          "expr": "(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, budget_value) (rate({__name__=~\".*process_cpu_utilization.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", budget_value=~\"$budget_value\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, budget_value) (rate({__name__=~\".*process_cpu_utilization.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", budget_value=~\"$budget_value\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"} > 0)",
           "instant": false,
           "legendFormat": "{{policy}} | {{reward_function}} | exp {{experiment}} | worker {{worker_id}}",
           "range": true,
@@ -858,7 +858,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, time_ratio) (rate({__name__=~\".*process_memory_rss.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", time_ratio=~\"$sched_time_ratio\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, time_ratio) (rate({__name__=~\".*process_memory_rss.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", time_ratio=~\"$sched_time_ratio\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"} > 0)",
+          "expr": "(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, budget_value) (rate({__name__=~\".*process_memory_rss.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", budget_value=~\"$budget_value\"}[30s])) / sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, budget_value) (rate({__name__=~\".*process_memory_rss.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", budget_value=~\"$budget_value\"}[30s]))) and on (scenario, experiment, execution_id, worker_id) ({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"} > 0)",
           "instant": false,
           "legendFormat": "{{policy}} | {{reward_function}} | exp {{experiment}} | worker {{worker_id}}",
           "range": true,
@@ -927,9 +927,9 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * max by (scenario, experiment, execution_id, worker_id, time_ratio) ({__name__=~\".*cycles_total.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"}) / $target_steps",
+          "expr": "100 * max by (scenario, experiment, execution_id, worker_id, budget_value) ({__name__=~\".*cycles_total.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}) / $target_steps",
           "instant": true,
-          "legendFormat": "{{scenario}} | exp {{experiment}} | exec {{execution_id}} | worker {{worker_id}} | tr {{time_ratio}}",
+          "legendFormat": "{{scenario}} | exp {{experiment}} | exec {{execution_id}} | worker {{worker_id}} | tr {{budget_value}}",
           "range": false,
           "refId": "A"
         }
@@ -996,9 +996,9 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "clamp_min(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, time_ratio) (rate({__name__=~\".*napfd.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", time_ratio=~\"$sched_time_ratio\"}[2m])) / clamp_min(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, time_ratio) (rate({__name__=~\".*napfd.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", time_ratio=~\"$sched_time_ratio\"}[2m])), 0.000001), 0)",
+          "expr": "clamp_min(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, budget_value) (rate({__name__=~\".*napfd.*_sum\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", budget_value=~\"$budget_value\"}[2m])) / clamp_min(sum by (scenario, experiment, execution_id, worker_id, policy, reward_function, budget_value) (rate({__name__=~\".*napfd.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", policy=~\"$policy\", budget_value=~\"$budget_value\"}[2m])), 0.000001), 0)",
           "instant": true,
-          "legendFormat": "{{policy}} | {{reward_function}} | exp {{experiment}} | tr {{time_ratio}}",
+          "legendFormat": "{{policy}} | {{reward_function}} | exp {{experiment}} | tr {{budget_value}}",
           "range": false,
           "refId": "A"
         }
@@ -1056,9 +1056,9 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (scenario, experiment, execution_id, worker_id, time_ratio) (rate({__name__=~\".*checkpoint_saves_total.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"}[5m]))",
+          "expr": "sum by (scenario, experiment, execution_id, worker_id, budget_value) (rate({__name__=~\".*checkpoint_saves_total.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}[5m]))",
           "instant": true,
-          "legendFormat": "{{scenario}} | exp {{experiment}} | exec {{execution_id}} | worker {{worker_id}} | tr {{time_ratio}}",
+          "legendFormat": "{{scenario}} | exp {{experiment}} | exec {{execution_id}} | worker {{worker_id}} | tr {{budget_value}}",
           "range": false,
           "refId": "A"
         }
@@ -1107,17 +1107,17 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "definition": "label_values({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\"}, time_ratio)",
+        "definition": "label_values({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\"}, budget_value)",
         "hide": 0,
         "includeAll": true,
-        "label": "Sched Time Ratio",
+        "label": "Budget Value",
         "multi": false,
-        "name": "sched_time_ratio",
+        "name": "budget_value",
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\"}, time_ratio)",
-          "refId": "Prometheus-time-ratio"
+          "query": "label_values({__name__=~\".*run_active.*\", scenario=~\"$dataset\", execution_id=~\"$execution_id\"}, budget_value)",
+          "refId": "Prometheus-budget-value"
         },
         "refresh": 1,
         "regex": "",
@@ -1191,7 +1191,7 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "definition": "label_values({__name__=~\".*prioritization_latency.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"}, policy)",
+        "definition": "label_values({__name__=~\".*prioritization_latency.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}, policy)",
         "hide": 0,
         "includeAll": true,
         "label": "Policy",
@@ -1200,7 +1200,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values({__name__=~\".*prioritization_latency.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", time_ratio=~\"$sched_time_ratio\"}, policy)",
+          "query": "label_values({__name__=~\".*prioritization_latency.*_count\", scenario=~\"$dataset\", execution_id=~\"$execution_id\", budget_value=~\"$budget_value\"}, policy)",
           "refId": "Prometheus-policy"
         },
         "refresh": 1,

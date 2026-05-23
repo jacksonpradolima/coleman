@@ -7,8 +7,9 @@ import pytest
 import yaml
 
 from coleman.api import RunResult, load_spec, run, run_many, run_with_extension, save_resolved, sweep
+from coleman.budget import BudgetMode
 from coleman.runner import RunnerExtension
-from coleman.spec.models import ExecutionSpec, ExperimentSpec, ResultsSpec, RunSpec
+from coleman.spec.models import BudgetSpec, ExecutionSpec, ExperimentSpec, ResultsSpec, RunSpec
 from coleman.spec.run_id import compute_run_id
 from coleman.spec.sweep import SweepAxis, SweepSpec
 
@@ -23,7 +24,7 @@ def _light_run_spec(tmpdir: str, **execution_overrides) -> RunSpec:
     execution_kwargs.update(execution_overrides)
     execution = ExecutionSpec(**execution_kwargs)  # ty:ignore[invalid-argument-type]
     experiment = ExperimentSpec(
-        scheduled_time_ratio=[0.1],
+        budget=BudgetSpec(mode=BudgetMode.RATIO, values=[0.1]),
         datasets_dir="examples",
         datasets=["fakedata"],
         rewards=["RNFail"],

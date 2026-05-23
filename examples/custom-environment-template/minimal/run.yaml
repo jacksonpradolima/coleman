@@ -6,8 +6,9 @@ experiment:
   datasets_dir: examples
   datasets:
     - fakedata
-  scheduled_time_ratio:
-    - 0.5
+  budget:
+    mode: ratio
+    values: [0.5]
   policies:
     - Random
   rewards:

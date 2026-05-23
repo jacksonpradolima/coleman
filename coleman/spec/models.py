@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from coleman.budget import BudgetMode
 
 
 class ExecutionSpec(BaseModel):
@@ -45,8 +47,8 @@ class ExperimentSpec(BaseModel):
 
     Parameters
     ----------
-    scheduled_time_ratio : list[float]
-        Time-budget ratios to evaluate.
+    budget : BudgetSpec
+        Generic budget definition.
     datasets_dir : str
         Root directory containing dataset files.
     datasets : list[str]
@@ -61,7 +63,7 @@ class ExperimentSpec(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    scheduled_time_ratio: list[float] = Field(default_factory=lambda: [0.1, 0.5, 0.8])
+    budget: BudgetSpec = Field(default_factory=lambda: BudgetSpec())
     datasets_dir: str = "examples"
     datasets: list[str] = Field(default_factory=lambda: ["alibaba@druid"])
     experiment_dir: str = "results/experiments/"
@@ -69,6 +71,52 @@ class ExperimentSpec(BaseModel):
     policies: list[str] = Field(
         default_factory=lambda: ["Random"],
     )
+
+
+class BudgetSpec(BaseModel):
+    """Generic budget model for experiment execution.
+
+    Parameters
+    ----------
+    mode : BudgetMode
+        Budget interpretation mode.
+    values : list[float]
+        Budget values for sweep execution.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: BudgetMode = BudgetMode.RATIO
+    values: list[float] = Field(default_factory=lambda: [0.1, 0.5, 0.8])
+
+    @model_validator(mode="after")
+    def validate_values(self) -> BudgetSpec:
+        """Validate values according to selected budget mode."""
+        if not self.values:
+            msg = "experiment.budget.values must contain at least one value."
+            raise ValueError(msg)
+
+        if self.mode == BudgetMode.RATIO:
+            if any(value <= 0 or value > 1 for value in self.values):
+                msg = "experiment.budget.values for mode='ratio' must be within (0, 1]."
+                raise ValueError(msg)
+            return self
+
+        if self.mode == BudgetMode.FIXED_TIME:
+            if any(value <= 0 for value in self.values):
+                msg = "experiment.budget.values for mode='fixed_time' must be > 0 seconds."
+                raise ValueError(msg)
+            return self
+
+        # subset_size
+        if any(value < 1 for value in self.values):
+            msg = "experiment.budget.values for mode='subset_size' must be >= 1."
+            raise ValueError(msg)
+        if any(int(value) != value for value in self.values):
+            msg = "experiment.budget.values for mode='subset_size' must be integer values."
+            raise ValueError(msg)
+
+        return self
 
 
 class AlgorithmSpec(BaseModel, extra="allow"):

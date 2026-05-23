@@ -45,12 +45,14 @@ import pytest
 
 import coleman.policy
 from coleman.agent import ContextualAgent, RewardSlidingWindowAgent
+from coleman.budget import BudgetMode
 from coleman.environment import Environment
 from coleman.policy import FRRMABPolicy, SWLinUCBPolicy
 from coleman.runner import (
     EnvironmentBuildConfig,
     ExecutionPlan,
     _effective_parallel_pool_size,
+    _resolve_budget_points,
     build_agents_from_config,
     build_runtime_metadata,
     create_agents,
@@ -110,12 +112,37 @@ def test_exp_run_industrial_dataset(mock_environment, mock_create_logger, tmpdir
 
 def test_build_runtime_metadata_is_unique_per_execution():
     """Execution metadata should uniquely identify independent runs."""
-    metadata_a = build_runtime_metadata("fakedata", 0.5, 1, "process")
-    metadata_b = build_runtime_metadata("fakedata", 0.5, 1, "process")
+    metadata_a = build_runtime_metadata("fakedata", 1, "process", BudgetMode.RATIO, 0.5)
+    metadata_b = build_runtime_metadata("fakedata", 1, "process", BudgetMode.RATIO, 0.5)
 
     assert metadata_a["worker_id"] == "1"
     assert metadata_a["parallel_mode"] == "process"
     assert metadata_a["execution_id"] != metadata_b["execution_id"]
+
+
+def test_build_runtime_metadata_includes_budget_identifiers():
+    metadata = build_runtime_metadata(
+        "fakedata",
+        1,
+        "process",
+        budget_mode=BudgetMode.FIXED_TIME,
+        budget_value=30.0,
+    )
+
+    assert metadata["budget_mode"] == "fixed_time"
+    assert metadata["budget_value"] == "30"
+    assert "bm=fixed_time" in metadata["execution_id"]
+
+
+def test_resolve_budget_points_uses_explicit_budget_model():
+    points = _resolve_budget_points({"budget": {"mode": "ratio", "values": [0.2, 0.6]}})
+    assert points == [(BudgetMode.RATIO, 0.2), (BudgetMode.RATIO, 0.6)]
+
+
+def test_resolve_budget_points_subset_size_mode():
+    experiment = {"budget": {"mode": "subset_size", "values": [10]}}
+    points = _resolve_budget_points(experiment)
+    assert points == [(BudgetMode.SUBSET_SIZE, 10.0)]
 
 
 def test_effective_parallel_pool_size_keeps_parallel_when_not_profiled():
@@ -348,7 +375,7 @@ def test_run_experiment_sets_seeds_when_config_seed_present(tmp_path):
     cfg = {
         "execution": {"seed": 7, "independent_executions": 1, "parallel_pool_size": 1, "verbose": False},
         "experiment": {
-            "scheduled_time_ratio": [0.1],
+            "budget": {"mode": "ratio", "values": [0.1]},
             "datasets_dir": "examples",
             "datasets": ["fakedata"],
             "rewards": ["RNFail"],
@@ -818,7 +845,7 @@ def test_run_experiment_dispatches_coordinator_hooks():
             "verbose": False,
         },
         "experiment": {
-            "scheduled_time_ratio": [0.1],
+            "budget": {"mode": "ratio", "values": [0.1]},
             "datasets_dir": "examples",
             "datasets": ["fakedata"],
             "rewards": ["RNFail"],
@@ -991,7 +1018,7 @@ def test_run_experiment_dispatches_error_with_dataset_context():
             "verbose": False,
         },
         "experiment": {
-            "scheduled_time_ratio": [0.1],
+            "budget": {"mode": "ratio", "values": [0.1]},
             "datasets_dir": "examples",
             "datasets": ["fakedata"],
             "rewards": ["RNFail"],

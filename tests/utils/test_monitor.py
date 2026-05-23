@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 import pyarrow.parquet as pq
 import pytest
 
+from coleman.budget import BudgetMode
 from coleman.evaluation import EvaluationMetric
 from coleman.results.parquet_sink import ParquetSink
 from coleman.results.sink_base import NullSink
@@ -38,7 +39,8 @@ def mock_scenario_provider():
     """Create a mock for a scenario provider."""
     scenario_provider = MagicMock()
     scenario_provider.name = "TestScenario"
-    scenario_provider.avail_time_ratio = 0.5
+    scenario_provider.budget_mode = BudgetMode.RATIO
+    scenario_provider.budget_value = 0.5
     return scenario_provider
 
 
@@ -163,7 +165,8 @@ def test_collect_performance(benchmark, num_records):
 
     mock_scenario_provider = MagicMock()
     mock_scenario_provider.name = "BenchmarkScenario"
-    mock_scenario_provider.avail_time_ratio = 0.5
+    mock_scenario_provider.budget_mode = BudgetMode.RATIO
+    mock_scenario_provider.budget_value = 0.5
 
     def add_records():
         collector = MonitorCollector(sink=NullSink())

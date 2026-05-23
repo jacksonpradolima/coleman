@@ -48,3 +48,20 @@ def test_artifact_writer_json_and_csv_are_atomic(tmp_path):
     assert payload == {"a": 1, "b": 2}
 
     assert "x,y" in csv_path.read_text(encoding="utf-8")
+
+
+def test_artifact_writer_path_uses_budget_segment_for_non_ratio(tmp_path):
+    writer = ArtifactWriter(tmp_path)
+
+    path = writer.path_for(
+        run_id="run123",
+        dataset_id="my-dataset",
+        sched_time_ratio=None,
+        budget_mode="fixed_time",
+        budget_value=30.0,
+        execution_id="exec-1",
+        artifact_type="quality",
+        ext="json",
+    )
+
+    assert "budget_fixed_time_30" in path.as_posix()

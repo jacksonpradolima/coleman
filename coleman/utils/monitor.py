@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from coleman.budget import BudgetMode
 from coleman.results.sink_base import NullSink, ResultsSink
 from coleman.utils.monitor_params import CollectParams
 
@@ -52,8 +53,8 @@ class MonitorCollector:
     - ``step``: Part number (Build) from scenario that is being analyzed.
     - ``policy``: Policy name that is evaluating a part of the scenario.
     - ``reward_function``: Reward function used by the agent to observe the environment.
-    - ``sched_time``: Percentage of time available (i.e., 50 % of total for the Build).
-    - ``sched_time_duration``: The time in number obtained from percentage.
+    - ``budget_mode``: Budget semantic used for scheduling.
+    - ``budget_value``: Budget value configured for the run.
     - ``total_build_duration``: Build Duration.
     - ``prioritization_time``: Prioritization Time.
     - ``detected``: Failures detected.
@@ -90,6 +91,32 @@ class MonitorCollector:
         params : CollectParams
             CollectParams object containing all input data.
         """
+        raw_budget_mode = (
+            params.budget_mode
+            if params.budget_mode is not None
+            else getattr(params.scenario_provider, "budget_mode", None)
+        )
+        if isinstance(raw_budget_mode, BudgetMode):
+            budget_mode = raw_budget_mode.value
+        elif isinstance(raw_budget_mode, str) and raw_budget_mode in {m.value for m in BudgetMode}:
+            budget_mode = raw_budget_mode
+        else:
+            budget_mode = BudgetMode.RATIO.value
+
+        raw_budget_value = (
+            params.budget_value
+            if params.budget_value is not None
+            else getattr(params.scenario_provider, "budget_value", None)
+        )
+        if isinstance(raw_budget_value, int | float) and not isinstance(raw_budget_value, bool):
+            budget_value = float(raw_budget_value)
+        elif budget_mode == BudgetMode.RATIO.value and params.total_build_duration > 0:
+            budget_value = float(params.available_time) / float(params.total_build_duration)
+        elif budget_mode == BudgetMode.FIXED_TIME.value:
+            budget_value = float(params.available_time)
+        else:
+            budget_value = 0.0
+
         row: dict[str, Any] = {
             "scenario": params.scenario_provider.name,
             "experiment": params.experiment,
@@ -99,8 +126,8 @@ class MonitorCollector:
             "parallel_mode": params.parallel_mode,
             "policy": params.policy,
             "reward_function": params.reward_function,
-            "sched_time": params.scenario_provider.avail_time_ratio,
-            "sched_time_duration": params.available_time,
+            "budget_mode": budget_mode,
+            "budget_value": budget_value,
             "total_build_duration": params.total_build_duration,
             "prioritization_time": params.prioritization_time,
             "process_memory_rss_mib": params.process_memory_rss_mib,

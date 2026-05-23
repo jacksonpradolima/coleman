@@ -54,7 +54,7 @@ def generate_manifest(run_dir: str | Path, *, run_id: str) -> Path:
                 "type": "results",
                 "relative_path": _rel(file_path, root),
                 "format": "parquet",
-                "partition_keys": ["scenario", "policy", "reward_function"],
+                "partition_keys": ["scenario", "policy", "reward_function", "budget_mode", "budget_value"],
             }
         )
 

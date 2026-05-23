@@ -6,9 +6,9 @@ experiment:
   datasets_dir: examples
   datasets:
     - fakedata
-  scheduled_time_ratio:
-    - 0.1
-    - 0.5
+  budget:
+    mode: ratio
+    values: [0.1, 0.5]
   policies:
     - PortfolioUCB
   rewards:

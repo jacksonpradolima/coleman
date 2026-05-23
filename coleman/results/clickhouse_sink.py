@@ -32,8 +32,8 @@ CREATE TABLE IF NOT EXISTS {_CLICKHOUSE_TABLE} (
     parallel_mode      {_NULLABLE_STRING},
     policy             String,
     reward_function    String,
-    sched_time         Float64,
-    sched_time_duration Float64,
+    budget_mode        {_NULLABLE_STRING},
+    budget_value       {_NULLABLE_FLOAT64},
     total_build_duration Float64,
     prioritization_time Float64,
     process_memory_rss_mib {_NULLABLE_FLOAT64},
@@ -67,8 +67,8 @@ _INSERT_COLS = [
     "parallel_mode",
     "policy",
     "reward_function",
-    "sched_time",
-    "sched_time_duration",
+    "budget_mode",
+    "budget_value",
     "total_build_duration",
     "prioritization_time",
     "process_memory_rss_mib",
@@ -198,6 +198,8 @@ class ClickHouseSink(ResultsSink):
             ("process_cpu_time_seconds", _NULLABLE_FLOAT64),
             ("wall_time_seconds", _NULLABLE_FLOAT64),
             ("variant", _NULLABLE_STRING),
+            ("budget_mode", _NULLABLE_STRING),
+            ("budget_value", _NULLABLE_FLOAT64),
         ]:
             self._client.command(
                 f"ALTER TABLE {_CLICKHOUSE_TABLE} ADD COLUMN IF NOT EXISTS {column_name} {column_type}"

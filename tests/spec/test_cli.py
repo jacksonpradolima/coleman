@@ -82,7 +82,7 @@ class TestCLIRun:
                             "verbose": False,
                         },
                         "experiment": {
-                            "scheduled_time_ratio": [0.1],
+                            "budget": {"mode": "ratio", "values": [0.1]},
                             "datasets_dir": "examples",
                             "datasets": ["fakedata"],
                             "rewards": ["RNFail"],
@@ -110,7 +110,7 @@ class TestCLISweep:
                             "verbose": False,
                         },
                         "experiment": {
-                            "scheduled_time_ratio": [0.1],
+                            "budget": {"mode": "ratio", "values": [0.1]},
                             "datasets_dir": "examples",
                             "datasets": ["fakedata"],
                             "rewards": ["RNFail"],
@@ -146,7 +146,7 @@ class TestCLISweep:
                             "independent_executions": 1,
                         },
                         "experiment": {
-                            "scheduled_time_ratio": [0.1],
+                            "budget": {"mode": "ratio", "values": [0.1]},
                             "datasets_dir": "examples",
                             "datasets": ["fakedata"],
                             "rewards": ["RNFail"],
@@ -186,7 +186,7 @@ class TestCLISweep:
                     {
                         "execution": {"parallel_pool_size": 1, "independent_executions": 1},
                         "experiment": {
-                            "scheduled_time_ratio": [0.1],
+                            "budget": {"mode": "ratio", "values": [0.1]},
                             "datasets_dir": "examples",
                             "datasets": ["fakedata"],
                             "rewards": ["RNFail"],
@@ -212,7 +212,7 @@ class TestCLISweep:
                             "independent_executions": 1,
                         },
                         "experiment": {
-                            "scheduled_time_ratio": [0.1],
+                            "budget": {"mode": "ratio", "values": [0.1]},
                             "datasets_dir": "examples",
                             "datasets": ["fakedata"],
                             "rewards": ["RNFail"],
@@ -247,7 +247,7 @@ class TestCLISweep:
                             "independent_executions": 1,
                         },
                         "experiment": {
-                            "scheduled_time_ratio": [0.1],
+                            "budget": {"mode": "ratio", "values": [0.1]},
                             "datasets_dir": "examples",
                             "datasets": ["fakedata"],
                             "rewards": ["RNFail"],
@@ -292,7 +292,7 @@ class TestCLISweep:
                             "independent_executions": 1,
                         },
                         "experiment": {
-                            "scheduled_time_ratio": [0.1],
+                            "budget": {"mode": "ratio", "values": [0.1]},
                             "datasets_dir": "examples",
                             "datasets": ["fakedata"],
                             "rewards": ["RNFail"],

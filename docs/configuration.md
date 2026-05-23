@@ -23,7 +23,9 @@ execution:
   force_sequential_under_scalene: true
 
 experiment:
-  scheduled_time_ratio: [0.1, 0.5, 0.8]
+  budget:
+    mode: ratio
+    values: [0.1, 0.5, 0.8]
   datasets_dir: examples
   datasets:
     - alibaba@druid
@@ -110,7 +112,7 @@ the following typed sub-specs:
 | Section | Model | Key fields |
 |---------|-------|------------|
 | `execution` | `ExecutionSpec` | `parallel_pool_size`, `independent_executions`, `seed`, `verbose`, `force_sequential_under_scalene` |
-| `experiment` | `ExperimentSpec` | `scheduled_time_ratio`, `datasets_dir`, `datasets`, `experiment_dir`, `rewards`, `policies` |
+| `experiment` | `ExperimentSpec` | `budget`, `datasets_dir`, `datasets`, `experiment_dir`, `rewards`, `policies` |
 | `algorithm` | `AlgorithmSpec` | Free-form nested dict — any algorithm can store its own parameters |
 | `hcs_configuration` | `HCSConfigurationSpec` | `wts_strategy` |
 | `contextual_information` | `ContextualInformationSpec` | `config` (previous build columns), `feature_group` |
@@ -206,7 +208,7 @@ construction fails, using the most specific available context.
 3. `execution_id`
 4. `worker_id`
 5. `parallel_mode`
-6. `iteration`, `trials`, `sched_time_ratio`
+6. `iteration`, `trials`, `budget_mode`, `budget_value`
 7. `extensions`
 
 Event payloads:

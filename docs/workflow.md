@@ -46,7 +46,8 @@ Key settings you should inspect:
 | Setting                  | Where it comes from                  |
 |--------------------------|--------------------------------------|
 | `datasets`               | `experiment.datasets`                |
-| `scheduled_time_ratio`   | `experiment.scheduled_time_ratio`    |
+| `budget.mode`            | `experiment.budget.mode`             |
+| `budget.values`          | `experiment.budget.values`           |
 | `results.enabled`        | `results.enabled`                    |
 | `results.sink`           | `results.sink` (parquet / clickhouse)|
 | `results.out_dir`        | `results.out_dir`                    |

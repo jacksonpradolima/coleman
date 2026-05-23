@@ -233,6 +233,23 @@ def test_evaluation_metric_set_default_metrics():
     assert metric.cost == 1
 
 
+def test_napfd_verdict_metric_subset_size_budget_schedules_by_k():
+    """subset_size budget should schedule exactly k tests regardless of durations."""
+    records = [
+        {"Name": "T1", "Duration": 10.0, "NumRan": 1, "NumErrors": 0, "Verdict": 1},
+        {"Name": "T2", "Duration": 10.0, "NumRan": 1, "NumErrors": 0, "Verdict": 0},
+        {"Name": "T3", "Duration": 10.0, "NumRan": 1, "NumErrors": 0, "Verdict": 1},
+    ]
+
+    metric = NAPFDVerdictMetric()
+    metric.update_budget("subset_size", 2)
+    metric.update_available_time(0.0)
+    metric.evaluate(records)
+
+    assert metric.scheduled_testcases == ["T1", "T2"]
+    assert metric.unscheduled_testcases == ["T3"]
+
+
 def test_napfd_metric(sample_records, available_time):
     """
     Test NAPFDMetric with standard records and 50% available time.

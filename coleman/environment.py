@@ -32,6 +32,7 @@ import polars as pl
 
 from coleman.agent import ContextualAgent, SlidingWindowContextualAgent
 from coleman.bandit import EvaluationMetricBandit
+from coleman.budget import BudgetMode
 from coleman.checkpoint.checkpoint_store import CheckpointStore, NullCheckpointStore
 from coleman.checkpoint.state import CheckpointPayload
 from coleman.environment_base import AbstractEnvironment
@@ -250,10 +251,13 @@ class Environment(AbstractEnvironment):
 
     def _experiment_telemetry_attributes(self, experiment: int) -> dict[str, Any]:
         """Build low-cardinality telemetry attributes for one experiment run."""
+        budget_mode = getattr(self.scenario_provider, "budget_mode", BudgetMode.RATIO)
+        budget_value = getattr(self.scenario_provider, "budget_value", 0.0)
         attributes = {
             "scenario": str(self.scenario_provider),
             "experiment": str(experiment),
-            "time_ratio": f"{self.scenario_provider.get_avail_time_ratio():.2f}",
+            "budget_mode": budget_mode.value if isinstance(budget_mode, BudgetMode) else str(budget_mode),
+            "budget_value": str(budget_value),
         }
         attributes.update(self._current_runtime_metadata())
         return attributes
@@ -359,9 +363,6 @@ class Environment(AbstractEnvironment):
                 trials,
             )
 
-            # Test Budget percentage
-            avail_time_ratio = self.scenario_provider.get_avail_time_ratio()
-
             # For each "virtual scenario" I must analyse it and evaluate it
             for t, virtual_scenario in enumerate(self.scenario_provider, start=restore_step):
                 # The max number of scenarios that will be analyzed
@@ -370,6 +371,18 @@ class Environment(AbstractEnvironment):
 
                 # Time Budget
                 available_time = virtual_scenario.get_available_time()
+                budget_mode_raw = getattr(virtual_scenario, "budget_mode", None)
+                budget_mode = budget_mode_raw if isinstance(budget_mode_raw, BudgetMode) else BudgetMode.RATIO
+                budget_value_raw = getattr(virtual_scenario, "budget_value", None)
+                budget_value = (
+                    float(budget_value_raw)
+                    if isinstance(budget_value_raw, int | float) and not isinstance(budget_value_raw, bool)
+                    else None
+                )
+                self.evaluation_metric.update_budget(
+                    budget_mode.value,
+                    budget_value,
+                )
                 self.evaluation_metric.update_available_time(available_time)
 
                 # Compute time
@@ -391,6 +404,10 @@ class Environment(AbstractEnvironment):
                 for _, agent in enumerate(self.agents):
                     # Update again because the variants
                     # each variant has its own test budget size, that is, different from the whole system
+                    self.evaluation_metric.update_budget(
+                        budget_mode.value,
+                        budget_value,
+                    )
                     self.evaluation_metric.update_available_time(available_time)
 
                     action, end, exp_name, start = self.run_prioritization(
@@ -402,7 +419,6 @@ class Environment(AbstractEnvironment):
                         self.run_prioritization_hcs(
                             agent,
                             action,
-                            avail_time_ratio,
                             bandit_duration,
                             end,
                             exp_name,
@@ -563,6 +579,15 @@ class Environment(AbstractEnvironment):
             metric.cost,
         )
 
+        budget_mode_raw = getattr(virtual_scenario, "budget_mode", None)
+        budget_mode = budget_mode_raw if isinstance(budget_mode_raw, BudgetMode) else BudgetMode.RATIO
+        budget_value_raw = getattr(virtual_scenario, "budget_value", None)
+        budget_value = (
+            float(budget_value_raw)
+            if isinstance(budget_value_raw, int | float) and not isinstance(budget_value_raw, bool)
+            else None
+        )
+
         # Collect the data during the experiment
         params = CollectParams(
             scenario_provider=self.scenario_provider,
@@ -579,6 +604,8 @@ class Environment(AbstractEnvironment):
             execution_id=self.runtime_metadata.get("execution_id"),
             worker_id=self.runtime_metadata.get("worker_id"),
             parallel_mode=self.runtime_metadata.get("parallel_mode"),
+            budget_mode=budget_mode,
+            budget_value=budget_value,
             process_memory_rss_mib=resource_snapshot.current_rss_mib,
             process_memory_peak_rss_mib=resource_snapshot.peak_rss_mib,
             process_cpu_utilization_percent=resource_snapshot.cpu_utilization_percent,
@@ -591,7 +618,7 @@ class Environment(AbstractEnvironment):
         return action, end, exp_name, start
 
     def run_prioritization_hcs(  # pylint: disable=too-many-positional-arguments
-        self, agent, action, avail_time_ratio, bandit_duration, end, exp_name, experiment, start, t, virtual_scenario
+        self, agent, action, bandit_duration, end, exp_name, experiment, start, t, virtual_scenario
     ):
         """Run the prioritization process for a given agent and HCS scenario.
 
@@ -601,8 +628,6 @@ class Environment(AbstractEnvironment):
             The agent that is being used for the prioritization.
         action : list of str
             The chosen action by the agent.
-        avail_time_ratio : float
-            The available time ratio for the experiment.
         bandit_duration : float
             Time taken by the bandit process.
         end : float
@@ -632,10 +657,24 @@ class Environment(AbstractEnvironment):
             df = df.with_columns([pl.col("Name").replace_strict(action_map, default=0).alias("CalcPrio")])
             df = df.sort("CalcPrio")
 
-            total_build_duration = df["Duration"].sum()
-            total_time = total_build_duration * avail_time_ratio
+            total_build_duration = float(df["Duration"].sum())
+            budget_mode_raw = getattr(virtual_scenario, "budget_mode", None)
+            budget_mode = budget_mode_raw if isinstance(budget_mode_raw, BudgetMode) else BudgetMode.RATIO
+            budget_value_raw = getattr(virtual_scenario, "budget_value", None)
+            budget_value = (
+                float(budget_value_raw)
+                if isinstance(budget_value_raw, int | float) and not isinstance(budget_value_raw, bool)
+                else None
+            )
+            if budget_mode is BudgetMode.RATIO:
+                total_time = total_build_duration * float(budget_value if budget_value is not None else 0.0)
+            elif budget_mode is BudgetMode.FIXED_TIME:
+                total_time = float(budget_value if budget_value is not None else 0.0)
+            else:
+                total_time = total_build_duration
 
             # Update the available time concerning the variant build duration
+            self.evaluation_metric.update_budget(budget_mode.value, budget_value)
             self.evaluation_metric.update_available_time(total_time)
 
             # Submit prioritized test cases for evaluation step and get new measurements
@@ -657,6 +696,8 @@ class Environment(AbstractEnvironment):
                 execution_id=self.runtime_metadata.get("execution_id"),
                 worker_id=self.runtime_metadata.get("worker_id"),
                 parallel_mode=self.runtime_metadata.get("parallel_mode"),
+                budget_mode=budget_mode,
+                budget_value=budget_value,
                 process_memory_rss_mib=resource_snapshot.current_rss_mib if resource_snapshot else None,
                 process_memory_peak_rss_mib=resource_snapshot.peak_rss_mib if resource_snapshot else None,
                 process_cpu_utilization_percent=resource_snapshot.cpu_utilization_percent
