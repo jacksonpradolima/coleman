@@ -39,3 +39,6 @@ result = run(spec)
 See the [Getting Started](getting-started.md) guide for full instructions
 and the [Configuration](configuration.md) guide for the YAML schema,
 config packs, sweep engine, and determinism contract.
+For deep post-run analytics, see the [Analysis Playbook](analysis-playbook.md).
+For advanced customization and parallel extension contracts, see
+[Extensibility & Parallelism](extensibility.md).

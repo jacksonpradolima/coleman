@@ -6,7 +6,7 @@ import tempfile
 
 import yaml
 
-from coleman.spec.io import load_spec, save_resolved
+from coleman.spec.io import load_spec, load_sweep_spec, save_resolved
 from coleman.spec.models import ExecutionSpec, RunSpec
 
 
@@ -76,6 +76,71 @@ class TestLoadSpec:
             spec = load_spec(cfg_path)
             assert spec.results.sink == "parquet"
             assert spec.execution.verbose is True
+
+    def test_load_spec_ignores_top_level_sweep(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as fh:
+            yaml.dump(
+                {
+                    "execution": {"verbose": True},
+                    "sweep": {
+                        "axes": [
+                            {
+                                "mode": "grid",
+                                "params": {
+                                    "execution.seed": [0, 1],
+                                },
+                            }
+                        ]
+                    },
+                },
+                fh,
+            )
+            path = fh.name
+        try:
+            spec = load_spec(path)
+            assert spec.execution.verbose is True
+        finally:
+            os.unlink(path)
+
+
+class TestLoadSweepSpec:
+    def test_returns_none_when_missing(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as fh:
+            yaml.dump({"execution": {"verbose": True}}, fh)
+            path = fh.name
+        try:
+            assert load_sweep_spec(path) is None
+        finally:
+            os.unlink(path)
+
+    def test_loads_sweep_section(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as fh:
+            yaml.dump(
+                {
+                    "sweep": {
+                        "axes": [
+                            {
+                                "mode": "grid",
+                                "params": {
+                                    "algorithm.ucb.rnfail.c": [0.1, 0.3, 0.5],
+                                },
+                            }
+                        ],
+                        "seeds": [10, 20],
+                    }
+                },
+                fh,
+            )
+            path = fh.name
+        try:
+            sweep = load_sweep_spec(path)
+            assert sweep is not None
+            assert len(sweep.axes) == 1
+            assert sweep.axes[0].mode == "grid"
+            assert sweep.axes[0].params["algorithm.ucb.rnfail.c"] == [0.1, 0.3, 0.5]
+            assert sweep.seeds == [10, 20]
+        finally:
+            os.unlink(path)
 
 
 class TestSaveResolved:

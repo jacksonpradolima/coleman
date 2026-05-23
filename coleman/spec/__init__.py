@@ -22,6 +22,8 @@ CheckpointSpec
     Checkpoint persistence settings.
 TelemetrySpec
     OpenTelemetry export settings.
+HooksSpec
+    Lifecycle hook plugin settings.
 RunSpec
     Top-level experiment specification (composes all sub-specs).
 SweepAxis
@@ -47,6 +49,7 @@ from coleman.spec.models import (
     ExecutionSpec,
     ExperimentSpec,
     HCSConfigurationSpec,
+    HooksSpec,
     ResultsSpec,
     RunSpec,
     TelemetrySpec,
@@ -62,6 +65,7 @@ __all__ = [
     "ExecutionSpec",
     "ExperimentSpec",
     "HCSConfigurationSpec",
+    "HooksSpec",
     "ResultsSpec",
     "RunSpec",
     "SweepAxis",

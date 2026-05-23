@@ -63,6 +63,21 @@ class TestComputeRunId:
         override = RunSpec(execution=ExecutionSpec(parallel_pool_size=2, force_sequential_under_scalene=False))
         assert compute_run_id(base) != compute_run_id(override)
 
+    def test_default_hooks_and_extensions_do_not_change_id(self):
+        base = RunSpec()
+        explicit_defaults = RunSpec.model_validate({"hooks": {"fail_fast": True, "plugins": []}, "extensions": {}})
+        assert compute_run_id(base) == compute_run_id(explicit_defaults)
+
+    def test_non_default_hooks_and_extensions_change_id(self):
+        base = RunSpec()
+        with_hooks = RunSpec.model_validate(
+            {
+                "hooks": {"fail_fast": False, "plugins": ["my_project.hooks.ForecastHook"]},
+                "extensions": {"my_domain": {"k": "v"}},
+            }
+        )
+        assert compute_run_id(base) != compute_run_id(with_hooks)
+
     def test_golden_determinism(self):
         """Same spec must always produce the same run_id (golden test).
 

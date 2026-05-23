@@ -1,0 +1,3773 @@
+# Coleman llms.txt
+
+> Generated file. Do not edit manually.
+> Source: scripts/generate_llms_txt.py
+
+## Project
+
+Coleman is a framework for test-case prioritization in CI using multi-armed bandits,
+with typed YAML configuration, deterministic run identifiers, sweep orchestration,
+parallel execution, and extensibility via hooks and namespaced custom config.
+
+## Canonical Documentation Sources
+
+- README.md
+- docs/analysis-playbook.md
+- docs/api/agent.md
+- docs/api/bandit.md
+- docs/api/cli.md
+- docs/api/environment.md
+- docs/api/evaluation.md
+- docs/api/experiment-api.md
+- docs/api/policy.md
+- docs/api/reward.md
+- docs/api/scenarios.md
+- docs/api/spec-io.md
+- docs/api/spec-models.md
+- docs/api/spec-packs.md
+- docs/api/spec-provenance.md
+- docs/api/spec-run-id.md
+- docs/api/spec-sweep.md
+- docs/api-reference.md
+- docs/code-cost.md
+- docs/configuration.md
+- docs/extensibility.md
+- docs/getting-started.md
+- docs/index.md
+- docs/observability.md
+- docs/setup.md
+- docs/workflow.md
+
+## Consolidated Documentation
+
+
+### FILE: README.md
+
+# Coleman
+
+[![Docs](https://img.shields.io/badge/Docs-Coleman%20Site-3D9970?style=flat-square)](https://jacksonpradolima.github.io/coleman/)
+![](https://img.shields.io/badge/python-3.14+-blue.svg)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=jacksonpradolima_coleman&metric=bugs)](https://sonarcloud.io/summary/new_code?id=jacksonpradolima_coleman)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=jacksonpradolima_coleman&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=jacksonpradolima_coleman)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=jacksonpradolima_coleman&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=jacksonpradolima_coleman)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=jacksonpradolima_coleman&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=jacksonpradolima_coleman)
+[![codecov](https://codecov.io/github/jacksonpradolima/coleman/branch/main/graph/badge.svg?token=BW04LB0B5Y)](https://codecov.io/github/jacksonpradolima/coleman)
+
+
+### Solving the Test Case Prioritization using Multi-Armed Bandit Algorithms
+
+**COLEMAN** (_**C**ombinatorial V**O**lati**LE** **M**ulti-Armed B**AN**dit_) is a Multi-Armed Bandit (MAB) based approach designed
+to address the Test Case Prioritization in Continuous Integration (TCPCI) Environments in a cost-effective way.
+
+We designed **COLEMAN** to be generic regarding the programming language in the system under test,
+and adaptive to different contexts and testers' guidelines.
+
+Modeling a MAB-based approach for TCPCI problem gives us some advantages in relation to studies found in the literature, as follows:
+
+- It learns how to incorporate the feedback from the application of the test cases thus incorporating  diversity in the test suite prioritization;
+- It uses a policy to deal with the Exploration vs Exploitation (EvE) dilemma, thus mitigating the problem of beginning without knowledge (learning) and adapting to changes in the execution environment, for instance, the fact that some test cases are added (new test cases) and removed (obsolete test cases) from one cycle to another (volatility of test cases);
+- It is model-free. The technique is independent of the development environment and programming language, and does not require any analysis in the code level;
+- It is more lightweight, that is, needs only the historical failure data to execute, and has higher performance.
+
+In this way, this repository contains the COLEMAN's implementation.
+For more information about **COLEMAN** read **Ref1** in [References](#references).
+
+Furthermore, this repository contains the adaptation to deal with Highly-Configurable System (HCS) context through two strategies:
+- **Variant Test Set Strategy** (VTS) that relies on the test set specific for each variant; and
+- **Whole Test Set Strategy** (WST) that prioritizes the test set composed by the union of the test cases of all variants.
+
+For more information about **WTS** and **VTS** read **Ref2** in [References](#references).
+
+On the other hand, we extended **COLEMAN** to consider the context surrouding in each CI Cycle. The extended version
+we named as **CONSTANTINE** (_**CON**textual te**S**t priori**T**iz**A**tion for co**NT**inuous **INE**gration_).
+
+**CONSTANTINE** can use any feature given a dataset, for instance:
+- Test Case Duration (Duration): The time spent by a test case to execute;
+- Number of Test Ran Methods (NumRan): The number of test methods executed during the test, considering that some test
+methods are not executed due to some previous test method(s) have been failed;
+- Number of Test Failed Methods (NumErrors): The number of test methods which failed during the test.
+- Test Case Age (TcAge): This feature measures how long the test case exists and is given by a number which
+is incremented for each new CI Cycle in that the test case is used;
+- Test Case Change (ChangeType): Considers whether a test case changed. If a test case is changed from a commit
+to another, there is a high probability that the alteration was performed because some change in the software needs
+to be tested. If the test case was changed, we could detect and consider if the test case was renamed, or it added
+or removed some methods;
+- Cyclomatic Complexity (McCabe): This feature considers the complexity of McCabe.
+High complexity can be related to a more elaborated test case;
+- Test Size (SLOC): Typically, size of a test case refers to either the lines of code or the number of
+`assertions` in a test case. This feature is note correlated with coverage. For instance,
+if we have two tests t_1 and t_2 and both cover a method, but t_2 have more assertions than t_1, consequently,
+t_2 have higher chances to detect failures.
+
+In order to use this `version`, use any Contextual-MAB available, for instance, LinUCB and SWLinUCB.
+
+# Getting started
+
+- [Coleman](#coleman)
+    - [Solving the Test Case Prioritization using Multi-Armed Bandit Algorithms](#solving-the-test-case-prioritization-using-multi-armed-bandit-algorithms)
+- [Getting started](#getting-started)
+- [Citation](#citation)
+- [Quick start](#quick-start)
+  - [Library API](#library-api)
+  - [CLI](#cli)
+  - [Config packs](#config-packs)
+  - [Sweep engine](#sweep-engine)
+  - [Deterministic run\_id](#deterministic-run_id)
+  - [Provenance](#provenance)
+- [Installation](#installation)
+  - [As a library (recommended for new projects)](#as-a-library-recommended-for-new-projects)
+  - [From source (for development)](#from-source-for-development)
+- [Development](#development)
+  - [Code Cost Evaluation](#code-cost-evaluation)
+  - [DevContainer (recommended)](#devcontainer-recommended)
+- [Architecture: Results, Checkpoints \& Telemetry](#architecture-results-checkpoints--telemetry)
+  - [Configuration](#configuration)
+  - [Optional extras](#optional-extras)
+  - [Querying results](#querying-results)
+- [Observability](#observability)
+  - [Using the DevContainer (zero-step setup)](#using-the-devcontainer-zero-step-setup)
+  - [Local setup (without DevContainer)](#local-setup-without-devcontainer)
+  - [Port reference](#port-reference)
+  - [Metric names](#metric-names)
+    - [Cardinality rules](#cardinality-rules)
+  - [Adding ClickHouse (optional)](#adding-clickhouse-optional)
+  - [Tear down](#tear-down)
+- [Datasets](#datasets)
+- [About the files input](#about-the-files-input)
+- [Using the tool](#using-the-tool)
+  - [How data flows through Coleman](#how-data-flows-through-coleman)
+  - [MAB Policies Available](#mab-policies-available)
+  - [Running for Non-HCS System](#running-for-non-hcs-system)
+  - [Running for an HCS system](#running-for-an-hcs-system)
+    - [Whole Test Set Strategy](#whole-test-set-strategy)
+    - [Variant Test Set Strategy](#variant-test-set-strategy)
+- [Analysis of COLEMAN Performance](#analysis-of-coleman-performance)
+  - [Performance Metrics](#performance-metrics)
+  - [Methodologies](#methodologies)
+  - [Visualizations](#visualizations)
+- [References](#references)
+- [Contributors](#contributors)
+----------------------------------
+
+
+# Citation
+
+If this tool contributes to a project which leads to a scientific publication, I would appreciate a citation.
+
+```
+@Article{pradolima2020TSE,
+  author  = {Prado Lima, Jackson A. and Vergilio, Silvia R.},
+  journal = {IEEE Transactions on Software Engineering},
+  title   = {A Multi-Armed Bandit Approach for Test Case Prioritization in Continuous Integration Environments},
+  year    = {2020},
+  pages   = {12},
+  doi     = {10.1109/TSE.2020.2992428},
+}
+
+@article{pradolima2021EMSE,
+  author  = {Prado Lima, Jackson A. and Mendon{\c{c}}a, Willian D. F. and Vergilio, Silvia R. and Assun{\c{c}}{\~a}o, Wesley K. G.},
+  journal = {Empirical Software Engineering},
+  title   = {{Cost-effective learning-based strategies for test case prioritization in Continuous Integration of Highly-Configurable Software}},
+  year    = {2021}
+}
+
+```
+
+# Quick start
+
+Coleman ships a **typed, library-first experiment system** with
+YAML configs, composable config packs, a sweep engine, and deterministic
+`run_id` hashing.  External projects can `pip install coleman` and
+drive experiments programmatically **or** via the `coleman` CLI — no repo
+checkout required.
+
+The library namespace is now `coleman`.
+
+> **Breaking change** — the `CONFIG_FILE` environment variable, raw TOML
+> dict workflow, and `main.py` entry-point are removed.  Configuration is now
+> handled via YAML configs, typed Pydantic v2 models, config packs, and
+> the `coleman` CLI.
+
+## Library API
+
+```python
+from coleman.spec import RunSpec, SweepSpec, SweepAxis, compute_run_id
+from coleman.api import run, run_many, sweep
+
+# 1. Define a spec
+spec = RunSpec(
+    experiment={"datasets": ["alibaba@druid"], "policies": ["UCB"], "rewards": ["RNFail"]},
+    results={"out_dir": "./runs"},
+)
+
+# 2. Deterministic run_id — same config always produces the same ID
+assert compute_run_id(spec) == compute_run_id(spec)
+
+# 3. Single run
+result = run(spec)
+print(result.run_id, result.artifacts_dir)
+
+# 4. Parameter sweep (grid × seeds)
+specs = sweep(spec, SweepSpec(
+    axes=[SweepAxis(mode="grid", params={"algorithm.ucb.rnfail.c": [0.1, 0.3, 0.5]})],
+    seeds=[0, 1, 2],
+))  # 3 values × 3 seeds = 9 specs
+
+results = run_many(specs, max_workers=4)
+```
+
+| Function | Description |
+|----------|-------------|
+| `run(spec)` | Execute a single experiment from a resolved `RunSpec` |
+| `run_many(specs, max_workers=)` | Execute multiple specs, optionally in parallel |
+| `sweep(base, sweep_spec)` | Expand a base spec × sweep definition into concrete specs |
+| `load_spec(path)` | Load and validate a `RunSpec` from YAML (with pack resolution) |
+| `save_resolved(spec, path)` | Persist a resolved spec as canonical JSON |
+
+## CLI
+
+The `coleman` console script is installed automatically with the package:
+
+```bash
+# Execute a single run
+coleman run --config run.yaml
+
+# Parameter sweep (grid mode)
+coleman sweep --config base.yaml \
+    --grid algorithm.ucb.rnfail.c=0.1,0.3,0.5 \
+    --grid execution.seed=range(0,20) \
+    --workers 4
+
+# Parameter sweep declared in YAML (no --grid needed)
+coleman sweep --config base.yaml --workers 4
+
+# Dry-run — print generated specs without executing
+coleman sweep --config base.yaml --grid execution.seed=range(0,5) --dry-run
+
+
+You can now define a top-level `sweep:` section in the YAML config used by
+`coleman sweep`; CLI `--grid` values are merged on top.
+# Validate a config and optionally write the resolved spec
+coleman validate --config base.yaml --resolve resolved.json
+```
+
+## Config packs
+
+Config packs are composable YAML fragments under `packs/`.  Reference them
+with the `packs` key in your config and inline overrides win:
+
+```yaml
+# my-experiment.yaml
+packs:
+  - policy/linucb
+  - reward/rnfail
+  - results/parquet
+  - telemetry/off
+
+experiment:
+  datasets: ["alibaba@druid"]
+  policies: ["LinUCB"]
+
+execution:
+  independent_executions: 30
+
+hooks:
+  fail_fast: false
+  plugins:
+    - my_project.hooks.ForecastHook
+
+extensions:
+  my_domain:
+    forecast_selection:
+      policy: ThompsonSampling
+      reward: Binary
+```
+
+Shipped starter packs:
+
+| Pack | Category | Contents |
+|------|----------|----------|
+| `policy/linucb` | Policy | LinUCB with default alpha values |
+| `reward/rnfail` | Reward | RNFail reward function |
+| `runtime/local` | Runtime | Single-process local execution |
+| `results/parquet` | Results | Parquet sink with defaults |
+| `results/duckdb` | Results | DuckDB sink with consolidated files |
+| `telemetry/off` | Telemetry | Telemetry disabled |
+
+## Sweep engine
+
+The sweep engine supports **grid** (Cartesian product) and **zip** (paired)
+modes, with optional seed replication:
+
+```python
+from coleman.spec import SweepSpec, SweepAxis, expand_sweep, RunSpec
+
+base = RunSpec()
+sweep_spec = SweepSpec(
+    axes=[
+        SweepAxis(mode="grid", params={
+            "algorithm.ucb.rnfail.c": [0.1, 0.3, 0.5],
+            "execution.parallel_pool_size": [1, 4],
+        }),
+    ],
+    seeds=[0, 1, 2],
+)
+specs = expand_sweep(base, sweep_spec)
+# 3 × 2 × 3 seeds = 18 specs, deterministic order
+```
+
+- **Grid mode** — Cartesian product of all parameter lists
+- **Zip mode** — paired lists (must have equal length, raises `ValueError` otherwise)
+- **Seeds** — each base spec is replicated per seed; the seed is stored on `ExecutionSpec.seed` and affects `run_id`
+- **CLI + YAML composition** — `coleman sweep` reads top-level `sweep:` from YAML and combines it with `--grid`
+
+## Runner extensibility
+
+Coleman supports extensibility without replacing the native runner:
+
+1. `extensions` for namespaced custom domain config.
+2. `hooks` for lifecycle plugins (`on_run_start`, `on_dataset_start`,
+   `on_execution_start`, `on_execution_end`, `on_dataset_end`, `on_run_end`,
+   `on_error`).
+
+Execution-level hooks are process-local in worker context and remain
+parallel-safe when `parallel_pool_size > 1`.
+
+## Deterministic run_id
+
+Every `RunSpec` hashes to a deterministic 12-character identifier:
+
+```
+run_id = sha256(canonical_json(resolved_spec))[:12]
+```
+
+- **Canonical JSON**: sorted keys, compact separators (`json.dumps(sort_keys=True, separators=(",", ":"))`)
+- **Same config → same `run_id` → same output directory**
+- Provenance files and artifacts are written to `<out_dir>/<run_id>/`
+
+## Provenance
+
+Each run persists:
+
+| File | Contents |
+|------|----------|
+| `spec.resolved.json` | The fully resolved `RunSpec` as canonical JSON |
+| `provenance.json` | Git commit, dirty flag, Python version, `uv.lock` hash |
+
+# Installation
+
+## As a library (recommended for new projects)
+
+Install Coleman as a dependency in your project:
+
+```bash
+pip install coleman
+```
+
+Or with optional extras:
+
+```bash
+pip install coleman[telemetry]     # OpenTelemetry SDK
+pip install coleman[clickhouse]    # ClickHouse results sink
+```
+
+Then use the [Library API](#library-api) or the [`coleman` CLI](#cli) to
+drive experiments — no repo checkout required.
+
+## From source (for development)
+
+To develop or modify the tool, follow these steps:
+
+1. Clone the repository:
+
+```shell
+git clone git@github.com:jacksonpradolima/coleman.git
+cd coleman
+```
+
+2. Install [UV](https://docs.astral.sh/uv/) – a fast Python package manager.
+
+3. Install dependencies:
+
+```shell
+uv sync
+```
+
+4. Install the project locally in editable mode:
+
+```shell
+uv pip install -e .
+```
+
+5. Create a YAML config file (see [Quick start](#quick-start) for
+   the config format) and run with the `coleman` CLI:
+
+```bash
+coleman run --config my-experiment.yaml
+```
+
+# Development
+
+This project uses a `Makefile` to streamline common development tasks. Run `make help` to see all available commands.
+
+| Command                  | Description                          |
+|--------------------------|--------------------------------------|
+| `make install`           | Full dev setup (all extras + editable install) |
+| `make pre-commit-install`| Install pre-commit hooks             |
+| `make test`              | Run tests with pytest                |
+| `make lint`              | Run the ruff linter                  |
+| `make format`            | Run the ruff formatter               |
+| `make docs`              | Build documentation with Zensical    |
+| `make cost-structural`   | Run all structural cost checks (CC + MI + Xenon) |
+| `make cost-energy`       | Estimate energy/carbon for a workload |
+| `make help`              | Show all available Make targets      |
+
+## Code Cost Evaluation
+
+Coleman enforces code quality through a **multi-dimensional cost scorecard**
+covering structural complexity, runtime profiling, and energy estimation.
+
+**CI gates** run automatically on every pull request:
+
+- **Xenon complexity gate** — fails if any block exceeds C, any module average exceeds B,
+  or the project average exceeds A.
+- **Radon maintainability index** — fails if any module scores below A (MI < 20).
+
+**Local evaluation commands:**
+
+```bash
+make cost-structural        # all structural checks (CC + MI + Xenon)
+make cost-complexity        # radon cyclomatic complexity
+make cost-maintainability   # radon MI gate (fails if any module < 20)
+make cost-xenon             # xenon complexity gate
+make cost-wily              # wily trend analysis
+make cost-profile-scalene   # scalene CPU/memory profiling
+make cost-energy            # codecarbon energy estimation
+```
+
+See [Code Cost Evaluation](docs/code-cost.md) for full documentation.
+
+## DevContainer (recommended)
+
+The fastest way to start developing is with a [DevContainer](https://containers.dev/). Open the repo in VS Code or any DevContainer-compatible editor and select **"Reopen in Container"** — **everything works out of the box**, including the full observability stack.
+
+**What happens automatically:**
+
+1. Python 3.14 + uv + all dependencies (including telemetry & ClickHouse extras) are installed *(on create)*
+2. Pre-commit hooks are configured *(on create)*
+3. The **observability stack** (OTel Collector + Prometheus + Grafana + ClickHouse) starts via Docker-in-Docker *(on every start)*
+4. **Telemetry** can be enabled via the `telemetry/local` pack *(swap `telemetry/off` for `telemetry/local` in `run.yaml`)*
+
+After the container builds, just run your experiment:
+
+```bash
+coleman run --config run.yaml
+```
+
+Grafana is already live at http://localhost:3000 — open it in your browser to see metrics in real-time.
+
+**Other useful commands:**
+
+```bash
+make test           # run the test suite
+make lint           # lint with ruff
+make docs-serve     # preview docs locally
+```
+
+**What's included in the DevContainer:**
+
+| What | Why |
+|------|-----|
+| Python 3.14 + [uv](https://docs.astral.sh/uv/) | The project's package manager |
+| Docker-in-Docker | Runs the observability stack automatically |
+| VS Code extensions | Ruff, Pylance, Pyright, Copilot, TOML, Jupyter, etc. |
+| Telemetry + ClickHouse extras | Pre-installed — no extra `pip install` needed |
+| OTel Collector + Prometheus + Grafana + ClickHouse | Started automatically on container start |
+| Port forwarding | All service ports mapped to your host (see table below) |
+
+**Forwarded ports (all accessible from your host browser):**
+
+| Port | Service | URL |
+|------|---------|-----|
+| 3000 | Grafana | http://localhost:3000 |
+| 9090 | Prometheus | http://localhost:9090 |
+| 4317 | OTel Collector (gRPC) | — (used by the framework) |
+| 4318 | OTel Collector (HTTP) | — (used by the framework) |
+| 8889 | Prometheus metrics | http://localhost:8889/metrics |
+| 8123 | ClickHouse (HTTP) | http://localhost:8123 |
+| 9000 | ClickHouse (native) | — |
+
+> **ClickHouse sink remains optional.** The service is running in DevContainer,
+> but you still need `sink: "clickhouse"` in your results config or use
+> a ClickHouse results pack if you want results persisted to ClickHouse instead of Parquet.
+
+# Architecture: Results, Checkpoints & Telemetry
+
+Coleman is **framework-first**: `coleman run --config run.yaml` works with zero external
+services.  All monitoring is split into three independent layers that can be
+enabled or disabled individually:
+
+| Layer | Purpose | Default | Optional |
+|-------|---------|---------|----------|
+| **Results** | Persist experiment facts (NAPFD, APFDc, …) | Partitioned Parquet (zstd) | ClickHouse sink |
+| **Checkpoints** | Crash-safe resume | Local filesystem (pickle + `progress.json`) | — |
+| **Telemetry** | Observability (latency, throughput) | Disabled (NoOp) | OpenTelemetry + Collector |
+
+When a layer is disabled its module resolves to a **null implementation** with
+near-zero overhead (`NullSink`, `NullCheckpointStore`, `NoOpTelemetry`).
+
+## Configuration
+
+All settings live in `run.yaml` and composable config packs under `packs/`.
+See [Configuration](docs/configuration.md) for the full YAML schema reference.
+
+```yaml
+# run.yaml — default configuration using packs
+packs:
+  - execution/default        # parallel_pool_size: 10, independent_executions: 10
+  - experiment/alibaba_druid # datasets, rewards, policies
+  - algorithm/defaults       # baseline defaults (UCB/FRRMAB/EpsilonGreedy/LinUCB/SWLinUCB)
+  - results/parquet          # Parquet sink with default settings
+  - checkpoint/default       # checkpoint enabled, interval: 50000
+  - telemetry/off            # telemetry disabled (swap for telemetry/local to enable)
+
+# Inline overrides (applied on top of packs):
+# execution:
+#   parallel_pool_size: 4
+```
+
+## Optional extras
+
+```bash
+# Telemetry (OpenTelemetry SDK)
+pip install coleman[telemetry]
+
+# ClickHouse results sink
+pip install coleman[clickhouse]
+```
+
+## Querying results
+
+Results are written as Hive-partitioned Parquet files under `./runs/`.  You
+can query them directly with DuckDB (already a project dependency):
+
+For a guided end-to-end example covering configuration, observability,
+resume/recovery, export, and final analysis, see [docs/workflow.py](docs/workflow.py).
+
+```sql
+-- Average NAPFD per policy
+SELECT policy, AVG(fitness) AS avg_napfd
+FROM read_parquet('./runs/**/*.parquet', hive_partitioning=1)
+GROUP BY policy
+ORDER BY avg_napfd DESC;
+
+-- Cost distribution per reward function
+SELECT reward_function,
+       PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY cost) AS median_cost
+FROM read_parquet('./runs/**/*.parquet', hive_partitioning=1)
+GROUP BY reward_function;
+```
+
+# Observability
+
+> **Framework-first guarantee:** `coleman run --config run.yaml` works without Docker or
+> any of these services.  The observability stack is **optional** for local
+> installs, but **enabled automatically** in the DevContainer.
+
+Coleman ships with a local observability stack (OTel Collector + Prometheus + Grafana)
+for real-time metrics and traces during experiments.
+
+## Using the DevContainer (zero-step setup)
+
+If you develop inside the DevContainer, **everything is already running**.
+The post-start hook automatically:
+
+1. Starts the OTel Collector + Prometheus + Grafana + ClickHouse via Docker Compose
+2. Telemetry can be enabled via the `telemetry/local` pack in `run.yaml`
+
+The `telemetry` and `clickhouse` pip extras are installed during container creation.
+
+Just run your experiment and open Grafana:
+
+```bash
+coleman run --config run.yaml
+# Open http://localhost:3000 → metrics appear in real-time
+```
+
+No manual steps required.
+
+## Local setup (without DevContainer)
+
+If you're **not** using the DevContainer, follow these steps:
+
+```bash
+# 1. Start the observability stack
+cd examples/observability
+docker compose up -d
+
+# 2. Install telemetry extras
+uv pip install coleman[telemetry]
+
+# 3. Enable telemetry in your run.yaml:
+#    Replace telemetry/off with telemetry/local in the packs list
+
+# 4. Run experiments — metrics flow to Grafana
+coleman run --config run.yaml
+```
+
+## Port reference
+
+| Port | Service | URL |
+|------|---------|-----|
+| **3000** | Grafana | http://localhost:3000 |
+| **4317** | OTel Collector (gRPC) | — (used by the framework) |
+| **4318** | OTel Collector (HTTP) | — (used by the framework, default endpoint) |
+| **8889** | Prometheus metrics | http://localhost:8889/metrics |
+| **8123** | ClickHouse (HTTP) | http://localhost:8123 *(auto-started in DevContainer; local: `--profile clickhouse`)* |
+| **9000** | ClickHouse (native) | — *(auto-started in DevContainer; local: `--profile clickhouse`)* |
+
+## Metric names
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `coleman.cycles_total` | Counter | Total experiment cycles processed |
+| `coleman.bandit_update_latency` | Histogram (s) | Bandit arm-update latency |
+| `coleman.prioritization_latency` | Histogram (s) | Test-case prioritization latency |
+| `coleman.evaluation_latency` | Histogram (s) | Evaluation step latency |
+| `coleman.napfd` | Histogram | NAPFD score distribution |
+| `coleman.apfdc` | Histogram | APFDc score distribution |
+
+### Cardinality rules
+
+- **No `step` label** in metrics (would create unbounded cardinality).
+- `run_id` is a resource attribute, not a metric label.
+- Per-step detail is available in **traces** (span attributes).
+
+## Adding ClickHouse (optional)
+
+In the DevContainer, ClickHouse is already started by the post-start hook.
+For local setups, start ClickHouse alongside the existing stack:
+
+```bash
+cd examples/observability
+docker compose --profile clickhouse up -d
+```
+
+Then switch the results sink in your `run.yaml`:
+
+```yaml
+results:
+  sink: clickhouse
+```
+
+```bash
+# Run experiments — results go to the coleman_results table
+coleman run --config run.yaml
+```
+
+The ClickHouse extras are already installed in the DevContainer.  For local
+installs run `uv pip install coleman[clickhouse]` first.
+
+## Tear down
+
+```bash
+cd examples/observability
+docker compose --profile clickhouse down -v
+```
+
+# Datasets
+
+The datasets used in the examples (and much more datasets) are available at [Harvard Dataverse Repository](https://dataverse.harvard.edu/dataverse/gres-ufpr).
+You can create your own dataset using out [GitLab CI - Torrent tool](https://github.com/jacksonpradolima/gitlabci-torrent) or our adapted version from [TravisTorrent tool](https://github.com/jacksonpradolima/travistorrent-tools).
+Besides that, you can extract relevant information about each system using our tool named [TCPI - Dataset - Utils](https://github.com/jacksonpradolima/tcpci-dataset-utils).
+
+# About the files input
+
+**COLEMAN** now uses Parquet files (`features-engineered.parquet` and
+`data-variants.parquet`) as the primary scenario input format. CSV inputs are
+still accepted for compatibility, but they are deprecated and emit warnings.
+
+The second file, **data-variants** (Parquet/CSV), is used by the HCS, and it represents all results from all variants.
+The information is organized by commit and variant.
+
+- **features-engineered.parquet** (or legacy `features-engineered.csv`) contains the following information:
+  - **Id**: unique numeric identifier of the test execution;
+  - **Name**: unique numeric identifier of the test case;
+  - **BuildId**: a value uniquely identifying the build;
+  - **Duration**: approximated runtime of the test case;
+  - **LastRun**: previous last execution of the test case as *DateTime*;
+  - **Verdict**: test verdict of this test execution (Failed: 1, Passed: 0).
+
+- **data-variants.parquet** (or legacy `data-variants.csv`) contains all information that **features-engineered.parquet** has, and in addition the following information:
+  - **Variant**: variant name.
+
+In this way, **features-engineered** organizes the information for a single system or variant, and
+**data-variants** tracks the information for all variants used during the software life-cycle (for each commit).
+
+During the **COLEMAN**'s execution, we use **data-variants** to identify the variants used in a current commit and apply the **WTS** strategy.
+
+For **CONSTANTINE**, additional columns can be used and represents a contextual information. In this way, you define
+what kind of information can be used!
+
+#  Using the tool
+
+## How data flows through Coleman
+
+```mermaid
+flowchart TD
+    A[YAML config + packs: run.yaml] --> B[coleman CLI / library API]
+    C["features-engineered.csv (data-variants.csv for HCS)"] --> D[Scenario Provider]
+    B --> D
+
+    D --> E["Virtual Scenarios (CI cycles with test cases)"]
+    E --> F[Environment]
+
+    G["Policy (Random, UCB, FRRMAB, LinUCB, etc.)"] --> H[Agent]
+    I["Reward Function: (RNFail, TimeRank)"] --> H
+    H --> F
+
+    F --> J[Test prioritization per cycle]
+    J --> K["Test execution outcomes (verdict, duration, rank)"]
+    K --> L["Evaluation Metrics (e.g., NAPFD)"]
+    L --> M["Results Sink (Parquet / ClickHouse)"]
+    L --> P["Telemetry (OTel → Collector → Grafana, optional)"]
+
+    F --> Q["Checkpoint Store (local, crash-safe resume)"]
+
+    K --> O[Feedback loop]
+    O --> I
+    O --> G
+```
+
+To use COLEMAN, you need to provide the necessary configurations. This includes setting up environment variables and configuration files.
+
+Configure the utility by editing the `run.yaml` file located in the project's root directory.
+The file uses composable config packs for a clean, modular setup — each pack provides
+defaults for one concern.  Add inline overrides below the `packs:` list to customise settings.
+
+Here's an example `run.yaml` file:
+
+```yaml
+# run.yaml — Default Run Configuration
+packs:
+  - execution/default        # parallel_pool_size: 10, independent_executions: 10
+  - experiment/alibaba_druid # datasets, rewards, policies
+  - algorithm/defaults       # FRRMAB, UCB, EpsilonGreedy, LinUCB, SWLinUCB params
+  - results/parquet          # Parquet sink
+  - checkpoint/default       # checkpoint enabled
+  - telemetry/off            # telemetry disabled
+  - reward/rnfail            # RNFail reward
+  - hcs/off                  # HCS disabled
+  - contextual/default       # contextual information defaults
+
+# Inline overrides (applied on top of packs):
+execution:
+  parallel_pool_size: 4
+experiment:
+  datasets:
+    - square@retrofit
+```
+
+**where:**
+- Execution Configuration:
+  - `parallel_pool_size` is the number of worker processes to run **COLEMAN** in parallel.
+  - `independent_executions` is the number of independent experiments we desire to run.
+  - `force_sequential_under_scalene` forces sequential execution while Scalene is active to improve profiling stability and avoid missing per-thread attribution issues.
+  - Parallelism has two layers:
+    - inside a run: `execution.parallel_pool_size` controls process-pool workers for independent executions;
+    - across many specs: `coleman sweep --workers` (or API `run_many(..., max_workers=...)`) controls concurrent spec execution.
+- Experiment Configuration:
+  - `scheduled_time_ratio` represents the Schedule Time Ratio, that is, time constraints that represents the time available to run the tests. **Default**: 0.1 (10%), 0.5 (50%), and 0.8 (80%) of the time available.
+  - `datasets_dir` is the directory that contains your system. For instance, we desire to run the algorithm for the systems that are inside the directory **data**.
+  - `datasets` is an array that represents the datasets to analyse. It's the folder name inside `datasets_dir` which contains the required file inputs.
+  - `experiment_dir` is the directory where we will save the results.
+  - `rewards` defines the reward functions to be used, available RNFailReward and TimeRankReward (See **Ref1** in [References](#references)).
+  - `policies` selects the Policies available on **COLEMAN** (classic + extended), including greedy, UCB, contextual, and non-stationary/sliding-window variants.
+- Algorithm Configuration: each algorithm has its own individual configuration. Next, we present some of them:
+  - FRRAB:
+    - `window_sizes` is an array that contains the sliding window sizes
+    - `c` is the scaling factor. It's defined for each reward function used.
+  - UCB:
+    - `c` is the scaling factor. It's defined for each reward function used.
+  - Epsilon-Greedy:
+    - `epsilon` is the epsilon value. It's defined for each reward function used.
+- HCS Configuration:
+  - `wts_strategy` represents the usage of Whole Test Set (WTS) Strategy for a system HCS (See [Whole Test Set Strategy](#whole-test-set-strategy)).
+- Contextual Information:
+  - Config
+    - `previous_build` what kind of information we obtain from previous build and not in the current one. For
+      instance, the test case duration (`Duration`) will _know_ only after the test execution.
+  - Feature Group
+    - `feature_group_name` represent the name of a feature group. We can create different groups of feature to
+      evaluate the influence of each one.
+    - `feature_group_values` represent the features selected to be used by the Contextual MAB.
+
+
+##  MAB Policies Available
+
+The following policies are available on **COLEMAN**.
+
+Baseline and classical policies:
+- Random
+- Greedy
+- EpsilonGreedy
+- UCB
+- UCB1
+- SlMAB
+- FRRMAB
+
+Greedy variants:
+- DecayEpsilonGreedy
+- OptimisticGreedy
+
+UCB variants:
+- UCB2
+- SlidingWindowUCB
+- KLUCB
+- UCBTuned
+- UCBV
+- MOSSUCB
+
+Bayesian/stochastic/adversarial variants:
+- ThompsonSampling
+- BayesianUCB
+- Softmax
+- Pursuit
+- EpsilonDecreasing
+- BootstrappedThompson
+- PHE
+- EXP3
+- EXP3IX
+- DiscountedUCB
+- ChangeDetectionUCB
+
+Combinatorial variants:
+- CombinatorialUCB
+- CombinatorialThompson
+
+Dueling / ranking variants:
+- DuelingUCB
+- PairwiseThompsonRanking
+
+Portfolio meta-policy:
+- PortfolioUCB
+
+Contextual variants:
+- LinUCB
+- SWLinUCB
+- LinTS
+- ContextualEpsilonGreedy
+- SWLinTS
+- SWContextualEpsilonGreedy
+
+## Running for Non-HCS System
+
+To execute **COLEMAN** for a non-HCS system, first update the experiment settings in your `run.yaml` (or override inline):
+
+- `datasets_dir: examples`
+- `datasets: [fakedata]`
+
+Subsequently, you can run the program with the following command:
+
+```
+coleman run --config run.yaml
+```
+
+## Running for an HCS system
+
+For HCS systems, we provide two distinct strategies to determine optimal solutions for variants:
+**WTS** (Whole Test Set Strategy) and **VTS** (Variant Test Set Strategy).
+You can learn more about these in **Ref2** under the [References](#references) section.
+
+When employing the **WTS** and **VTS** strategies, regard `datasets_dir` as the directory housing your system.
+For the **WTS** approach, variants of a system are discerned from subfolders within the `datasets_dir` directory.
+Essentially, `datasets_dir` symbolizes the project name.
+This differentiation in execution methodology between HCS and non-HCS systems is crucial,
+alongside the `wts_strategy` variable. For clarity, please inspect our example directory.
+
+### Whole Test Set Strategy
+
+The **WTS** strategy prioritizes the test set composed by the union of the test cases of all variants.
+To employ this strategy, set in your `run.yaml`:
+
+- `hcs_configuration.wts_strategy: true`
+
+For a practical demonstration, set `datasets = ["dune@total"]`
+(a dataset amalgamating test cases from all variants)
+and `datasets_dir = "examples/core@dune-common"`.
+This provides a concise example using the Dune dataset.
+More details on the dataset are available under [Datasets](#datasets).
+
+### Variant Test Set Strategy
+
+Contrastingly, the **VTS** approach evaluates each variant as an isolated system.
+To harness this strategy, set in your `run.yaml`:
+
+- `hcs_configuration.wts_strategy: false`
+
+As example, use `datasets = ["dune@debian_10 clang-7-libcpp-17", "dune@debian_11 gcc-10-20",
+"dune@ubuntu_20_04 clang-10-20"]` and `datasets_dir = "examples/core@dune-common"`
+to run one small example using Dune dataset (See [Datasets](#datasets)).
+Now, we consider each variant as single system.
+
+As a hands-on example, set `datasets =
+["dune@debian_10 clang-7-libcpp-17", "dune@debian_11 gcc-10-20", "dune@ubuntu_20_04 clang-10-20"]`
+and `datasets_dir = "examples/core@dune-common"`.
+This offers a succinct example using the Dune dataset, treating each variant as a unique system.
+Further insights into the dataset are available in the [Datasets](#datasets) section.
+
+# Analysis of COLEMAN Performance
+
+As part of our ongoing effort to provide the state-of-the-art tool, Coleman, for TCPCI, we've created examples to guide any researcher to understand the performance, effectiveness, and adaptability of our tool. The analysis, available in our [marimo notebook](notebooks/analysis.py) (and the original [Jupyter notebook](notebooks/analysis.ipynb)), leverages various libraries such as DuckDB, Pandas, Seaborn, and Matplotlib to process data and visualize the results.
+
+## Performance Metrics
+
+The notebook has examples including but not limited to test case execution times, prioritization effectiveness, and algorithm efficiency under different configurations and environments.
+
+## Methodologies
+
+The notebook employs SQL queries for data manipulation and leverages Python's data analysis and visualization libraries to derive meaningful insights from historical test data. Our methodology ensures a robust analysis framework capable of handling large datasets and producing actionable intelligence.
+
+## Visualizations
+
+Data visualizations play a key role in our analysis, offering intuitive understanding of complex data patterns and algorithm performance. The notebook includes various charts and graphs that elucidate the trade-offs between different prioritization strategies and their impact on test cycle times and failure detection rates.
+
+# References
+
+- 📖 [**Ref1**] [A Multi-Armed Bandit Approach for Test Case Prioritization in Continuous Integration Environments](https://doi.org/10.1109/TSE.2020.2992428) published at **IEEE Transactions on Software Engineering (TSE)**
+
+[![ESEC/FSE](https://img.youtube.com/vi/w8Lf0VEWkQk/0.jpg)](https://www.youtube.com/watch?v=w8Lf0VEWkQk)
+
+- 📖 [**Ref2**] [Learning-based prioritization of test cases in continuous integration of highly-configurable software](https://doi.org/10.1145/3382025.3414967) published at **Proceedings of the 24th ACM Conference on Systems and Software Product Line (SPLC'20)**
+
+
+[![SPLC](https://img.youtube.com/vi/tT8Ygt8jCKg/0.jpg)](https://www.youtube.com/watch?v=tT8Ygt8jCKg)
+
+# Contributors
+
+Please see our [Contributing Guidelines](CONTRIBUTING.md) if you'd like to contribute.
+
+For vulnerability reports, refer to our [Security Policy](SECURITY.md).
+
+- 👨‍💻 Jackson Antonio do Prado Lima <a href="mailto:jacksonpradolima@gmail.com">:e-mail:</a>
+
+<a href="https://github.com/jacksonpradolima/coleman/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=jacksonpradolima/coleman" />
+</a>
+
+
+
+### FILE: docs/analysis-playbook.md
+
+# Analysis Playbook
+
+This guide is a complete reference for post-run analysis in Coleman, focused on
+decision-quality, cost, stability, and extensibility impact.
+
+Use this after one or more experiment runs have produced Parquet data under
+your configured results directory.
+
+## Data Access Patterns
+
+### DuckDB (recommended)
+
+```python
+import duckdb
+
+con = duckdb.connect("analysis.duckdb")
+con.execute(
+	"""
+	CREATE OR REPLACE VIEW experiment_results AS
+	SELECT *
+	FROM read_parquet('./runs/**/*.parquet', hive_partitioning=1)
+	"""
+)
+```
+
+### Basic sanity checks
+
+```sql
+SELECT COUNT(*) AS rows_total FROM experiment_results;
+
+SELECT COUNT(DISTINCT execution_id) AS executions,
+	   COUNT(DISTINCT policy) AS policies,
+	   COUNT(DISTINCT reward_function) AS rewards
+FROM experiment_results;
+```
+
+## Core Comparisons
+
+### 1. Quality ranking (NAPFD)
+
+```sql
+SELECT policy,
+	   reward_function,
+	   AVG(fitness) AS avg_napfd,
+	   STDDEV_SAMP(fitness) AS std_napfd,
+	   COUNT(*) AS n
+FROM experiment_results
+GROUP BY policy, reward_function
+ORDER BY avg_napfd DESC;
+```
+
+### 2. Cost ranking (APFDc)
+
+```sql
+SELECT policy,
+	   reward_function,
+	   AVG(cost) AS avg_apfdc,
+	   STDDEV_SAMP(cost) AS std_apfdc,
+	   COUNT(*) AS n
+FROM experiment_results
+GROUP BY policy, reward_function
+ORDER BY avg_apfdc ASC;
+```
+
+### 3. Stability (coefficient of variation)
+
+```sql
+SELECT policy,
+	   reward_function,
+	   AVG(fitness) AS avg_napfd,
+	   STDDEV_SAMP(fitness) AS std_napfd,
+	   CASE
+		 WHEN AVG(fitness) = 0 THEN NULL
+		 ELSE STDDEV_SAMP(fitness) / AVG(fitness)
+	   END AS cv_napfd
+FROM experiment_results
+GROUP BY policy, reward_function
+ORDER BY cv_napfd ASC NULLS LAST;
+```
+
+## Budget and Scenario Sensitivity
+
+Use scenario/time-ratio segmentation to find robust policies.
+
+```sql
+SELECT scenario,
+	   policy,
+	   AVG(fitness) AS avg_napfd,
+	   AVG(cost) AS avg_apfdc,
+	   AVG(prioritization_time) AS avg_prioritization_time
+FROM experiment_results
+GROUP BY scenario, policy
+ORDER BY scenario, avg_napfd DESC;
+```
+
+If your scenario naming encodes time ratio, normalize it once and persist a
+derived table for repeated analyses.
+
+## Quality vs Cost Frontier (Pareto)
+
+Goal: maximize NAPFD and minimize APFDc.
+
+```python
+import duckdb
+import pandas as pd
+
+df = duckdb.sql(
+	"""
+	SELECT policy,
+		   reward_function,
+		   AVG(fitness) AS avg_napfd,
+		   AVG(cost) AS avg_apfdc
+	FROM read_parquet('./runs/**/*.parquet', hive_partitioning=1)
+	GROUP BY policy, reward_function
+	"""
+).df()
+
+def pareto_frontier(data: pd.DataFrame) -> pd.DataFrame:
+	pts = data.sort_values(["avg_apfdc", "avg_napfd"], ascending=[True, False]).reset_index(drop=True)
+	keep = []
+	best_napfd = float("-inf")
+	for _, row in pts.iterrows():
+		if row["avg_napfd"] > best_napfd:
+			keep.append(True)
+			best_napfd = row["avg_napfd"]
+		else:
+			keep.append(False)
+	return pts.loc[keep].copy()
+
+front = pareto_frontier(df)
+print(front)
+```
+
+Interpretation:
+
+1. Points on the frontier are non-dominated trade-offs.
+2. Off-frontier points are strictly worse in both metrics than at least one alternative.
+
+## Win Rate Analysis (Pairwise)
+
+Compare how often one policy beats another on the same execution slice.
+
+```python
+import duckdb
+import pandas as pd
+
+base = duckdb.sql(
+	"""
+	SELECT scenario,
+		   execution_id,
+		   policy,
+		   AVG(fitness) AS score
+	FROM read_parquet('./runs/**/*.parquet', hive_partitioning=1)
+	GROUP BY scenario, execution_id, policy
+	"""
+).df()
+
+pivot = base.pivot_table(index=["scenario", "execution_id"], columns="policy", values="score")
+policies = list(pivot.columns)
+
+rows = []
+for a in policies:
+	for b in policies:
+		if a == b:
+			continue
+		valid = pivot[[a, b]].dropna()
+		wins = (valid[a] > valid[b]).sum()
+		total = len(valid)
+		rows.append({"policy_a": a, "policy_b": b, "win_rate": wins / total if total else None, "n": total})
+
+win_rate_df = pd.DataFrame(rows).sort_values(["policy_a", "win_rate"], ascending=[True, False])
+print(win_rate_df.head(30))
+```
+
+## Runtime and Resource Footprint
+
+```sql
+SELECT policy,
+	   AVG(prioritization_time) AS avg_prioritization_time,
+	   AVG(process_memory_rss_mib) AS avg_rss_mib,
+	   AVG(process_cpu_utilization_percent) AS avg_cpu_pct,
+	   AVG(fitness) AS avg_napfd
+FROM experiment_results
+GROUP BY policy
+ORDER BY avg_prioritization_time ASC;
+```
+
+Use this to identify policies that are fast enough for CI budget constraints.
+
+## Extensions and Hook Artifacts
+
+When using runner hooks and extensions, persist additional artifacts under the
+run folder (for example, JSON/CSV derived from custom domain logic).
+
+Recommended pattern:
+
+1. Write one artifact per execution_id.
+2. Include run_id, dataset_id, execution_id, and worker_id in each record.
+3. Join artifact rows with experiment results in DuckDB for impact analysis.
+
+Example join pattern (adapt paths to your artifact layout):
+
+```sql
+WITH base AS (
+  SELECT run_id, execution_id, policy, fitness, cost
+  FROM experiment_results
+),
+ext AS (
+  SELECT run_id, execution_id, custom_signal, custom_bucket
+  FROM read_json_auto('./runs/**/artifacts/*.json')
+)
+SELECT b.policy,
+	   e.custom_bucket,
+	   AVG(b.fitness) AS avg_napfd,
+	   AVG(b.cost) AS avg_apfdc
+FROM base b
+JOIN ext e
+  ON b.run_id = e.run_id AND b.execution_id = e.execution_id
+GROUP BY b.policy, e.custom_bucket
+ORDER BY avg_napfd DESC;
+```
+
+## Reproducibility Checklist
+
+1. Keep spec.resolved.json and provenance.json for every run.
+2. Compare only runs with consistent datasets and time-ratio sets.
+3. Report both central tendency and variance.
+4. Track run_id and execution_id in every exported table/chart.
+5. Version-control analysis scripts and generated figures metadata.
+
+## Suggested Reporting Bundle
+
+For each experiment campaign, export:
+
+1. Overall ranking by NAPFD and APFDc.
+2. Pareto frontier table and scatter chart.
+3. Stability table (std and CV).
+4. Scenario sensitivity matrix.
+5. Runtime/resource table.
+6. Hook/extension impact table (if enabled).
+
+
+
+### FILE: docs/api/agent.md
+
+# Agent
+
+::: coleman.agent
+
+
+
+### FILE: docs/api/bandit.md
+
+# Bandit
+
+::: coleman.bandit
+
+
+
+### FILE: docs/api/cli.md
+
+# coleman.cli
+
+CLI entry-point providing `coleman run`, `coleman sweep`, and
+`coleman validate` sub-commands.
+
+::: coleman.cli
+
+
+
+### FILE: docs/api/environment.md
+
+# Environment
+
+::: coleman.environment
+
+
+
+### FILE: docs/api/evaluation.md
+
+# Evaluation
+
+Coleman includes classic TCP/IR-aligned metrics:
+
+- NAPFD and NAPFD-Verdict
+- APFDc
+- Precision@k
+- Recall@k
+- AveragePrecision@k (AP@k)
+- ReciprocalRank@k (RR@k, equivalent to MRR for a single ranked suite)
+- NDCG@k (normalized discounted gain at top-k)
+
+Literature references:
+
+- Rothermel, G.; Untch, R. H.; Chu, C.; Harrold, M. J. (2001). Prioritizing test cases for regression testing. IEEE TSE.
+- Elbaum, S.; Malishevsky, A. G.; Rothermel, G. (2002). Test case prioritization: a family of empirical studies. IEEE TSE.
+- Catal, C.; Mishra, D.; Tufekci, S.; Cagiltay, N. E. (2011). Mapping study of software test case prioritization. Software Quality Journal.
+- Manning, C. D.; Raghavan, P.; Schutze, H. (2008). Introduction to Information Retrieval. Cambridge University Press.
+- Baeza-Yates, R.; Ribeiro-Neto, B. (2011). Modern Information Retrieval (2nd ed.). Addison-Wesley.
+- Thakur, N.; Reimers, N.; Ruckle, A.; et al. (2021). BEIR: A Heterogeneous Benchmark for Zero-shot Evaluation of Information Retrieval Models. NeurIPS Datasets and Benchmarks.
+- Muennighoff, N.; Tazi, N.; Magne, L.; Reimers, N. (2023). MTEB: Massive Text Embedding Benchmark. EACL.
+
+::: coleman.evaluation
+
+
+
+### FILE: docs/api/experiment-api.md
+
+# coleman.api
+
+Library-first public API for driving experiments programmatically.
+
+::: coleman.api
+
+
+
+### FILE: docs/api/policy.md
+
+# Policy
+
+::: coleman.policy
+
+
+
+### FILE: docs/api/reward.md
+
+# Reward
+
+Coleman supports reward formulations inspired by TCP, ranking, and cost-aware literature:
+
+- RNFail (binary fault signal)
+- TimeRank (failure-aware order-sensitive reward)
+- ReciprocalRank (inverse-rank gain)
+- TopKRNFail (prefix-constrained binary reward; precision-style)
+- DiscountedFailure (DCG-like logarithmic discount)
+- APFDc (cost-aware reward using execution time and detected failure positions)
+
+Literature references:
+
+- Spieker, H.; Gotlieb, A.; Marijan, D.; Mossige, M. (2017). Reinforcement Learning for Automatic Test Case Prioritization and Selection in Continuous Integration. ISSTA.
+- Jarvelin, K.; Kekalainen, J. (2002). Cumulated gain-based evaluation of IR techniques. ACM TOIS.
+- Rothermel, G.; Untch, R. H.; Chu, C.; Harrold, M. J. (2001). Prioritizing test cases for regression testing. IEEE TSE.
+- Elbaum, S.; Malishevsky, A. G.; Rothermel, G. (2002). Test case prioritization: a family of empirical studies. IEEE TSE.
+- Manning, C. D.; Raghavan, P.; Schutze, H. (2008). Introduction to Information Retrieval. Cambridge University Press.
+
+::: coleman.reward
+
+
+
+### FILE: docs/api/scenarios.md
+
+# Scenarios
+
+::: coleman.scenarios
+
+
+
+### FILE: docs/api/spec-io.md
+
+# coleman.spec.io
+
+YAML config loading and resolved spec persistence.
+
+::: coleman.spec.io
+
+
+
+### FILE: docs/api/spec-models.md
+
+# coleman.spec.models
+
+Typed Pydantic v2 models for the run specification.
+
+::: coleman.spec.models
+
+
+
+### FILE: docs/api/spec-packs.md
+
+# coleman.spec.packs
+
+Config pack resolution — load, merge, and override YAML fragments.
+
+::: coleman.spec.packs
+
+
+
+### FILE: docs/api/spec-provenance.md
+
+# coleman.spec.provenance
+
+Provenance capture — git commit, Python version, uv.lock hash.
+
+::: coleman.spec.provenance
+
+
+
+### FILE: docs/api/spec-run-id.md
+
+# coleman.spec.run_id
+
+Deterministic run ID computation from canonical JSON.
+
+::: coleman.spec.run_id
+
+
+
+### FILE: docs/api/spec-sweep.md
+
+# coleman.spec.sweep
+
+Sweep engine — grid, zip, and seed replication expansion.
+
+::: coleman.spec.sweep
+
+
+
+### FILE: docs/api-reference.md
+
+# API Reference
+
+## Experiment system
+
+| Module | Description |
+|--------|-------------|
+| [`coleman.api`](api/experiment-api.md) | Library-first API: `run`, `run_many`, `sweep`, `load_spec`, `save_resolved` |
+| [`coleman.spec.models`](api/spec-models.md) | Typed `RunSpec` and sub-spec Pydantic v2 models |
+| [`coleman.spec.sweep`](api/spec-sweep.md) | Sweep engine: `SweepSpec`, `SweepAxis`, `expand_sweep` |
+| [`coleman.spec.packs`](api/spec-packs.md) | Config pack resolution: `resolve_packs` |
+| [`coleman.spec.run_id`](api/spec-run-id.md) | Deterministic `run_id`: `compute_run_id` |
+| [`coleman.spec.io`](api/spec-io.md) | YAML I/O: `load_spec`, `save_resolved` |
+| [`coleman.spec.provenance`](api/spec-provenance.md) | Provenance capture: `save_provenance` |
+| [`coleman.cli`](api/cli.md) | CLI entry-point: `coleman run`, `coleman sweep`, `coleman validate` |
+
+## Core framework
+
+The core API is documented by module:
+
+- [Agent](api/agent.md)
+- [Bandit](api/bandit.md)
+- [Environment](api/environment.md)
+- [Evaluation](api/evaluation.md)
+- [Policy](api/policy.md)
+- [Reward](api/reward.md)
+- [Scenarios](api/scenarios.md)
+
+
+
+### FILE: docs/code-cost.md
+
+# Code Cost Evaluation
+
+Coleman treats code cost as a **multi-dimensional scorecard**, not a
+single number.  This guide explains the tooling and commands available for
+evaluating four complementary cost dimensions.
+
+## Dimensions
+
+| Dimension | What it measures | Primary tools |
+|-----------|-----------------|---------------|
+| **Structural cost** | Maintainability, complexity, and change risk | Radon, Xenon, Wily |
+| **Runtime cost** | CPU time, execution hotspots, and memory pressure | Scalene, py-spy |
+| **Energy cost** | Estimated energy or carbon impact | CodeCarbon, pyRAPL |
+| **Operational cost proxy** | Basis for translating hotspots into infrastructure effort | All of the above |
+
+---
+
+## Quick start
+
+Install all cost evaluation tools together with the rest of the dev
+dependencies:
+
+```bash
+uv sync --extra dev
+```
+
+---
+
+## 1 — Structural cost
+
+### Cyclomatic complexity (Radon CC)
+
+```bash
+make cost-complexity
+# or
+uv run radon cc -s -a coleman/
+```
+
+**Example output:**
+
+```text
+coleman/runner.py
+    F 175:0 get_scenario_provider - C (12)
+    F 420:0 run_experiment - B (10)
+    F 145:0 create_agents - B (6)
+    ...
+coleman/bandit.py
+    M 110:4 Bandit.add_arms - B (8)
+    C 47:0 Bandit - A (3)
+    ...
+
+Average complexity: A (2.1)
+```
+
+Each entry shows `<type> <line>:<col> <name> - <grade> (<score>)`.  The type
+prefix is `M` (method), `C` (class), or `F` (function).  Grades map to
+cyclomatic complexity scores: **A** (1–5 — excellent), **B** (6–10 — moderate),
+**C** (11–15 — high), **D–F** (≥16 — critical).  The CI gate (Xenon) rejects
+anything worse than **C** for a single block.
+
+### Maintainability index (Radon MI)
+
+```bash
+make cost-maintainability
+# or
+uv run radon mi -s coleman/
+```
+
+**Example output (all modules pass):**
+
+```text
+✅ All modules meet MI ≥ 20
+```
+
+The Maintainability Index (MI) is a composite score (0–100) combining
+Halstead volume, cyclomatic complexity, and lines of code.  Scores ≥ 20
+are considered maintainable; scores below 20 indicate code that is
+harder to understand and modify.  The CI gate fails if any module drops
+below this threshold.
+
+**Example output (failure case):**
+
+```text
+❌ Modules below maintainability threshold (MI < 20):
+coleman/legacy.py - C (14.32)
+```
+
+### Raw metrics (Radon raw)
+
+```bash
+make cost-raw
+# or
+uv run radon raw coleman/
+```
+
+**Example output:**
+
+```text
+coleman/runner.py
+    LOC: 524
+    LLOC: 202
+    SLOC: 290
+    Comments: 5
+    Single comments: 10
+    Multi: 143
+    Blank: 81
+    - Comment Stats
+        (C % L): 1%
+        (C % S): 2%
+        (C + M % L): 28%
+```
+
+Key metrics: **LOC** (total lines), **SLOC** (source lines, excluding blanks
+and comments), **LLOC** (logical lines — statement count), and **Comment
+Stats** showing the ratio of inline comments to code.  Low `C % S` (comments
+as a share of source) may indicate under-documented code.
+
+### Xenon complexity gate
+
+Xenon wraps Radon and returns a non-zero exit code when complexity
+thresholds are exceeded.  This is the first CI guardrail:
+
+```bash
+make cost-xenon
+# or
+uv run xenon --max-absolute C --max-modules B --max-average A coleman/
+```
+
+**Example output (all thresholds met):**
+
+```text
+# Exits silently with code 0 — all modules are within threshold
+```
+
+**Example output (threshold exceeded):**
+
+```text
+/path/to/file.py has a grade of D
+```
+
+Xenon exits with a non-zero code when any threshold is breached, which
+causes CI to fail.  No output on success (exit code 0).
+
+**Current CI thresholds:**
+
+| Parameter | Threshold | Meaning |
+|-----------|-----------|---------|
+| `--max-absolute` | **C** | No single block worse than C |
+| `--max-modules` | **B** | No module average worse than B |
+| `--max-average` | **A** | Project-wide average must be A |
+
+!!! note "Target thresholds"
+    The long-term target is `--max-absolute B --max-modules A --max-average A`.
+    Current thresholds are relaxed to match the existing codebase and should
+    be tightened as complexity hotspots are refactored.
+
+### Run all structural checks at once
+
+```bash
+make cost-structural
+```
+
+### Trend analysis with Wily
+
+[Wily](https://wily.readthedocs.io/) tracks complexity metrics across
+Git history.  It is included as a dev dependency:
+
+```bash
+make cost-wily
+# custom file:
+make cost-wily-file WILY_FILE=coleman/bandit.py
+
+# or individually:
+uv run wily build coleman
+uv run wily index
+uv run wily report coleman/runner.py
+uv run wily diff coleman/runner.py -r HEAD^1
+```
+
+!!! note
+    `wily` with the `git` archiver requires a clean repository. The Makefile
+    targets auto-detect a dirty worktree and switch to the `filesystem`
+    archiver so reports still work without forcing commit/stash.
+
+**Example output:**
+
+```text
+Found 50 revisions from 'git' archiver.
+Running operators - raw,cyclomatic,maintainability,halstead
+Processing |################################| 200/200
+Completed building wily history.
+
+-----------History for coleman/runner.py-----------
+╒════════════╤═══════════╤════════╤══════════╤══════╤══════════╕
+│ Revision   │ Author    │ Date   │ Lines    │ CC   │ MI       │
+╞════════════╪═══════════╪════════╪══════════╪══════╪══════════╡
+│ abc1234    │ developer │ 2026-… │ 524      │ 10.2 │ 68.4     │
+│ def5678    │ developer │ 2026-… │ 510      │  9.8 │ 69.1     │
+╘════════════╧═══════════╧════════╧══════════╧══════╧══════════╛
+```
+
+Each row shows how **Lines of Code**, **Cyclomatic Complexity (CC)**, and
+**Maintainability Index (MI)** evolved per commit.  Rising CC or falling MI
+across revisions signals growing technical debt that should be addressed
+before it compounds.
+
+---
+
+## 2 — Runtime cost
+
+### Scalene (CPU + memory profiling)
+
+[Scalene](https://github.com/plasma-umass/scalene) profiles CPU time,
+memory allocation, and copy volume line-by-line:
+
+```bash
+make cost-profile-scalene
+# or
+uv run scalene run coleman/cli.py --- --help
+```
+
+Replace `--help` with a real workload for meaningful results.  For
+example, profile an actual experiment run:
+
+```bash
+uv run scalene run coleman/cli.py --- run --config run.yaml
+```
+
+!!! note
+    For profiling runs with Scalene, prefer sequential execution.
+    Multiprocessing and heavy concurrency can produce incomplete attribution
+    (for example, what each thread executed) and, on Python 3.14, may trigger
+    intermittent spawn-pool serialization errors.
+
+    Use this in your run config:
+
+    ```yaml
+    execution:
+      parallel_pool_size: 4
+      force_sequential_under_scalene: true
+    ```
+    uv run wily build coleman
+    uv run wily index
+    uv run wily report coleman/runner.py
+    uv run wily diff coleman/runner.py -r HEAD^1
+[py-spy](https://github.com/benfred/py-spy) is a sampling profiler that
+attaches to a running process with minimal overhead:
+
+```bash
+make cost-profile-pyspy
+# or
+uv python install 3.13
+uv venv .venv-pyspy --python 3.13
+uv pip install --python .venv-pyspy/bin/python duckdb numpy polars pyarrow scipy scikit-posthocs "pydantic>=2.12.5" "pyyaml>=6.0.3"
+PYTHONPATH=. .venv/bin/py-spy record --rate 20 --subprocesses -o profile.svg -- .venv-pyspy/bin/python -m coleman.cli run --config run.yaml
+```
+
+!!! note
+    `py-spy` may require elevated privileges (`sudo`) on some systems.
+    With Python 3.14 standalone runtimes, `py-spy` may fail with
+    "Failed to find python version from target process".
+    The workflow above uses a dedicated Python 3.13 profiling venv,
+    while your main project environment can remain on Python 3.14.
+    For this workload, `--rate 20` avoids severe sampler lag and
+    `--subprocesses` captures worker processes spawned by the experiment runner.
+    Some `py-spy` runs may still report a teardown error after writing
+    `profile.svg`; when the flamegraph is written successfully, the generated
+    profile can still be used.
+
+    Prefer `py-spy record` with a real workload. Commands like `--help`
+    end too quickly and can fail before samples are collected.
+    If you want a live view instead of a saved report, run:
+
+    ```bash
+    PYTHONPATH=. .venv/bin/py-spy top --rate 20 --subprocesses -- .venv-pyspy/bin/python -m coleman.cli run --config run.yaml
+    ```
+
+---
+
+## 3 — Energy cost
+
+### CodeCarbon
+
+[CodeCarbon](https://mlco2.github.io/codecarbon/) estimates the carbon
+emissions of compute workloads.  A minimal example lives at
+`scripts/measure_energy.py`:
+
+```bash
+make cost-energy
+# or
+uv run python scripts/measure_energy.py
+```
+
+**Example output:**
+
+```text
+[codecarbon INFO] [setup] RAM Tracking...
+[codecarbon INFO] [setup] CPU Tracking...
+[codecarbon INFO] CPU Model on constant consumption mode: AMD EPYC 7763 64-Core Processor
+[codecarbon INFO] [setup] GPU Tracking...
+[codecarbon INFO] No GPU found.
+[codecarbon INFO] The below tracking methods have been set up:
+                RAM Tracking Method: RAM power estimation model
+                CPU Tracking Method: cpu_load
+                GPU Tracking Method: Unspecified
+[codecarbon INFO] >> Tracker's metadata:
+[codecarbon INFO]   Platform system: Linux-6.8.0-x86_64
+[codecarbon INFO]   Python version: 3.12.x
+[codecarbon INFO]   Available RAM : 7.758 GB
+[codecarbon INFO]   CPU count: 2 thread(s) in 1 physical CPU(s)
+[codecarbon INFO]   CPU model: AMD EPYC 7763 64-Core Processor
+[codecarbon INFO] Emissions data will be saved to emissions.csv
+Estimated emissions (kg CO2eq): 0.000012
+```
+
+CodeCarbon logs setup details then prints the estimated CO₂-equivalent
+emissions after the workload finishes.  Results are also saved to
+`emissions.csv` for tracking over time.  On cloud environments (AWS,
+Azure, GCP) CodeCarbon will attempt to use region-specific electricity
+carbon intensity; when unavailable it falls back to a country average.
+
+You can adapt the script to wrap any representative workload:
+
+```python
+from codecarbon import EmissionsTracker
+
+tracker = EmissionsTracker()
+tracker.start()
+# ... your workload here ...
+emissions = tracker.stop()
+print(f"Estimated emissions (kg CO2eq): {emissions}")
+```
+
+### pyRAPL (Intel hardware only)
+
+[pyRAPL](https://github.com/powerapi-ng/pyRAPL) reads Intel RAPL
+counters for direct energy measurement.  It is included as a dev
+dependency but only works on supported Intel hardware:
+
+```python
+import pyRAPL
+
+pyRAPL.setup()
+meter = pyRAPL.Measurement("my_workload")
+meter.begin()
+# ... your workload here ...
+meter.end()
+meter.result.export(pyRAPL.outputs.CSVOutput("energy_results.csv"))
+```
+
+!!! warning "Platform and Python version limitation"
+    pyRAPL requires an Intel CPU with RAPL support **and** read access to
+    `/sys/class/powercap/intel-rapl/`.  It does not work on AMD, ARM, or
+    virtualised environments without RAPL passthrough.  Additionally, pyRAPL
+    is not compatible with Python 3.14 (invalid escape sequences + missing
+    `pymongo` dependency cause import errors on startup).  Use CodeCarbon
+    (via `make cost-energy`) as the portable fallback on all platforms.
+
+---
+
+## 4 — CI integration
+
+The GitHub Actions workflow **Code Cost — Structural checks**
+(`.github/workflows/code-cost.yml`) runs automatically on every pull
+request and enforces two gates:
+
+1. **Xenon complexity gate** — fails when cyclomatic complexity exceeds
+   the configured thresholds (see above).
+2. **Radon maintainability index gate** — fails when any module scores
+   below A (MI < 20).
+
+If either gate fails, the PR cannot be merged until the structural
+cost is addressed.
+
+Radon cyclomatic complexity is also reported (blocks with rank C or
+worse are highlighted) but does not fail the build — Xenon already
+covers this dimension.
+
+The heavier tools (Scalene, py-spy, CodeCarbon, pyRAPL) are intended
+for **local or manual use** and are not part of the CI pipeline.
+
+---
+
+## Representative workloads
+
+| Purpose | Command |
+|---------|---------|
+| Structural analysis | `make cost-structural` |
+| Raw metrics | `make cost-raw` |
+| Trend analysis | `make cost-wily` |
+| Runtime profiling (Scalene) | `make cost-profile-scalene` |
+| Runtime profiling (py-spy) | `make cost-profile-pyspy` |
+| Energy estimation | `make cost-energy` |
+
+For more realistic profiling, replace `--help` with an actual experiment
+configuration:
+
+```bash
+uv run scalene run coleman/cli.py --- run --config run.yaml
+```
+
+---
+
+## Risks and constraints
+
+- Complexity does **not** directly equal energy use.
+- Energy must be measured from **runtime execution**, not inferred
+  purely from structure.
+- Profiling quality depends on how realistic the workload is.
+- `pyRAPL` is hardware-dependent and should stay optional.
+- Over-enforcement too early may create friction; thresholds should be
+  tuned after first real runs.
+
+
+
+### FILE: docs/configuration.md
+
+# Configuration
+
+Coleman uses **YAML configuration files** with typed
+[Pydantic v2](https://docs.pydantic.dev/) models for validation.  Configs
+are loaded via `load_spec()` (library) or `coleman --config` (CLI).
+
+For `coleman sweep`, the same YAML file may also include a top-level
+`sweep` section. This section is used only by sweep commands.
+
+## Configuration file format
+
+A configuration file is a YAML document whose top-level keys map directly
+to the sections of `RunSpec`:
+
+```yaml
+# my-experiment.yaml
+
+execution:
+  parallel_pool_size: 4
+  independent_executions: 30
+  seed: 42                     # optional — deterministic RNG seed
+  verbose: false
+  force_sequential_under_scalene: true
+
+experiment:
+  scheduled_time_ratio: [0.1, 0.5, 0.8]
+  datasets_dir: examples
+  datasets:
+    - alibaba@druid
+  experiment_dir: results/experiments/
+  rewards:
+    - RNFail
+    - TimeRank
+  policies:
+    - UCB
+    - FRRMAB
+    - LinUCB
+
+# Note: the list above is an example, not an exhaustive list of available policies.
+# See the policy API reference for the complete set.
+
+algorithm:
+  ucb:
+    rnfail:
+      c: 0.5
+  frrmab:
+    window_sizes: [50, 100, 200]
+  linucb:
+    rnfail:
+      alpha: 0.5
+
+hcs_configuration:
+  wts_strategy: false
+
+contextual_information:
+  config:
+    previous_build: [Duration, NumRan, NumErrors]
+  feature_group:
+    feature_group_name: time_execution
+    feature_group_values: [Duration, NumErrors]
+
+results:
+  enabled: true
+  sink: parquet               # "parquet" (default), "duckdb" or "clickhouse"
+  out_dir: ./runs
+  batch_size: 1000
+  top_k_prioritization: 0    # 0 = hash only
+  duckdb:
+    file_count: 1
+    base_name: results
+    shard_key: execution_id
+
+checkpoint:
+  enabled: true
+  interval: 50000
+  base_dir: checkpoints
+
+telemetry:
+  enabled: false
+  otlp_endpoint: http://localhost:4318
+  service_name: coleman
+  export_interval_millis: 5000
+
+hooks:
+  fail_fast: false
+  plugins:
+    - my_project.hooks.ForecastHook
+
+extensions:
+  my_domain:
+    forecast_selection:
+      policy: ThompsonSampling
+      reward: Binary
+
+sweep:
+  axes:
+    - mode: grid
+      params:
+        algorithm.ucb.rnfail.c: [0.1, 0.3, 0.5]
+        execution.parallel_pool_size: [1, 4]
+  seeds: [0, 1, 2]
+```
+
+## RunSpec schema reference
+
+Every configuration file is validated against `RunSpec`, which composes
+the following typed sub-specs:
+
+| Section | Model | Key fields |
+|---------|-------|------------|
+| `execution` | `ExecutionSpec` | `parallel_pool_size`, `independent_executions`, `seed`, `verbose`, `force_sequential_under_scalene` |
+| `experiment` | `ExperimentSpec` | `scheduled_time_ratio`, `datasets_dir`, `datasets`, `experiment_dir`, `rewards`, `policies` |
+| `algorithm` | `AlgorithmSpec` | Free-form nested dict — any algorithm can store its own parameters |
+| `hcs_configuration` | `HCSConfigurationSpec` | `wts_strategy` |
+| `contextual_information` | `ContextualInformationSpec` | `config` (previous build columns), `feature_group` |
+| `results` | `ResultsSpec` | `enabled`, `sink`, `out_dir`, `batch_size`, `top_k_prioritization`, `duckdb`, `clickhouse` |
+| `checkpoint` | `CheckpointSpec` | `enabled`, `interval`, `base_dir` |
+| `telemetry` | `TelemetrySpec` | `enabled`, `otlp_endpoint`, `service_name`, `export_interval_millis` |
+| `hooks` | `HooksSpec` | `fail_fast`, `plugins` |
+| `extensions` | `dict[str, Any]` | namespaced custom config passthrough |
+
+`sweep` is not part of `RunSpec`; it is a CLI-level extension consumed by
+`coleman sweep`.
+
+## Parallelism model
+
+Coleman supports two independent parallelism layers:
+
+1. **Intra-run process pool** via `execution.parallel_pool_size`.
+  This controls how many worker processes execute one run's
+  `independent_executions`.
+2. **Inter-spec concurrency** via `coleman sweep --workers` (or API
+  `run_many(..., max_workers=...)`). This controls how many different
+  resolved specs run at the same time.
+
+When Scalene profiling is active, `force_sequential_under_scalene: true`
+forces intra-run pool size to `1` for profiling stability.
+
+## Runner hooks and extensions
+
+Coleman supports custom domain workflows via two top-level sections:
+
+1. `extensions`: namespaced custom config passed to hook contexts.
+2. `hooks`: lifecycle plugins loaded from dotted paths.
+
+### Hook registration
+
+```yaml
+hooks:
+  fail_fast: false
+  plugins:
+    - my_project.hooks.ForecastHook
+    - my_project.hooks.audit_hook
+```
+
+Supported plugin symbols:
+
+1. Class (instantiated with no arguments).
+2. Function with signature `(event_name, context, payload=None)`.
+
+### Lifecycle events
+
+Hook methods are optional. Coleman dispatches these events in order:
+
+1. `on_run_start(context)`
+2. `on_dataset_start(context)`
+3. `on_execution_start(context)`
+4. `on_execution_end(context, execution_result)`
+5. `on_dataset_end(context, dataset_result)`
+6. `on_run_end(context, run_result)`
+7. `on_error(context, error)`
+
+`on_error` is also dispatched when execution startup or environment
+construction fails, using the most specific available context.
+
+### Execution contract (sequential vs parallel)
+
+1. `on_run_*` and `on_dataset_*` execute in the coordinator process.
+2. `on_execution_*` execute in the worker process context.
+3. In sequential mode, worker and coordinator are the same process, but the event contract is unchanged.
+4. Hook plugin loading in workers is path-based and process-local to keep multiprocessing pickle-safe.
+
+### Error handling (`fail_fast`)
+
+1. `fail_fast: true` (default): hook exceptions stop execution.
+2. `fail_fast: false`: hook exceptions are logged with run/dataset/execution identifiers and execution continues.
+
+### Hook context and payloads
+
+`HookContext` includes stable identifiers and execution metadata:
+
+1. `run_id`
+2. `dataset_id`
+3. `execution_id`
+4. `worker_id`
+5. `parallel_mode`
+6. `iteration`, `trials`, `sched_time_ratio`
+7. `extensions`
+
+Event payloads:
+
+1. `ExecutionResult(status, duration_seconds)`
+2. `DatasetResult(status, executions, duration_seconds)`
+3. `RunResult(status, datasets, duration_seconds)`
+
+### Lifecycle diagram
+
+```mermaid
+flowchart TD
+    A[on_run_start] --> B[on_dataset_start]
+    B --> C[on_execution_start]
+    C --> D[runner execution]
+    D --> E[on_execution_end]
+    E --> F[on_dataset_end]
+    F --> G{more datasets?}
+    G -- yes --> B
+    G -- no --> H[on_run_end]
+    D -. exception .-> I[on_error]
+```
+
+### Minimal end-to-end config
+
+```yaml
+packs:
+  - execution/default
+  - experiment/alibaba_druid
+  - algorithm/defaults
+  - reward/rnfail
+  - results/parquet
+
+execution:
+  independent_executions: 10
+  parallel_pool_size: 4
+
+hooks:
+  fail_fast: false
+  plugins:
+    - my_project.hooks.ForecastHook
+
+extensions:
+  my_domain:
+    forecast_selection:
+      policy: ThompsonSampling
+      reward: Binary
+```
+
+For a complete extension guide including custom Policy/Reward and source-level
+Environment/EvaluationMetric customization paths, see
+[Extensibility & Parallelism](extensibility.md).
+
+All fields have sensible defaults.  A minimal config only needs to specify
+the settings you want to override:
+
+```yaml
+# minimal.yaml — everything else uses defaults
+experiment:
+  datasets: ["alibaba@druid"]
+  policies: ["UCB"]
+  rewards: ["RNFail"]
+```
+
+## Config packs
+
+**Config packs** are small, composable YAML fragments stored under
+`packs/<category>/<name>.yaml`.  Reference them with the `packs` key:
+
+```yaml
+# experiment-with-packs.yaml
+packs:
+  - policy/linucb
+  - reward/rnfail
+  - results/parquet
+  - telemetry/off
+
+experiment:
+  datasets: ["alibaba@druid"]
+
+execution:
+  independent_executions: 30
+```
+
+### Resolution order
+
+1. Packs are loaded left-to-right and **deep-merged** (nested dicts are
+   merged recursively; scalar values from later packs win).
+2. Inline keys from the user config are applied **on top** as final
+   overrides.
+3. The merged dict is validated against `RunSpec`.
+
+### Shipped packs
+
+| Pack | Category | Description |
+|------|----------|-------------|
+| `policy/linucb` | Policy | LinUCB with default alpha values |
+| `reward/rnfail` | Reward | RNFail reward function |
+| `runtime/local` | Runtime | Single-process local execution |
+| `results/parquet` | Results | Parquet sink with defaults |
+| `results/duckdb` | Results | DuckDB sink with consolidated files |
+| `telemetry/off` | Telemetry | Telemetry disabled |
+
+### DuckDB sink configuration
+
+Use `results.sink: duckdb` to write results directly into one or more DuckDB files.
+
+```yaml
+results:
+  enabled: true
+  sink: duckdb
+  out_dir: ./runs
+  batch_size: 1000
+  duckdb:
+    file_count: 1         # default: single consolidated .duckdb file
+    base_name: results    # output: results.duckdb (or results_000.duckdb, ...)
+    shard_key: execution_id
+```
+
+`file_count` allows partitioning writes across multiple DuckDB files when desired.
+
+### Creating custom packs
+
+Add a YAML file under `packs/<category>/<name>.yaml` with any subset of
+`RunSpec` fields.  For example, a custom policy pack:
+
+```yaml
+# packs/policy/my-ucb.yaml
+experiment:
+  policies:
+    - UCB
+
+algorithm:
+  ucb:
+    rnfail:
+      c: 0.3
+    timerank:
+      c: 0.3
+```
+
+## Sweep engine
+
+The **sweep engine** generates multiple `RunSpec` instances from a single
+base config by expanding parameter ranges.  Two modes are supported:
+
+### Grid mode (Cartesian product)
+
+Every combination of parameter values is generated:
+
+```python
+from coleman.spec import RunSpec, SweepSpec, SweepAxis, expand_sweep
+
+base = RunSpec(experiment={"datasets": ["alibaba@druid"], "policies": ["UCB"]})
+sweep_spec = SweepSpec(
+    axes=[SweepAxis(mode="grid", params={
+        "algorithm.ucb.rnfail.c": [0.1, 0.3, 0.5],
+        "execution.parallel_pool_size": [1, 4],
+    })],
+)
+specs = expand_sweep(base, sweep_spec)
+# 3 × 2 = 6 specs
+```
+
+### Zip mode (paired lists)
+
+Parameter lists are paired element-wise.  All lists **must** have equal
+length — a `ValueError` is raised otherwise:
+
+```python
+sweep_spec = SweepSpec(
+    axes=[SweepAxis(mode="zip", params={
+        "algorithm.ucb.rnfail.c": [0.1, 0.3, 0.5],
+        "algorithm.ucb.timerank.c": [0.2, 0.4, 0.6],
+    })],
+)
+specs = expand_sweep(base, sweep_spec)
+# 3 paired specs
+```
+
+### Seed replication
+
+Add `seeds` to replicate each generated spec once per seed.  The seed is
+stored on `execution.seed` and affects the `run_id`:
+
+```python
+sweep_spec = SweepSpec(
+    axes=[SweepAxis(mode="grid", params={"algorithm.ucb.rnfail.c": [0.1, 0.5]})],
+    seeds=[0, 1, 2],
+)
+specs = expand_sweep(base, sweep_spec)
+# 2 values × 3 seeds = 6 specs, each with a unique run_id
+```
+
+### CLI sweep
+
+```bash
+# Uses top-level sweep section from base.yaml (if present)
+coleman sweep --config base.yaml --workers 4
+
+# Add/override an extra grid dimension from CLI
+coleman sweep --config base.yaml \
+    --grid algorithm.ucb.rnfail.c=0.1,0.3,0.5 \
+    --grid execution.seed=range(0,20) \
+    --workers 4
+
+# Dry-run to preview generated specs
+coleman sweep --config base.yaml \
+    --grid execution.seed=range(0,5) \
+    --dry-run
+```
+
+If both YAML `sweep.axes` and CLI `--grid` are provided, Coleman merges
+them and computes the Cartesian product across all axes.
+
+If both sources define the same dotted key, the sweep is rejected with a
+`ValueError` instead of silently creating duplicate combinations.
+
+## Deterministic run_id
+
+Every `RunSpec` produces a **deterministic 12-character identifier**:
+
+```
+run_id = sha256(canonical_json(resolved_spec))[:12]
+```
+
+The canonical JSON uses sorted keys and compact separators so that the
+**same logical config always yields the same `run_id`**, regardless of
+field insertion order.
+
+Artifacts are written to `<out_dir>/<run_id>/`:
+
+```
+./runs/
+  ddd8bbefa143/
+    spec.resolved.json     # fully resolved RunSpec
+    provenance.json        # git commit, Python version, uv.lock hash
+    results/               # experiment results
+    checkpoints/           # crash-recovery state
+```
+
+## Provenance
+
+Each run persists provenance metadata alongside results:
+
+| File | Contents |
+|------|----------|
+| `spec.resolved.json` | The fully resolved `RunSpec` as canonical JSON |
+| `provenance.json` | Git commit hash, dirty flag, Python version, `uv.lock` hash |
+
+This enables exact experiment reproduction: given the same `spec.resolved.json`,
+the same `run_id` and outputs are produced (within documented constraints such
+as floating-point non-determinism across platforms).
+
+## Loading and validating configs
+
+### Library API
+
+```python
+from coleman.api import load_spec, save_resolved
+from coleman.spec.run_id import compute_run_id
+
+# Load with pack resolution
+spec = load_spec("my-experiment.yaml", packs_dir="packs")
+
+# Compute run_id
+rid = compute_run_id(spec)
+print(f"run_id: {rid}")
+
+# Persist resolved config
+save_resolved(spec, f"./runs/{rid}/spec.resolved.json")
+```
+
+### CLI
+
+```bash
+# Validate a config and print the run_id
+coleman validate --config my-experiment.yaml
+
+# Validate and write the resolved spec
+coleman validate --config my-experiment.yaml --resolve resolved.json
+```
+
+
+
+### FILE: docs/extensibility.md
+
+# Extensibility & Parallelism
+
+This page is a complete implementation guide for extending Coleman while keeping
+its native orchestration model.
+
+## What You Can Extend
+
+| Component | Typical goal | Current support |
+|---|---|---|
+| Policy | New action-selection strategy | Fully supported (source extension + config) |
+| Reward | New credit assignment signal | Fully supported (source extension + config) |
+| Hooks | Domain lifecycle logic and custom artifacts | Fully supported via `hooks.plugins` |
+| Extensions | Namespaced custom domain config | Fully supported via `extensions` |
+| EvaluationMetric | Alternate quality/cost metric logic | Supported via source extension (runner wiring) |
+| Environment | Alternate orchestration/runtime behavior | Supported via source extension (runner wiring) |
+
+## Parallelism Model (Complete)
+
+Coleman has two independent parallel layers:
+
+1. Intra-run process parallelism
+   - Controlled by `execution.parallel_pool_size`.
+   - Executes one run's `independent_executions` in worker processes.
+
+2. Inter-spec sweep parallelism
+   - Controlled by `coleman sweep --workers` or API `run_many(..., max_workers=...)`.
+   - Executes multiple specs concurrently.
+
+### Operational contract
+
+1. Coordinator process events
+   - `on_run_start`, `on_dataset_start`, `on_dataset_end`, `on_run_end`.
+2. Worker process events
+   - `on_execution_start`, `on_execution_end`.
+3. Error event
+   - `on_error` can be triggered in both contexts.
+4. Profiling safety
+   - `force_sequential_under_scalene: true` forces sequential worker mode under Scalene.
+
+## Namespaced Custom Config (`extensions`)
+
+Use `extensions` to pass domain-specific settings without relaxing strict RunSpec validation:
+
+```yaml
+extensions:
+  my_domain:
+    forecast_selection:
+      policy: ThompsonSampling
+      reward: Binary
+      risk_budget: 0.15
+```
+
+Guidelines:
+
+1. Keep keys namespaced (`my_domain`, `my_team`, etc.).
+2. Keep values JSON-serializable.
+3. Consume values from hook context (`context.extensions`).
+
+## Hook Plugins (`hooks`)
+
+Register plugins only in configuration:
+
+```yaml
+hooks:
+  fail_fast: false
+  plugins:
+    - my_project.hooks.ForecastHook
+    - my_project.hooks.audit_hook
+```
+
+Supported plugin forms:
+
+1. Class plugin
+   - Instantiated with no arguments.
+   - Implement any lifecycle methods needed.
+2. Function plugin
+   - Signature: `(event_name, context, payload=None)`.
+
+### Hook lifecycle
+
+1. `on_run_start(context)`
+2. `on_dataset_start(context)`
+3. `on_execution_start(context)`
+4. `on_execution_end(context, execution_result)`
+5. `on_dataset_end(context, dataset_result)`
+6. `on_run_end(context, run_result)`
+7. `on_error(context, error)`
+
+`on_error` is dispatched for startup failures as well, so hook-based cleanup
+and telemetry can observe broken execution setup paths.
+
+### Hook context fields
+
+- `run_id`
+- `dataset_id`
+- `execution_id`
+- `worker_id`
+- `parallel_mode`
+- `iteration`
+- `trials`
+- `sched_time_ratio`
+- `extensions`
+
+## Adding a New Policy
+
+Current loading contract:
+
+1. Runner reads policy names from `experiment.policies`.
+2. For each policy `X`, runner loads class `XPolicy` from `coleman.policy` module exports.
+
+### Implementation steps
+
+1. Create your policy class in `coleman/policy/...` extending base behavior from existing policy patterns.
+2. Expose the class in `coleman/policy/__init__.py`.
+3. Add algorithm hyperparameters under `algorithm.<policy_name_lower>` in YAML.
+4. Add policy name (without suffix) in `experiment.policies`.
+5. Add tests for deterministic behavior and credit-assignment updates.
+
+Example config:
+
+```yaml
+experiment:
+  policies: [MyPolicy]
+  rewards: [RNFail]
+
+algorithm:
+  mypolicy:
+    rnfail:
+      temperature: 0.2
+```
+
+## Adding a New Reward
+
+Current loading contract:
+
+1. Runner reads reward names from `experiment.rewards`.
+2. For each reward `Y`, runner loads class `YReward` from `coleman.reward` module exports.
+
+### Implementation steps
+
+1. Create your reward class in `coleman/reward/...` inheriting reward base contract.
+2. Expose the class in `coleman/reward/__init__.py`.
+3. Add reward name (without suffix) in `experiment.rewards`.
+4. Add tests validating `evaluate(...)` against expected metric scenarios.
+
+Example config:
+
+```yaml
+experiment:
+  policies: [UCB]
+  rewards: [MyReward]
+
+algorithm:
+  ucb:
+    myreward:
+      c: 0.4
+```
+
+## Custom EvaluationMetric (Source Extension)
+
+Current default wiring uses `NAPFDVerdictMetric` in runner environment construction.
+
+If you need a custom metric class today:
+
+1. Implement metric class in `coleman/evaluation/...` extending evaluation base behavior.
+2. Expose it in `coleman/evaluation/__init__.py`.
+3. Wire it in runner environment construction where evaluation metric instance is created.
+4. Add tests for metric math invariants and edge cases (no failures, full failures, partial budget).
+
+## Custom Environment (Source Extension)
+
+Current default wiring uses `Environment` in runner environment construction.
+
+If you need a custom environment today:
+
+1. Implement class inheriting `AbstractEnvironment`.
+2. Preserve compatibility with monitor/checkpoint/telemetry contracts.
+3. Wire your class in runner environment creation.
+4. Add integration tests for sequential and parallel execution consistency.
+
+## Recommended Strategy for Large Domain Workflows
+
+1. Prefer `hooks + extensions` first.
+2. Keep core runner orchestration untouched whenever possible.
+3. Use source-level Environment/EvaluationMetric customization only when behavior cannot be expressed via hooks.
+4. Persist custom artifacts with run/execution identifiers for later joins in analysis.
+
+## End-to-End Example (Parallel + Extensions + Hooks)
+
+```yaml
+packs:
+  - execution/default
+  - experiment/alibaba_druid
+  - algorithm/defaults
+  - reward/rnfail
+  - results/parquet
+
+execution:
+  independent_executions: 20
+  parallel_pool_size: 4
+  force_sequential_under_scalene: true
+
+experiment:
+  policies: [UCB, MyPolicy]
+  rewards: [RNFail, MyReward]
+
+algorithm:
+  ucb:
+    rnfail:
+      c: 0.3
+  mypolicy:
+    rnfail:
+      temperature: 0.15
+
+hooks:
+  fail_fast: false
+  plugins:
+    - my_project.hooks.ForecastHook
+    - my_project.hooks.audit_hook
+
+extensions:
+  my_domain:
+    forecast_selection:
+      policy: ThompsonSampling
+      reward: Binary
+      risk_budget: 0.15
+```
+
+CLI sweep with inter-spec parallelism:
+
+```bash
+coleman sweep --config run.yaml \
+  --grid execution.seed=range(0,10) \
+  --grid algorithm.ucb.rnfail.c=0.1,0.3,0.5 \
+  --workers 4
+```
+
+## Testing Checklist for Extensions
+
+1. Sequential and parallel should produce expected hook side effects.
+2. Hook errors should obey `fail_fast` policy.
+3. Custom artifacts should carry `run_id` and `execution_id`.
+4. New policies/rewards should be covered by deterministic unit tests.
+5. Any Environment/Metric source customization should include integration tests.
+
+
+
+### FILE: docs/getting-started.md
+
+# Getting Started
+
+## Installation
+
+### Option A: DevContainer (recommended)
+
+The fastest way to start is with a [DevContainer](https://containers.dev/).
+Open the repo in **VS Code** (or any DevContainer-compatible editor) and
+select **"Reopen in Container"** — **everything works out of the box**,
+including the full observability stack.
+
+**What happens automatically:**
+
+1. Python 3.14 + uv + all dependencies (including telemetry & ClickHouse extras) are installed
+2. Pre-commit hooks are configured
+3. The **observability stack** (OTel Collector + Grafana) starts via Docker-in-Docker
+4. **Telemetry** can be enabled via the `telemetry/local` pack in `run.yaml`
+
+After the container builds, just run your experiment:
+
+```bash
+coleman run --config run.yaml
+# Open http://localhost:3000 → Grafana shows metrics in real-time
+```
+
+No manual steps required — skip to [Running Experiments](#running-experiments).
+
+**What's included:**
+
+| What | Why |
+|------|-----|
+| **Python 3.14 + uv** | Project package manager |
+| **Docker-in-Docker** | Runs the observability stack automatically |
+| **VS Code extensions** | Ruff, Pylance, Pyright, Copilot, TOML, Jupyter, and more |
+| **Telemetry + ClickHouse extras** | Pre-installed — no extra `pip install` needed |
+| **OTel Collector + Grafana** | Started automatically on container start |
+| **Port forwarding** | All service ports mapped to your host browser |
+
+### Option B: Local setup
+
+#### Prerequisites
+
+- Python 3.14+
+- [UV](https://docs.astral.sh/uv/)
+
+#### Install
+
+```bash
+git clone https://github.com/jacksonpradolima/coleman.git
+cd coleman
+uv sync
+uv pip install -e .
+```
+
+#### Development Setup
+
+```bash
+# Install all development dependencies
+make install
+
+# Install pre-commit hooks
+make pre-commit-install
+```
+
+## Configuration
+
+Coleman uses YAML configuration files with typed Pydantic v2 models.
+You can compose configs with **config packs** and override specific settings
+inline.
+
+### Quick config (YAML + packs)
+
+Create a YAML config file:
+
+```yaml
+# my-experiment.yaml
+packs:
+  - policy/linucb
+  - reward/rnfail
+  - results/parquet
+  - telemetry/off
+
+experiment:
+  datasets: ["alibaba@druid"]
+
+execution:
+  independent_executions: 30
+```
+
+Run with the `coleman` CLI:
+
+```bash
+coleman run --config my-experiment.yaml
+```
+
+Or use the library API:
+
+```python
+from coleman.api import run, load_spec
+
+spec = load_spec("my-experiment.yaml")
+result = run(spec)
+print(result.run_id, result.artifacts_dir)
+```
+
+See the [Configuration guide](configuration.md) for the full schema
+reference, config packs, sweep engine, and determinism contract.
+
+## Running Experiments
+
+### Using the `coleman` CLI (recommended)
+
+```bash
+# Single run
+coleman run --config my-experiment.yaml
+
+# Parameter sweep
+coleman sweep --config my-experiment.yaml \
+    --grid algorithm.ucb.rnfail.c=0.1,0.3,0.5 \
+    --grid execution.seed=range(0,10) \
+    --workers 4
+
+# Parameter sweep declared in my-experiment.yaml (top-level sweep:)
+coleman sweep --config my-experiment.yaml --workers 4
+
+# Dry-run (preview specs without executing)
+coleman sweep --config my-experiment.yaml \
+    --grid execution.seed=range(0,5) \
+    --dry-run
+```
+
+When both YAML `sweep` and CLI `--grid` are present, they are merged.
+
+If the same dotted key appears in both places, Coleman raises an error
+instead of generating duplicate sweep combinations.
+
+Results are written to `./runs/<run_id>/` with `spec.resolved.json` and
+`provenance.json` alongside the experiment data.
+
+### DevContainer: just run it
+
+If you're in the DevContainer, the observability stack is already running and
+telemetry is enabled.  Just run:
+
+```bash
+coleman run --config my-experiment.yaml
+# Results    → ./runs/       (Parquet)
+# Checkpoints → ./checkpoints/
+# Metrics    → http://localhost:3000 (Grafana, live)
+```
+
+## Checking Final Results
+
+Grafana is for live execution behavior: throughput, latency, CPU, memory, and
+run separation while the experiment is still running.
+
+The final experiment facts are stored separately:
+
+* Parquet, by default: `./runs/`
+* Checkpoint progress for resume/recovery: `./checkpoints/`
+* ClickHouse, when enabled: table `coleman_results`
+
+### What happens if you run experiments again?
+
+By default, Coleman **appends** new final results instead of replacing the
+old ones.
+
+For the default Parquet sink this means:
+
+* new files are created under `./runs/`
+* previous files are preserved
+* old and new executions coexist in the same dataset
+* the new `execution_id` lets you separate one run from another analytically
+
+For the ClickHouse sink this means:
+
+* new rows are inserted into `coleman_results`
+* previous rows are preserved unless you explicitly delete them
+
+Checkpoint behavior is different: for the same run and experiment, the latest
+checkpoint progress is updated so recovery can continue from the most recent
+durable step.
+
+If you want a completely fresh analysis space, choose one of these options
+before running again:
+
+```bash
+# Option 1: start from a clean Parquet directory
+rm -rf ./runs
+
+# Option 2: keep old runs, but write new ones elsewhere
+# Set results.out_dir: "./runs-new" in your run.yaml
+
+# Option 3: clean checkpoints too, if you do not want recovery state reused
+rm -rf ./checkpoints
+```
+
+### Default Parquet output
+
+After `coleman run --config run.yaml`, inspect the partitioned Parquet dataset:
+
+```bash
+find ./runs -name '*.parquet' | head
+```
+
+Prepare a reusable view in DuckDB, then query it directly:
+
+```python
+import duckdb
+con = duckdb.connect("analysis.duckdb")
+con.execute("""
+    CREATE OR REPLACE VIEW experiment_results AS
+    SELECT *
+    FROM read_parquet('./runs/**/*.parquet', hive_partitioning=1)
+""")
+
+con.sql("""
+    SELECT scenario,
+           execution_id,
+           policy,
+           reward_function,
+           AVG(fitness) AS avg_napfd,
+           AVG(cost) AS avg_apfdc,
+           AVG(process_memory_rss_mib) AS avg_rss_mib,
+           AVG(process_cpu_utilization_percent) AS avg_cpu_pct
+    FROM experiment_results
+    GROUP BY scenario, execution_id, policy, reward_function
+    ORDER BY avg_napfd DESC
+""")
+```
+
+### DuckDB, in practice
+
+DuckDB is the easiest way to inspect final results deeply without moving data
+out of the Parquet dataset.
+
+#### Start an interactive session
+
+```bash
+uv run ipython
+```
+
+Then initialize once and reuse the same view across the remaining examples:
+
+```python
+import duckdb
+con = duckdb.connect("analysis.duckdb")
+con.execute("""
+    CREATE OR REPLACE VIEW experiment_results AS
+    SELECT *
+    FROM read_parquet('./runs/**/*.parquet', hive_partitioning=1)
+""")
+```
+
+#### Inspect available columns
+
+```python
+con.sql("""
+    DESCRIBE
+    SELECT *
+    FROM experiment_results
+""").df()
+```
+
+#### See which executions are available
+
+```python
+con.sql("""
+    SELECT scenario,
+           execution_id,
+           COUNT(*) AS rows,
+           MIN(step) AS first_step,
+           MAX(step) AS last_step
+    FROM experiment_results
+    GROUP BY scenario, execution_id
+    ORDER BY scenario, execution_id
+""").df()
+```
+
+#### Compare policies by final quality and resource cost
+
+```python
+con.sql("""
+    SELECT scenario,
+           policy,
+           reward_function,
+           AVG(fitness) AS avg_napfd,
+           AVG(cost) AS avg_apfdc,
+           AVG(prioritization_time) AS avg_prioritization_time,
+           AVG(process_memory_rss_mib) AS avg_rss_mib,
+           AVG(process_cpu_utilization_percent) AS avg_cpu_pct,
+           MAX(wall_time_seconds) AS wall_time_seconds
+    FROM experiment_results
+    GROUP BY scenario, policy, reward_function
+    ORDER BY avg_napfd DESC, avg_apfdc DESC
+""").df()
+```
+
+#### Slice one specific execution
+
+```python
+execution_id = 'replace-with-real-execution-id'
+con.sql(f"""
+    SELECT experiment,
+           step,
+           policy,
+           reward_function,
+           fitness,
+           cost,
+           process_memory_rss_mib,
+           process_cpu_utilization_percent
+    FROM experiment_results
+    WHERE execution_id = '{execution_id}'
+    ORDER BY experiment, step, policy
+""").df()
+```
+
+#### Export a filtered report
+
+Before executte the following command, create the `analysis` directory first under the `runs/` directory.
+
+```python
+con.sql("""
+    COPY (
+        SELECT scenario,
+               execution_id,
+               policy,
+               reward_function,
+               AVG(fitness) AS avg_napfd,
+               AVG(cost) AS avg_apfdc
+        FROM experiment_results
+        GROUP BY scenario, execution_id, policy, reward_function
+    ) TO './runs/analysis/final-summary.csv' (HEADER, DELIMITER ',')
+""")
+print('exported ./runs/analysis/final-summary.csv')
+```
+
+### ClickHouse, in practice
+
+If you want a long-lived analytical store instead of Parquet files, switch the
+ results sink to ClickHouse.
+
+#### Enable it
+
+```yaml
+# In your run.yaml, override the results section:
+results:
+  enabled: true
+  sink: clickhouse
+```
+
+Run the service locally:
+
+```bash
+cd examples/observability
+docker compose --profile clickhouse up -d
+```
+
+#### Initialize once and reuse
+
+Start a Python session and connect once — then reuse `client` across all the
+examples below:
+
+```python
+import clickhouse_connect
+
+client = clickhouse_connect.get_client(host='localhost', port=8123, database='default')
+```
+
+#### Inspect stored schema
+
+```python
+print(client.query('DESCRIBE TABLE coleman_results').result_rows)
+```
+
+#### See which executions are available
+
+```python
+rows = client.query('''
+    SELECT scenario,
+           execution_id,
+           COUNT(*) AS rows,
+           MIN(step)  AS first_step,
+           MAX(step)  AS last_step
+    FROM coleman_results
+    GROUP BY scenario, execution_id
+    ORDER BY scenario, execution_id
+''')
+print(rows.result_rows)
+```
+
+#### Compare policies by final quality and resource cost
+
+```python
+rows = client.query('''
+    SELECT scenario,
+           policy,
+           reward_function,
+           AVG(fitness)                      AS avg_napfd,
+           AVG(cost)                         AS avg_apfdc,
+           AVG(prioritization_time)          AS avg_prioritization_time,
+           AVG(process_memory_rss_mib)       AS avg_rss_mib,
+           AVG(process_cpu_utilization_percent) AS avg_cpu_pct,
+           MAX(wall_time_seconds)            AS wall_time_seconds
+    FROM coleman_results
+    GROUP BY scenario, policy, reward_function
+    ORDER BY avg_napfd DESC, avg_apfdc DESC
+''')
+print(rows.result_rows)
+```
+
+#### Query a summary across all executions
+
+```python
+rows = client.query('''
+    SELECT scenario,
+           execution_id,
+           policy,
+           reward_function,
+           AVG(fitness) AS avg_napfd,
+           AVG(cost) AS avg_apfdc,
+           AVG(process_memory_rss_mib) AS avg_rss_mib,
+           AVG(process_cpu_utilization_percent) AS avg_cpu_pct
+    FROM coleman_results
+    GROUP BY scenario, execution_id, policy, reward_function
+    ORDER BY avg_napfd DESC
+''')
+print(rows.result_rows)
+```
+
+#### Slice one specific execution
+
+```python
+execution_id = 'replace-with-real-execution-id'
+rows = client.query(f'''
+    SELECT experiment,
+           step,
+           policy,
+           reward_function,
+           fitness,
+           cost,
+           process_memory_rss_mib,
+           process_cpu_utilization_percent
+    FROM coleman_results
+    WHERE execution_id = '{execution_id}'
+    ORDER BY experiment, step, policy
+''')
+print(rows.result_rows)
+```
+
+#### Export a filtered report to CSV
+
+```python
+import csv
+
+rows = client.query('''
+    SELECT scenario,
+           execution_id,
+           policy,
+           reward_function,
+           AVG(fitness) AS avg_napfd,
+           AVG(cost) AS avg_apfdc
+    FROM coleman_results
+    GROUP BY scenario, execution_id, policy, reward_function
+''')
+
+with open('./runs/analysis/final-summary.csv', 'w', newline='') as f:
+    writer = csv.writer(f)
+    writer.writerow(rows.column_names)
+    writer.writerows(rows.result_rows)
+
+print('exported ./runs/analysis/final-summary.csv')
+```
+
+#### Clean old data when needed
+
+ClickHouse also accumulates results by default. If you need a fresh table:
+
+```python
+client.command('TRUNCATE TABLE coleman_results')
+print('coleman_results truncated')
+```
+
+### Resume and recovery
+
+If checkpoints are enabled, Coleman writes one directory per run under
+`./checkpoints/`. Each experiment keeps a `progress_ex<N>.json` file pointing
+to the last durable checkpoint.
+
+To inspect recovery state:
+
+```bash
+find ./checkpoints -name 'progress_*.json' -maxdepth 3 -print
+```
+
+When `coleman run --config run.yaml` is started again with the same configuration,
+the framework loads the last saved checkpoint and resumes from the next step
+instead of replaying completed builds.
+
+### Notebook workflow
+
+For a guided end-to-end workflow covering configuration, observability,
+checkpoints, export, and analysis, open the marimo notebook example in
+[docs/workflow.py](docs/workflow.py).
+
+## Port Reference
+
+| Port | Service | URL |
+|------|---------|-----|
+| **3000** | Grafana | [http://localhost:3000](http://localhost:3000) |
+| **4317** | OTel Collector (gRPC) | — (used by the framework) |
+| **4318** | OTel Collector (HTTP) | — (used by the framework) |
+| **8889** | Prometheus metrics | [http://localhost:8889/metrics](http://localhost:8889/metrics) |
+| **8123** | ClickHouse (HTTP) | [http://localhost:8123](http://localhost:8123) *(profile: clickhouse)* |
+| **9000** | ClickHouse (native) | — *(profile: clickhouse)* |
+
+!!! note "DevContainer vs. local"
+    In the DevContainer, the OTel Collector + Grafana start automatically
+    and telemetry is enabled.  Locally, you start them manually with
+    `docker compose up -d` and use the `telemetry/local` pack in your `run.yaml`.
+
+## Quick Reference: Configuration
+
+For the complete YAML schema, config packs, sweep engine, and determinism
+contract, see the [Configuration guide](configuration.md).
+
+See the [Setup & Architecture](setup.md) guide for a deeper explanation
+of each layer and the [Observability guide](observability.md) for metric
+names and cardinality rules.
+
+---
+
+See the [README](https://github.com/jacksonpradolima/coleman#readme) for
+detailed usage instructions covering HCS strategies, contextual bandits, and
+dataset preparation.
+
+
+
+### FILE: docs/index.md
+
+# Coleman
+
+**Multi-Armed Bandit based Test Case Prioritization for Continuous Integration**
+
+Coleman is a framework that applies Multi-Armed Bandit (MAB) algorithms to
+solve the Test Case Prioritization problem in Continuous Integration (CI)
+environments.
+
+## Features
+
+- Adaptive learning from test execution feedback
+- Multiple MAB policies: baseline, Bayesian/stochastic, adversarial, and non-stationary variants
+- Contextual bandits: LinUCB/SWLinUCB plus LinTS and contextual epsilon-greedy variants
+- HCS support with WTS and VTS strategies
+- Cost-effective prioritization under time budgets
+- **Typed configuration** — Pydantic v2 models with YAML configs and composable config packs
+- **Library-first API** — `run()`, `run_many()`, `sweep()`, `load_spec()`
+- **`coleman` CLI** — thin wrapper: `coleman run`, `coleman sweep`, `coleman validate`
+- **Sweep engine** — grid (Cartesian) and zip (paired) parameter expansion with seed replication
+- **Deterministic `run_id`** — `sha256(canonical_json(spec))[:12]` for exact replication
+- **Provenance tracking** — `spec.resolved.json` + `provenance.json` per run
+
+## Quick Start
+
+```bash
+pip install coleman
+coleman run --config my-experiment.yaml
+```
+
+Or use the library API:
+
+```python
+from coleman.api import run, load_spec
+
+spec = load_spec("my-experiment.yaml")
+result = run(spec)
+```
+
+See the [Getting Started](getting-started.md) guide for full instructions
+and the [Configuration](configuration.md) guide for the YAML schema,
+config packs, sweep engine, and determinism contract.
+For deep post-run analytics, see the [Analysis Playbook](analysis-playbook.md).
+For advanced customization and parallel extension contracts, see
+[Extensibility & Parallelism](extensibility.md).
+
+
+
+### FILE: docs/observability.md
+
+# Observability
+
+This page describes the **optional** local observability stack for
+debugging and profiling Coleman experiments.
+
+!!! note "Framework-first guarantee"
+    `coleman run --config run.yaml` works without Docker or any of these services.
+    The observability stack is **optional** for local installs, but
+    **enabled automatically** in the DevContainer.
+
+## DevContainer: zero-step setup
+
+If you develop inside the DevContainer, **everything is already running**.
+The container automatically:
+
+1. Installs the `telemetry` and `clickhouse` pip extras
+2. Starts OTel Collector + Prometheus + Grafana + ClickHouse via Docker Compose
+3. Telemetry can be enabled via the `telemetry/local` pack in `run.yaml`
+
+Just run your experiment:
+
+```bash
+coleman run --config run.yaml
+# Open http://localhost:3000 → Grafana shows metrics in real-time
+```
+
+Grafana datasource and dashboard are provisioned automatically.
+ClickHouse is also available at `http://localhost:8123`.
+
+Parallel execution is also telemetry-safe now: each worker builds an isolated
+environment and emits its own `execution_id` and `worker_id`, so concurrent
+runs can be separated in Grafana and in persisted results.
+
+The default dashboard now includes top-level filters for dataset, execution,
+and policy, so you can slice one live run without visually mixing it with the
+others.
+
+The top row also includes a "Current Cycle By Active Experiment" panel next to
+"Active Runs", so you can see optimization stage progression while runs are
+still active.
+
+The dashboard now has a dedicated `Sched Time Ratio` filter (label `time_ratio`)
+so you can isolate runs by available CI budget percentage.
+
+For operational analysis, use the snapshot panels that focus on current
+iteration/stage instead of time-based curves:
+
+* `Current Cycle By Active Experiment`
+* `Progress To Target Steps (%)`
+* `Convergence Signal (Current NAPFD)`
+* `Checkpoint Save Rate (last 5m)`
+
+The agent/system panels in the overview are also configured as instant
+snapshots (table/gauge/stat), which removes the time-axis dependency when the
+goal is to inspect current simulation stage.
+
+Snapshot table panels now include an explicit current-step column (merged from
+`cycles_total`) beside the metric value, so each metric row can be interpreted
+in the context of the current simulation iteration.
+
+## Live behavior vs. final results
+
+Grafana answers: "what is happening right now?"
+
+For final experiment results, use the persisted outputs instead:
+
+* `./runs/` for partitioned Parquet datasets
+* `coleman_results` in ClickHouse when the ClickHouse sink is enabled
+* `./checkpoints/` to inspect resume/recovery progress files
+
+The complete guided workflow is available in [workflow.py](workflow.py).
+
+## Local setup (without DevContainer)
+
+```bash
+# Base stack (OTel Collector + Prometheus + Grafana)
+cd examples/observability
+docker compose up -d
+
+# Install telemetry extras
+uv pip install coleman[telemetry]
+
+# Enable telemetry — use the telemetry/local pack in your run.yaml:
+#   packs:
+#     - telemetry/local
+
+# Run your experiment
+coleman run --config run.yaml
+```
+
+## Endpoints
+
+* Grafana: `http://localhost:3000`
+* Prometheus UI: `http://localhost:9090`
+* Collector exporter (scrape target): `http://localhost:8889/metrics`
+
+## With ClickHouse
+
+```bash
+docker compose --profile clickhouse up -d
+pip install coleman[clickhouse]
+```
+
+## Tear down
+
+```bash
+docker compose --profile clickhouse down -v
+```
+
+## Metric names
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `coleman.cycles_total` | Counter | Total experiment cycles processed |
+| `coleman.bandit_update_latency` | Histogram (s) | Bandit arm-update latency |
+| `coleman.prioritization_latency` | Histogram (s) | Test-case prioritization latency |
+| `coleman.evaluation_latency` | Histogram (s) | Evaluation step latency |
+| `coleman.napfd` | Histogram | NAPFD score distribution |
+| `coleman.apfdc` | Histogram | APFDc score distribution |
+| `coleman.process_memory_rss` | Histogram (MiB) | Resident memory sampled during execution |
+| `coleman.process_memory_peak_rss` | Histogram (MiB) | Peak resident memory seen by the process |
+| `coleman.process_cpu_utilization` | Histogram (%) | CPU utilization sampled during execution |
+| `coleman.experiment_wall_time` | Histogram (s) | End-to-end elapsed time of one experiment |
+| `coleman.experiment_cpu_time` | Histogram (s) | CPU time consumed by one experiment |
+
+### Cardinality rules
+
+* **No `step` label** in metrics (would create unbounded cardinality).
+* `execution_id` and `worker_id` are metric labels on purpose so parallel runs stay separable.
+* Per-step detail is available in **traces** (span attributes).
+
+## Resource metrics and energy
+
+The default stack now exposes CPU and memory cost directly in telemetry and in
+persisted results.
+
+Energy is intentionally not emitted by default because, in containers and
+Codespaces, reliable hardware counters are often unavailable. If you want
+energy metrics, the recommended next step is to integrate host-specific sources
+such as Intel RAPL, NVIDIA NVML, or a node exporter running on the host.
+
+## Example DuckDB queries over Parquet results
+
+```sql
+-- Average NAPFD per policy
+SELECT policy, AVG(fitness) AS avg_napfd
+FROM read_parquet('./runs/**/*.parquet', hive_partitioning=1)
+GROUP BY policy
+ORDER BY avg_napfd DESC;
+
+-- Cost distribution per reward function
+SELECT reward_function,
+       PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY cost) AS median_cost
+FROM read_parquet('./runs/**/*.parquet', hive_partitioning=1)
+GROUP BY reward_function;
+```
+
+
+
+### FILE: docs/setup.md
+
+# Setup & Architecture
+
+## Default run (no Docker required)
+
+Coleman is framework-first: the default installation works without any
+external services.
+
+```bash
+pip install coleman
+```
+
+Use the library API or the `coleman` CLI to run experiments:
+
+```python
+from coleman.api import run, load_spec
+
+spec = load_spec("my-experiment.yaml")
+result = run(spec)
+print(result.run_id, result.artifacts_dir)
+```
+
+```bash
+coleman run --config my-experiment.yaml
+```
+
+Results are written as **partitioned Parquet files** (zstd compressed) under
+`./runs/` by default.  You can query them directly with DuckDB or Polars
+without loading everything into RAM.
+
+Repeated runs append new result files by default. They do not replace previous
+results unless you explicitly remove `./runs/` or choose another `out_dir`.
+
+## Architecture overview
+
+Coleman separates three concerns:
+
+| Layer | Purpose | Default | Optional |
+|-------|---------|---------|----------|
+| **Results** | Persist experiment facts (NAPFD, APFDc, …) | Partitioned Parquet | DuckDB sink, ClickHouse sink |
+| **Checkpoints** | Crash-safe resume | Local filesystem (pickle + progress.json) | — |
+| **Telemetry** | Observability (latency, throughput) | Disabled (NoOp) | OpenTelemetry + Collector |
+
+### Null adapters
+
+When a layer is disabled its module resolves to a **Null implementation**
+with near-zero overhead:
+
+* `NullSink` — discards result rows
+* `NullCheckpointStore` — never saves/loads checkpoints
+* `NoOpTelemetry` — all instrument calls are instant no-ops
+
+## Configuration system
+
+Coleman uses **YAML configuration files** validated against typed
+Pydantic v2 models.  See the [Configuration guide](configuration.md) for
+the full schema reference, config packs, sweep engine, and determinism
+contract.
+
+### Quick example
+
+```yaml
+# experiment.yaml
+packs:
+  - policy/linucb
+  - reward/rnfail
+  - results/parquet
+
+experiment:
+  datasets: ["alibaba@druid"]
+
+execution:
+  independent_executions: 30
+```
+
+```bash
+coleman run --config experiment.yaml
+```
+
+### Key concepts
+
+| Concept | Description |
+|---------|-------------|
+| **RunSpec** | Typed Pydantic v2 model describing one complete experiment run |
+| **Config packs** | Composable YAML fragments (`packs/<category>/<name>.yaml`) merged left-to-right |
+| **Sweep engine** | Grid (Cartesian) or zip (paired) expansion of parameter ranges into multiple specs |
+| **Deterministic run_id** | `sha256(canonical_json(spec))[:12]` — same config always produces the same ID |
+| **Provenance** | `spec.resolved.json` + `provenance.json` (git, Python version, `uv.lock` hash) per run |
+
+## Optional extras
+
+```bash
+# Telemetry (OpenTelemetry SDK)
+pip install coleman[telemetry]
+
+# ClickHouse sink
+pip install coleman[clickhouse]
+```
+
+## Optional observability stack
+
+See the [Observability guide](observability.md) for a Docker Compose stack
+with OTel Collector + Grafana (ClickHouse under a profile).
+
+## How to query results
+
+Results are written as Hive-partitioned Parquet files under `./runs/`.  You
+can query them directly with DuckDB (already a project dependency):
+
+```sql
+-- Average NAPFD per policy
+SELECT policy, AVG(fitness) AS avg_napfd
+FROM read_parquet('./runs/**/*.parquet', hive_partitioning=1)
+GROUP BY policy
+ORDER BY avg_napfd DESC;
+
+-- Cost distribution per reward function
+SELECT reward_function,
+       PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY cost) AS median_cost
+FROM read_parquet('./runs/**/*.parquet', hive_partitioning=1)
+GROUP BY reward_function;
+```
+
+For a guided end-to-end walkthrough, see the official [workflow notebook](workflow.py).
+
+
+
+### FILE: docs/workflow.md
+
+# Coleman Workflow
+
+This page covers the full operational loop for running and analyzing
+experiments.  Each section maps to a cell in the interactive
+[marimo notebook](https://github.com/jacksonpradolima/coleman/blob/main/docs/workflow.py)
+([docs/workflow.py](workflow.py)) — open it locally with `marimo edit docs/workflow.py`
+for a live, executable version.
+
+Download options for the notebook source:
+
+- Browser raw view: https://raw.githubusercontent.com/jacksonpradolima/coleman/main/docs/workflow.py
+- Direct download with curl:
+
+```bash
+curl -L https://raw.githubusercontent.com/jacksonpradolima/coleman/main/docs/workflow.py -o workflow.py
+```
+
+- Direct download with wget:
+
+```bash
+wget https://raw.githubusercontent.com/jacksonpradolima/coleman/main/docs/workflow.py -O workflow.py
+```
+
+---
+
+## 1 — Active Configuration
+
+Read the runtime configuration from `run.yaml`:
+
+```python
+import yaml
+from pathlib import Path
+
+config_path = Path("run.yaml")
+with open(config_path, encoding="utf-8") as f:
+    config = yaml.safe_load(f) or {}
+
+results_cfg = config.get("results", {})
+checkpoint_cfg = config.get("checkpoint", {})
+telemetry_cfg = config.get("telemetry", {})
+experiment_cfg = config.get("experiment", {})
+```
+
+Key settings you should inspect:
+
+| Setting                  | Where it comes from                  |
+|--------------------------|--------------------------------------|
+| `datasets`               | `experiment.datasets`                |
+| `scheduled_time_ratio`   | `experiment.scheduled_time_ratio`    |
+| `results.enabled`        | `results.enabled`                    |
+| `results.sink`           | `results.sink` (parquet / clickhouse)|
+| `results.out_dir`        | `results.out_dir`                    |
+| `checkpoint.enabled`     | `checkpoint.enabled`                 |
+| `checkpoint.base_dir`    | `checkpoint.base_dir`               |
+| `telemetry.enabled`      | `telemetry.enabled`                  |
+| `telemetry.otlp_endpoint`| `telemetry.otlp_endpoint`            |
+
+---
+
+## 2 — Code Cost Evaluation
+
+Coleman measures code cost as a **multi-dimensional scorecard**
+with four dimensions:
+
+| Dimension        | What it measures                      | Tools                  |
+|------------------|---------------------------------------|------------------------|
+| **Structural**   | Maintainability, complexity, change risk | Radon, Xenon, Wily  |
+| **Runtime**      | CPU time, hotspots, memory pressure   | Scalene, py-spy        |
+| **Energy**       | Estimated energy / carbon impact      | CodeCarbon, pyRAPL     |
+| **Operational**  | Infrastructure effort proxy           | All of the above       |
+
+### Structural cost — CI gates
+
+Two gates run in CI on every pull request:
+
+```bash
+# Xenon complexity gate
+python -m xenon --max-absolute C --max-modules B --max-average A coleman/
+
+# Radon maintainability index (MI) — lists modules below the threshold;
+# CI fails if this command reports such modules or exits with an error
+python -m radon mi -s -n B coleman/
+```
+
+### Running code cost checks locally
+
+```bash
+# All structural checks (complexity + maintainability + xenon gate)
+make cost-structural
+
+# Runtime profiling with Scalene
+make cost-profile-scalene
+
+# Energy estimation with CodeCarbon
+make cost-energy
+
+# Complexity trend analysis with Wily
+make cost-wily
+```
+
+See [Code Cost Evaluation](code-cost.md) for full documentation.
+
+---
+
+## 3 — Live Observability
+
+Grafana is where you inspect live execution behavior:
+
+- **Grafana:** [http://localhost:3000](http://localhost:3000)
+- **OTel collector endpoint:** configured via `telemetry.otlp_endpoint`
+
+Use it for throughput, latency, CPU, memory, worker isolation,
+dataset slicing, and execution separation while the run is active.
+
+---
+
+## 4 — Resume / Recovery State
+
+Inspect checkpoint progress files used for resume and recovery:
+
+```python
+import json
+from pathlib import Path
+
+checkpoint_root = Path(checkpoint_cfg.get("base_dir", "checkpoints"))
+checkpoint_files = sorted(checkpoint_root.glob("**/progress_*.json"))
+
+for f in checkpoint_files:
+    payload = json.loads(f.read_text(encoding="utf-8"))
+    print(f"  {f.parent.name}: step={payload.get('step_committed')}")
+```
+
+---
+
+## 5 — Final Results Storage
+
+Final experiment facts are stored in the results sink, not in Grafana.
+
+- **Parquet root:** configured via `results.out_dir` (default `./runs`)
+- **ClickHouse sink:** enabled only when `results.sink = "clickhouse"`
+- Re-running experiments in the same `runs` directory appends new Parquet
+  files by default. Existing result files are preserved.
+
+### Loading results with DuckDB
+
+```python
+import duckdb
+
+parquet_glob = "./runs/**/*.parquet"
+
+summary_df = duckdb.sql(f"""
+    SELECT scenario,
+           execution_id,
+           experiment,
+           policy,
+           reward_function,
+           AVG(fitness) AS avg_napfd,
+           AVG(cost) AS avg_apfdc,
+           AVG(prioritization_time) AS avg_prioritization_time,
+           AVG(process_memory_rss_mib) AS avg_rss_mib,
+           AVG(process_cpu_utilization_percent) AS avg_cpu_pct,
+           MAX(wall_time_seconds) AS wall_time_seconds
+    FROM read_parquet('{parquet_glob}', hive_partitioning=1)
+    GROUP BY scenario, execution_id, experiment, policy, reward_function
+    ORDER BY avg_napfd DESC, avg_apfdc DESC
+""").df()
+```
+
+---
+
+## 6 — Export
+
+Export the current summary as a CSV artifact for reports:
+
+```python
+export_dir = runs_root / "analysis"
+export_dir.mkdir(parents=True, exist_ok=True)
+summary_df.to_csv(export_dir / "summary.csv", index=False)
+```
+
+---
+
+## 7 — Analysis Plot
+
+Plot average NAPFD per policy from the persisted final results:
+
+```python
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+top_policies = (
+    summary_df
+    .groupby("policy", as_index=False)["avg_napfd"]
+    .mean()
+    .sort_values("avg_napfd", ascending=False)
+)
+
+fig, ax = plt.subplots(figsize=(10, 4))
+sns.barplot(data=top_policies, x="policy", y="avg_napfd", ax=ax)
+ax.set_title("Average NAPFD by Policy")
+ax.set_xlabel("Policy")
+ax.set_ylabel("Average NAPFD")
+ax.tick_params(axis="x", rotation=45)
+plt.tight_layout()
+```
+
+---
+
+## 8 — Runner Extensions (hooks + extensions)
+
+When you need custom domain workflows without replacing Coleman orchestration,
+add `hooks` and `extensions` in YAML:
+
+```yaml
+hooks:
+  fail_fast: false
+  plugins:
+     - my_project.hooks.ForecastHook
+
+extensions:
+  my_domain:
+     forecast_selection:
+        policy: ThompsonSampling
+        reward: Binary
+```
+
+Recommended lifecycle contract:
+
+- Run and dataset hooks in coordinator process
+- Execution hooks in worker process
+- Keep hook code idempotent and free of global mutable state
+- Emit custom artifacts under each run directory when possible
+
+`on_error` is emitted for execution-start failures and environment
+construction failures, not only for failures inside the main run body.
+
+---
+
+## 9 — Advanced Analyses You Can Run
+
+Use this checklist after generating enough runs:
+
+1. **Policy stability**
+    - Compare mean, std, and coefficient of variation of NAPFD per policy.
+2. **Quality vs cost frontier**
+    - Build a Pareto frontier using high NAPFD + low APFDc.
+3. **Budget sensitivity**
+    - Compare policies per `scenario` / time-ratio group.
+4. **Execution variance**
+    - Track variance between independent executions for the same policy/reward.
+5. **Operational footprint**
+    - Compare memory and CPU metrics versus quality gains.
+6. **Custom extension impact**
+    - Group by extension-related dimensions (from custom artifacts) and compare uplift.
+
+See the complete guide in [analysis-playbook.md](analysis-playbook.md).
+
+---
+
+## 10 — Full Extensibility in Practice
+
+Coleman supports full orchestration customization patterns. Use this quick map:
+
+1. `hooks` + `extensions`
+    - Best option for domain logic without rewriting runner flow.
+2. New `Policy` and `Reward`
+    - Native extension model through module exports + YAML selection.
+3. Custom `EvaluationMetric` and `Environment`
+    - Source-level extension path for deeper runtime behavior changes.
+
+Parallel-safe implementation guidance:
+
+1. Keep execution hooks worker-local and idempotent.
+2. Keep run/dataset hooks coordinator-local for aggregation and reporting.
+3. Persist custom artifacts with `run_id` + `execution_id` so analyses can join safely across parallel runs.
+
+Complete implementation details and end-to-end examples:
+
+- [extensibility.md](extensibility.md)
+
+---
+
+## Query Snippets
+
+### DuckDB
+
+```sql
+SELECT scenario, execution_id, policy, AVG(fitness) AS avg_napfd
+FROM read_parquet('./runs/**/*.parquet', hive_partitioning=1)
+GROUP BY scenario, execution_id, policy
+ORDER BY avg_napfd DESC;
+```
+
+### ClickHouse
+
+```sql
+SELECT scenario, execution_id, policy, AVG(fitness) AS avg_napfd
+FROM coleman_results
+GROUP BY scenario, execution_id, policy
+ORDER BY avg_napfd DESC;
+```
+
+---
+
+## Result Persistence Semantics
+
+- Parquet appends new files under `./runs/`
+- ClickHouse appends new rows to `coleman_results`
+- `execution_id` is the safest way to isolate one run analytically
+- Checkpoints update the latest durable state for the same run and experiment
+- If you want a fresh analytical space, clean `./runs/` and optionally `./checkpoints/`
+
+---
+
+## Suggested Next Steps
+
+- Run `coleman run --config run.yaml` to generate fresh experiment data
+- Run `make cost-structural` to evaluate structural cost before and after changes
+- Run `make cost-energy` to compare energy impact of different implementations
+- Open Grafana to inspect live execution behavior while the run is active
+- Use the Parquet summary above for final comparisons and report export
+- Inspect `./checkpoints/` to verify resume and recovery progress
+- Switch to ClickHouse when you want a persistent analytical store instead of Parquet files
+
+!!! tip "Interactive version"
+    For an executable version of this workflow, run the marimo notebook:
+    ```bash
+    marimo edit docs/workflow.py
+    ```
+
+
+
+## Notes
+
+This file is intended for LLM ingestion and broad repository understanding.

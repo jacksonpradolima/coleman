@@ -193,9 +193,15 @@ coleman sweep --config base.yaml \
     --grid execution.seed=range(0,20) \
     --workers 4
 
+# Parameter sweep declared in YAML (no --grid needed)
+coleman sweep --config base.yaml --workers 4
+
 # Dry-run — print generated specs without executing
 coleman sweep --config base.yaml --grid execution.seed=range(0,5) --dry-run
 
+
+You can now define a top-level `sweep:` section in the YAML config used by
+`coleman sweep`; CLI `--grid` values are merged on top.
 # Validate a config and optionally write the resolved spec
 coleman validate --config base.yaml --resolve resolved.json
 ```
@@ -219,6 +225,17 @@ experiment:
 
 execution:
   independent_executions: 30
+
+hooks:
+  fail_fast: false
+  plugins:
+    - my_project.hooks.ForecastHook
+
+extensions:
+  my_domain:
+    forecast_selection:
+      policy: ThompsonSampling
+      reward: Binary
 ```
 
 Shipped starter packs:
@@ -229,6 +246,7 @@ Shipped starter packs:
 | `reward/rnfail` | Reward | RNFail reward function |
 | `runtime/local` | Runtime | Single-process local execution |
 | `results/parquet` | Results | Parquet sink with defaults |
+| `results/duckdb` | Results | DuckDB sink with consolidated files |
 | `telemetry/off` | Telemetry | Telemetry disabled |
 
 ## Sweep engine
@@ -256,6 +274,19 @@ specs = expand_sweep(base, sweep_spec)
 - **Grid mode** — Cartesian product of all parameter lists
 - **Zip mode** — paired lists (must have equal length, raises `ValueError` otherwise)
 - **Seeds** — each base spec is replicated per seed; the seed is stored on `ExecutionSpec.seed` and affects `run_id`
+- **CLI + YAML composition** — `coleman sweep` reads top-level `sweep:` from YAML and combines it with `--grid`
+
+## Runner extensibility
+
+Coleman supports extensibility without replacing the native runner:
+
+1. `extensions` for namespaced custom domain config.
+2. `hooks` for lifecycle plugins (`on_run_start`, `on_dataset_start`,
+   `on_execution_start`, `on_execution_end`, `on_dataset_end`, `on_run_end`,
+   `on_error`).
+
+Execution-level hooks are process-local in worker context and remain
+parallel-safe when `parallel_pool_size > 1`.
 
 ## Deterministic run_id
 
@@ -697,6 +728,9 @@ experiment:
   - `parallel_pool_size` is the number of worker processes to run **COLEMAN** in parallel.
   - `independent_executions` is the number of independent experiments we desire to run.
   - `force_sequential_under_scalene` forces sequential execution while Scalene is active to improve profiling stability and avoid missing per-thread attribution issues.
+  - Parallelism has two layers:
+    - inside a run: `execution.parallel_pool_size` controls process-pool workers for independent executions;
+    - across many specs: `coleman sweep --workers` (or API `run_many(..., max_workers=...)`) controls concurrent spec execution.
 - Experiment Configuration:
   - `scheduled_time_ratio` represents the Schedule Time Ratio, that is, time constraints that represents the time available to run the tests. **Default**: 0.1 (10%), 0.5 (50%), and 0.8 (80%) of the time available.
   - `datasets_dir` is the directory that contains your system. For instance, we desire to run the algorithm for the systems that are inside the directory **data**.

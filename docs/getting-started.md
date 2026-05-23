@@ -120,11 +120,19 @@ coleman sweep --config my-experiment.yaml \
     --grid execution.seed=range(0,10) \
     --workers 4
 
+# Parameter sweep declared in my-experiment.yaml (top-level sweep:)
+coleman sweep --config my-experiment.yaml --workers 4
+
 # Dry-run (preview specs without executing)
 coleman sweep --config my-experiment.yaml \
     --grid execution.seed=range(0,5) \
     --dry-run
 ```
+
+When both YAML `sweep` and CLI `--grid` are present, they are merged.
+
+If the same dotted key appears in both places, Coleman raises an error
+instead of generating duplicate sweep combinations.
 
 Results are written to `./runs/<run_id>/` with `spec.resolved.json` and
 `provenance.json` alongside the experiment data.

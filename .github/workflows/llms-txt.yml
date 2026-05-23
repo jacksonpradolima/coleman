@@ -1,0 +1,30 @@
+name: llms.txt
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  verify-llms-txt:
+    name: Verify llms.txt is up to date
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Regenerate llms.txt
+        run: python3 scripts/generate_llms_txt.py
+
+      - name: Check for changes
+        run: |
+          git diff -- llms.txt
+          git diff --exit-code -- llms.txt

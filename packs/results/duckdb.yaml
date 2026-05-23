@@ -1,0 +1,10 @@
+results:
+  enabled: true
+  sink: duckdb
+  out_dir: ./runs
+  batch_size: 1000
+  top_k_prioritization: 0
+  duckdb:
+    file_count: 1
+    base_name: results
+    shard_key: execution_id

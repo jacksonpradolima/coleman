@@ -45,7 +45,37 @@ def _(mo):
         5. Read final experiment results from Parquet
         6. Export compact summaries for reports or papers
         7. Compare policies by quality and resource cost
+
+        Notebook source (raw):
+        https://raw.githubusercontent.com/jacksonpradolima/coleman/main/docs/workflow.py
         """
+    )
+
+
+@app.cell
+def _(mo):
+    """Document extensibility and parallel-safe customization paths."""
+    mo.md(
+        """
+          ## Extensibility and Parallel-safe Customization
+
+          Coleman supports multiple extension layers:
+
+          1. Hooks + Extensions (configuration-only):
+              - add domain logic without replacing runner orchestration.
+          2. New Policy and Reward classes:
+              - native extension path via module exports and YAML selection.
+          3. Custom EvaluationMetric and Environment:
+              - source-level extension for deeper runtime changes.
+
+          Parallel contract:
+
+          * run/dataset hooks execute in coordinator context
+          * execution hooks execute in worker context
+          * include run_id/execution_id in custom artifacts for safe joins
+
+          Full guide: [Extensibility & Parallelism](extensibility.md)
+          """
     )
 
 
@@ -361,6 +391,36 @@ def _(mo, summary_df):
 
 
 @app.cell
+def _(mo, pd, summary_df):
+    """Compute stability metrics per policy/reward combination."""
+    if summary_df.empty:
+        mo.md("## Stability Analysis\nRun an experiment first to compute stability metrics.")
+        return pd.DataFrame()
+
+    stability_df = (
+        summary_df.groupby(["policy", "reward_function"], as_index=False)
+        .agg(
+            avg_napfd=("avg_napfd", "mean"),
+            std_napfd=("avg_napfd", "std"),
+            avg_apfdc=("avg_apfdc", "mean"),
+            std_apfdc=("avg_apfdc", "std"),
+            n=("execution_id", "count"),
+        )
+        .sort_values(["avg_napfd", "avg_apfdc"], ascending=[False, True])
+    )
+
+    stability_df["cv_napfd"] = stability_df["std_napfd"] / stability_df["avg_napfd"].replace(0, pd.NA)
+    mo.md("## Stability Analysis")
+    return stability_df
+
+
+@app.cell
+def _(stability_df):
+    """Display stability metrics preview."""
+    return stability_df.head(25) if not stability_df.empty else stability_df
+
+
+@app.cell
 def _(mo):
     """Show practical SQL snippets for DuckDB and ClickHouse users."""
     duckdb_example = """
@@ -421,6 +481,63 @@ def _(mo, plt, sns, summary_df):
     ax.tick_params(axis="x", rotation=45)
     plt.tight_layout()
     return fig
+
+
+@app.cell
+def _(mo, plt, sns, stability_df):
+    """Plot Pareto-like trade-off between quality and cost."""
+    if stability_df.empty:
+        mo.md("## Quality vs Cost Frontier\nNo data available for Pareto visualization yet.")
+        return
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    sns.scatterplot(
+        data=stability_df,
+        x="avg_apfdc",
+        y="avg_napfd",
+        hue="policy",
+        style="reward_function",
+        s=90,
+        ax=ax,
+    )
+    ax.set_title("Quality vs Cost (higher NAPFD, lower APFDc)")
+    ax.set_xlabel("Average APFDc")
+    ax.set_ylabel("Average NAPFD")
+    plt.tight_layout()
+    return fig
+
+
+@app.cell
+def _(mo, raw_df):
+    """Summarize budget/scenario sensitivity when scenario column is available."""
+    if raw_df.empty or "scenario" not in raw_df.columns:
+        mo.md("## Scenario Sensitivity\nNo scenario information available in current dataset.")
+        return
+
+    required = {"scenario", "policy", "fitness", "cost"}
+    if not required.issubset(set(raw_df.columns)):
+        missing = ", ".join(sorted(required - set(raw_df.columns)))
+        mo.md(f"## Scenario Sensitivity\nMissing columns: {missing}")
+        return
+
+    scenario_df = (
+        raw_df.groupby(["scenario", "policy"], as_index=False)
+        .agg(
+            avg_napfd=("fitness", "mean"),
+            avg_apfdc=("cost", "mean"),
+            n=("fitness", "count"),
+        )
+        .sort_values(["scenario", "avg_napfd"], ascending=[True, False])
+    )
+
+    mo.md("## Scenario Sensitivity")
+    return scenario_df
+
+
+@app.cell
+def _(scenario_df):
+    """Display scenario sensitivity summary."""
+    return scenario_df.head(40) if scenario_df is not None else None
 
 
 @app.cell

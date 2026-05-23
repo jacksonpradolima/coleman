@@ -158,6 +158,8 @@ class ResultsSpec(BaseModel):
         Top-k value for prioritisation metrics (0 = disabled).
     clickhouse : dict[str, Any]
         Optional ClickHouse sink kwargs (e.g., ``host``, ``port``, ``secure``).
+    duckdb : dict[str, Any]
+        Optional DuckDB sink kwargs (e.g., ``file_count``, ``base_name``, ``shard_key``).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -168,6 +170,7 @@ class ResultsSpec(BaseModel):
     batch_size: int = 1000
     top_k_prioritization: int = 0
     clickhouse: dict[str, Any] = Field(default_factory=dict)
+    duckdb: dict[str, Any] = Field(default_factory=dict)
 
 
 class CheckpointSpec(BaseModel):
@@ -218,6 +221,24 @@ class TelemetrySpec(BaseModel):
     resource_attributes: dict[str, str] = Field(default_factory=dict)
 
 
+class HooksSpec(BaseModel):
+    """Runner lifecycle hook configuration.
+
+    Parameters
+    ----------
+    fail_fast : bool
+        If ``True``, stop run execution on hook failures.
+        If ``False``, hook failures are logged and execution continues.
+    plugins : list[str]
+        Dotted paths to hook plugins (class or function).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    fail_fast: bool = True
+    plugins: list[str] = Field(default_factory=list)
+
+
 class RunSpec(BaseModel):
     """Top-level experiment specification.
 
@@ -244,6 +265,10 @@ class RunSpec(BaseModel):
         Checkpoint persistence settings.
     telemetry : TelemetrySpec
         Telemetry export settings.
+    hooks : HooksSpec
+        Optional lifecycle hook plugin configuration.
+    extensions : dict[str, Any]
+        Namespaced custom config passthrough for domain workflows.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -256,3 +281,5 @@ class RunSpec(BaseModel):
     results: ResultsSpec = Field(default_factory=ResultsSpec)
     checkpoint: CheckpointSpec = Field(default_factory=CheckpointSpec)
     telemetry: TelemetrySpec = Field(default_factory=TelemetrySpec)
+    hooks: HooksSpec = Field(default_factory=HooksSpec)
+    extensions: dict[str, Any] = Field(default_factory=dict)
