@@ -186,6 +186,73 @@ def test_topk_ndcg_perfect_ranking_is_one():
     assert metric.fitness == pytest.approx(1.0)
 
 
+def test_topk_constructor_rejects_non_positive_k():
+    with pytest.raises(ValueError, match="top_k must be a positive integer"):
+        PrecisionAtKMetric(top_k=0)
+
+
+def test_topk_metrics_empty_suite_sets_default_metrics():
+    metric = RecallAtKMetric(top_k=3)
+    metric.update_available_time(10.0)
+    metric.evaluate([])
+
+    assert metric.fitness == pytest.approx(1.0)
+    assert metric.cost == pytest.approx(1.0)
+    assert metric.ttf == -1
+
+
+def test_topk_time_budget_can_result_in_zero_selected_tests():
+    records = [
+        {"Name": "T1", "Duration": 5.0, "NumRan": 1, "NumErrors": 0, "Verdict": 1},
+        {"Name": "T2", "Duration": 5.0, "NumRan": 1, "NumErrors": 0, "Verdict": 0},
+    ]
+    metric = PrecisionAtKMetric(top_k=2, use_time_budget=True)
+    metric.update_available_time(0.1)
+    metric.evaluate(records)
+
+    assert metric.scheduled_testcases == []
+    assert metric.unscheduled_testcases == ["T1", "T2"]
+    assert metric.fitness == pytest.approx(0.0)
+
+
+def test_topk_apk_returns_zero_when_failures_exist_but_none_in_prefix():
+    records = [
+        {"Name": "T1", "Duration": 1.0, "NumRan": 1, "NumErrors": 0, "Verdict": 0},
+        {"Name": "T2", "Duration": 1.0, "NumRan": 1, "NumErrors": 0, "Verdict": 1},
+    ]
+    metric = AveragePrecisionAtKMetric(top_k=1)
+    metric.update_available_time(10.0)
+    metric.evaluate(records)
+
+    assert metric.detection_ranks == []
+    assert metric.fitness == pytest.approx(0.0)
+
+
+def test_topk_ndcg_returns_zero_when_failures_are_outside_selected_prefix():
+    records = [
+        {"Name": "T1", "Duration": 1.0, "NumRan": 1, "NumErrors": 0, "Verdict": 0},
+        {"Name": "T2", "Duration": 1.0, "NumRan": 1, "NumErrors": 0, "Verdict": 1},
+    ]
+    metric = NDCGAtKMetric(top_k=1)
+    metric.update_available_time(10.0)
+    metric.evaluate(records)
+
+    assert metric.detection_ranks == []
+    assert metric.fitness == pytest.approx(0.0)
+
+
+def test_topk_reciprocal_rank_without_failures_is_zero():
+    records = [
+        {"Name": "T1", "Duration": 1.0, "NumRan": 1, "NumErrors": 0, "Verdict": 0},
+        {"Name": "T2", "Duration": 1.0, "NumRan": 1, "NumErrors": 0, "Verdict": 0},
+    ]
+    metric = ReciprocalRankAtKMetric(top_k=2)
+    metric.update_available_time(10.0)
+    metric.evaluate(records)
+
+    assert metric.fitness == pytest.approx(0.0)
+
+
 def test_topk_precision_can_use_time_budget():
     """Precision@k can optionally cap the prefix by available_time."""
     records = [

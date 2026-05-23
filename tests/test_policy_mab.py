@@ -204,3 +204,173 @@ def test_public_namespace_exposes_all_extended_policy_classes():
 
     for name in expected:
         assert hasattr(policy_module, name)
+
+
+def test_policy_string_representations_cover_mab_variants():
+    policies = [
+        EXP3Policy(gamma=0.07),
+        EXP3IXPolicy(eta=0.1, gamma=0.01),
+        SoftmaxPolicy(tau=0.2),
+        PursuitPolicy(beta=0.1),
+        EpsilonDecreasingPolicy(epsilon0=1.0, decay=0.5),
+        DiscountedUCBPolicy(gamma=0.95, c=1.0),
+        BootstrappedThompsonPolicy(n_bootstrap=4),
+        ChangeDetectionUCBPolicy(c=1.0, window=4, threshold=0.1),
+        ThompsonSamplingPolicy(),
+        BayesianUCBPolicy(c=2.0),
+        KLUCBPolicy(c=3.0),
+        UCBTunedPolicy(c=1.0),
+        UCBVPolicy(c=1.0, b=1.0),
+        MOSSUCBPolicy(),
+        PHEPolicy(a=1.0),
+    ]
+    assert all(str(policy) for policy in policies)
+
+
+def test_exp3_probabilities_fallback_to_uniform_when_weights_are_zero(base_agent):
+    policy = EXP3Policy(gamma=0.1)
+    policy.weights = {"A1": 0.0, "A2": 0.0, "A3": 0.0}
+    probs = policy._probs(["A1", "A2", "A3"])
+    assert probs == {"A1": pytest.approx(1 / 3), "A2": pytest.approx(1 / 3), "A3": pytest.approx(1 / 3)}
+
+
+def test_pursuit_credit_assignment_handles_empty_actions_table():
+    agent = Agent(policy=Policy())
+    agent.actions = pl.DataFrame(
+        {
+            "Name": [],
+            "ActionAttempts": [],
+            "ValueEstimates": [],
+            "Q": [],
+        },
+        schema={
+            "Name": pl.String,
+            "ActionAttempts": pl.Float64,
+            "ValueEstimates": pl.Float64,
+            "Q": pl.Float64,
+        },
+    )
+    policy = PursuitPolicy(beta=0.2)
+    policy.credit_assignment(agent)
+    assert policy.probs == {}
+
+
+def test_epsilon_decreasing_exploration_branch_shuffles_actions(base_agent, monkeypatch):
+    policy = EpsilonDecreasingPolicy(epsilon0=1.0, decay=0.0)
+
+    class _RngStub:
+        def random(self):
+            return 0.0
+
+        def shuffle(self, values):
+            values.reverse()
+
+    monkeypatch.setattr("coleman.policy.base._rng", _RngStub())
+    assert policy.choose_all(base_agent) == ["A3", "A2", "A1"]
+
+
+def test_nonstationary_choose_all_includes_unseen_actions_with_inf_score(base_agent):
+    policy = DiscountedUCBPolicy(gamma=0.9, c=1.0)
+    ordered = policy.choose_all(base_agent)
+    assert sorted(ordered) == ["A1", "A2", "A3"]
+
+
+def test_discounted_ucb_choose_all_after_credit_uses_finite_ucb_scores(base_agent):
+    policy = DiscountedUCBPolicy(gamma=0.9, c=1.0)
+    policy.credit_assignment(base_agent)
+    ordered = policy.choose_all(base_agent)
+    assert sorted(ordered) == ["A1", "A2", "A3"]
+
+
+def test_ucb_tuned_choose_all_prioritizes_unseen_actions(base_agent):
+    policy = UCBTunedPolicy(c=1.0)
+    ordered = policy.choose_all(base_agent)
+    assert sorted(ordered) == ["A1", "A2", "A3"]
+
+
+def test_ucb_tuned_choose_all_after_credit_uses_variance_path(base_agent):
+    policy = UCBTunedPolicy(c=1.0)
+    policy.credit_assignment(base_agent)
+    ordered = policy.choose_all(base_agent)
+    assert sorted(ordered) == ["A1", "A2", "A3"]
+
+
+def test_ucbv_choose_all_prioritizes_unseen_actions(base_agent):
+    policy = UCBVPolicy(c=1.0, b=1.0)
+    ordered = policy.choose_all(base_agent)
+    assert sorted(ordered) == ["A1", "A2", "A3"]
+
+
+def test_ucbv_choose_all_after_credit_uses_variance_path(base_agent):
+    policy = UCBVPolicy(c=1.0, b=1.0)
+    policy.credit_assignment(base_agent)
+    ordered = policy.choose_all(base_agent)
+    assert sorted(ordered) == ["A1", "A2", "A3"]
+
+
+def test_klucb_solve_index_handles_non_positive_n():
+    policy = KLUCBPolicy(c=3.0)
+    assert policy._solve_index(mean=0.3, n=0.0, budget=1.0) == pytest.approx(1.0)
+
+
+def test_bootstrapped_thompson_choose_all_uses_default_for_unseen_heads(base_agent):
+    policy = BootstrappedThompsonPolicy(n_bootstrap=4)
+    ordered = policy.choose_all(base_agent)
+    assert sorted(ordered) == ["A1", "A2", "A3"]
+
+
+def test_change_detection_choose_all_handles_unseen_actions(base_agent):
+    policy = ChangeDetectionUCBPolicy(c=1.0, window=4, threshold=0.1)
+    ordered = policy.choose_all(base_agent)
+    assert sorted(ordered) == ["A1", "A2", "A3"]
+
+
+def test_change_detection_choose_all_after_credit_uses_finite_ucb_scores(base_agent):
+    policy = ChangeDetectionUCBPolicy(c=1.0, window=4, threshold=0.1)
+    policy.credit_assignment(base_agent)
+    ordered = policy.choose_all(base_agent)
+    assert sorted(ordered) == ["A1", "A2", "A3"]
+
+
+def test_change_detection_credit_assignment_triggers_reset_on_large_shift():
+    agent = Agent(policy=Policy())
+    agent.actions = pl.DataFrame(
+        {
+            "Name": ["A1"],
+            "ActionAttempts": [1.0],
+            "ValueEstimates": [0.0],
+            "Q": [0.0],
+        }
+    )
+    policy = ChangeDetectionUCBPolicy(c=1.0, window=4, threshold=0.05)
+
+    policy.credit_assignment(agent)
+    policy.credit_assignment(agent)
+    agent.actions = agent.actions.with_columns(pl.lit(10.0).alias("ValueEstimates"))
+    policy.credit_assignment(agent)
+    policy.credit_assignment(agent)
+
+    assert policy.counts["A1"] <= 4
+    assert np.isfinite(agent.actions["Q"].to_numpy()).all()
+
+
+def test_moss_ucb_handles_unseen_actions_with_zero_attempts(base_agent):
+    policy = MOSSUCBPolicy()
+    base_agent.actions = base_agent.actions.with_columns(
+        pl.when(pl.col("Name") == "A1").then(0.0).otherwise(pl.col("ActionAttempts")).alias("ActionAttempts")
+    )
+    ordered = policy.choose_all(base_agent)
+    assert ordered[0] == "A1"
+
+
+def test_phe_choose_all_handles_zero_counts_before_updates(base_agent):
+    policy = PHEPolicy(a=1.0)
+    ordered = policy.choose_all(base_agent)
+    assert sorted(ordered) == ["A1", "A2", "A3"]
+
+
+def test_phe_choose_all_after_credit_uses_perturbed_history_path(base_agent):
+    policy = PHEPolicy(a=1.0)
+    policy.credit_assignment(base_agent)
+    ordered = policy.choose_all(base_agent)
+    assert sorted(ordered) == ["A1", "A2", "A3"]
