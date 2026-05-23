@@ -1998,6 +1998,9 @@ Hook methods are optional. Coleman dispatches these events in order:
 6. `on_run_end(context, run_result)`
 7. `on_error(context, error)`
 
+`on_error` is also dispatched when execution startup or environment
+construction fails, using the most specific available context.
+
 ### Execution contract (sequential vs parallel)
 
 1. `on_run_*` and `on_dataset_*` execute in the coordinator process.
@@ -2234,6 +2237,9 @@ coleman sweep --config base.yaml \
 If both YAML `sweep.axes` and CLI `--grid` are provided, Coleman merges
 them and computes the Cartesian product across all axes.
 
+If both sources define the same dotted key, the sweep is rejected with a
+`ValueError` instead of silently creating duplicate combinations.
+
 ## Deterministic run_id
 
 Every `RunSpec` produces a **deterministic 12-character identifier**:
@@ -2390,6 +2396,9 @@ Supported plugin forms:
 5. `on_dataset_end(context, dataset_result)`
 6. `on_run_end(context, run_result)`
 7. `on_error(context, error)`
+
+`on_error` is dispatched for startup failures as well, so hook-based cleanup
+and telemetry can observe broken execution setup paths.
 
 ### Hook context fields
 
@@ -2681,6 +2690,9 @@ coleman sweep --config my-experiment.yaml \
 ```
 
 When both YAML `sweep` and CLI `--grid` are present, they are merged.
+
+If the same dotted key appears in both places, Coleman raises an error
+instead of generating duplicate sweep combinations.
 
 Results are written to `./runs/<run_id>/` with `spec.resolved.json` and
 `provenance.json` alongside the experiment data.
@@ -3656,6 +3668,9 @@ Recommended lifecycle contract:
 - Execution hooks in worker process
 - Keep hook code idempotent and free of global mutable state
 - Emit custom artifacts under each run directory when possible
+
+`on_error` is emitted for execution-start failures and environment
+construction failures, not only for failures inside the main run body.
 
 ---
 

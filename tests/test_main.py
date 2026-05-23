@@ -931,6 +931,50 @@ def test_exp_run_isolated_dispatches_error_when_build_environment_fails():
     hook.on_error.assert_called_once()
 
 
+def test_exp_run_isolated_dispatches_error_when_execution_start_hook_fails():
+    hook = Mock()
+    hook.on_execution_start.side_effect = RuntimeError("start boom")
+
+    config = EnvironmentBuildConfig(
+        datasets_dir="examples",
+        dataset="fakedata",
+        sched_time_ratio=0.5,
+        use_hcs=False,
+        use_context=False,
+        context_config={},
+        feature_groups={},
+        results_config={},
+        checkpoint_config={},
+        telemetry_config={},
+        algorithm_configs={},
+        rewards_names=["RNFail"],
+        policy_names=["Random"],
+        run_id="rid-999",
+        extensions={},
+        hook_plugin_paths=["tests.support.hook_plugins.RecordingHook"],
+        hook_fail_fast=True,
+    )
+    plan = ExecutionPlan(
+        iteration=1,
+        trials=3,
+        level=20,
+        execution_id="exec-1",
+        worker_id="1",
+        parallel_mode="sequential",
+    )
+
+    with (
+        patch("coleman.runner.load_hook_plugins", return_value=[hook]),
+        patch("coleman.runner.build_environment"),
+        pytest.raises(RuntimeError, match="start boom"),
+    ):
+        exp_run_industrial_dataset_isolated(config, plan)
+
+    hook.on_error.assert_called_once()
+    error_context = hook.on_error.call_args.args[0]
+    assert error_context.execution_id == "exec-1"
+
+
 def test_run_experiment_dispatches_error_with_dataset_context():
     from coleman.runner import run_experiment
 

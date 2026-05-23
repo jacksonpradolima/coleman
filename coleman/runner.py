@@ -409,15 +409,14 @@ def exp_run_industrial_dataset_isolated(build_config: EnvironmentBuildConfig, pl
         extensions=build_config.extensions,
     )
 
-    dispatch_hook_event(
-        execution_hooks,
-        "on_execution_start",
-        hook_context,
-        fail_fast=build_config.hook_fail_fast,
-    )
-
     started_at = time.time()
     try:
+        dispatch_hook_event(
+            execution_hooks,
+            "on_execution_start",
+            hook_context,
+            fail_fast=build_config.hook_fail_fast,
+        )
         env, _ = build_environment(build_config, runtime_metadata, agent_seed=plan.seed)
         exp_run_industrial_dataset(plan.iteration, plan.trials, env, plan.level, runtime_metadata)
         dispatch_hook_event(

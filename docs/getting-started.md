@@ -131,6 +131,9 @@ coleman sweep --config my-experiment.yaml \
 
 When both YAML `sweep` and CLI `--grid` are present, they are merged.
 
+If the same dotted key appears in both places, Coleman raises an error
+instead of generating duplicate sweep combinations.
+
 Results are written to `./runs/<run_id>/` with `spec.resolved.json` and
 `provenance.json` alongside the experiment data.
 

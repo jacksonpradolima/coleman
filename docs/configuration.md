@@ -170,6 +170,9 @@ Hook methods are optional. Coleman dispatches these events in order:
 6. `on_run_end(context, run_result)`
 7. `on_error(context, error)`
 
+`on_error` is also dispatched when execution startup or environment
+construction fails, using the most specific available context.
+
 ### Execution contract (sequential vs parallel)
 
 1. `on_run_*` and `on_dataset_*` execute in the coordinator process.
@@ -405,6 +408,9 @@ coleman sweep --config base.yaml \
 
 If both YAML `sweep.axes` and CLI `--grid` are provided, Coleman merges
 them and computes the Cartesian product across all axes.
+
+If both sources define the same dotted key, the sweep is rejected with a
+`ValueError` instead of silently creating duplicate combinations.
 
 ## Deterministic run_id
 

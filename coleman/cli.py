@@ -84,6 +84,15 @@ def _cmd_sweep(args: argparse.Namespace) -> None:
             key, vals = _parse_kv(expr)
             params[key] = vals
 
+    yaml_keys = {key for axis in yaml_sweep.axes for key in axis.params} if yaml_sweep is not None else set()
+    overlapping_keys = sorted(yaml_keys.intersection(params))
+    if overlapping_keys:
+        msg = (
+            "Overlapping sweep keys are not allowed between YAML sweep.axes "
+            f"and CLI --grid: {', '.join(overlapping_keys)}"
+        )
+        raise ValueError(msg)
+
     axes: list[SweepAxis] = []
     if yaml_sweep is not None:
         axes.extend(ax.model_copy(deep=True) for ax in yaml_sweep.axes)

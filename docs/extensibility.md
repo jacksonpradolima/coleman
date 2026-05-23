@@ -86,6 +86,9 @@ Supported plugin forms:
 6. `on_run_end(context, run_result)`
 7. `on_error(context, error)`
 
+`on_error` is dispatched for startup failures as well, so hook-based cleanup
+and telemetry can observe broken execution setup paths.
+
 ### Hook context fields
 
 - `run_id`

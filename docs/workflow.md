@@ -231,6 +231,9 @@ Recommended lifecycle contract:
 - Keep hook code idempotent and free of global mutable state
 - Emit custom artifacts under each run directory when possible
 
+`on_error` is emitted for execution-start failures and environment
+construction failures, not only for failures inside the main run body.
+
 ---
 
 ## 9 — Advanced Analyses You Can Run

@@ -281,6 +281,52 @@ class TestCLISweep:
             # 2 values from YAML grid × 2 values from CLI grid
             assert "Generated 4 specs" in captured.out
 
+    def test_sweep_rejects_overlapping_yaml_and_cli_keys(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg_path = os.path.join(tmpdir, "base.yaml")
+            with open(cfg_path, "w") as fh:
+                yaml.dump(
+                    {
+                        "execution": {
+                            "parallel_pool_size": 1,
+                            "independent_executions": 1,
+                        },
+                        "experiment": {
+                            "scheduled_time_ratio": [0.1],
+                            "datasets_dir": "examples",
+                            "datasets": ["fakedata"],
+                            "rewards": ["RNFail"],
+                            "policies": ["UCB"],
+                        },
+                        "results": {"out_dir": tmpdir},
+                        "sweep": {
+                            "axes": [
+                                {
+                                    "mode": "grid",
+                                    "params": {
+                                        "execution.seed": [1, 2],
+                                    },
+                                }
+                            ]
+                        },
+                    },
+                    fh,
+                )
+
+            import pytest
+
+            with pytest.raises(ValueError, match="Overlapping sweep keys"):
+                main(
+                    [
+                        "sweep",
+                        "--config",
+                        cfg_path,
+                        "--grid",
+                        "execution.seed=3,4",
+                        "--dry-run",
+                    ]
+                )
+
 
 class TestCLIRunArtifacts:
     def test_run_prints_artifacts_dir_when_set(self, capsys, tmp_path):
