@@ -24,6 +24,13 @@ repos:
 
   - repo: local
     hooks:
+      - id: generate-llms-txt
+        name: Generate llms.txt
+        entry: python3 scripts/generate_llms_txt.py
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
       - id: ruff-check
         name: Ruff check (project environment)
         entry: uv run ruff check .
