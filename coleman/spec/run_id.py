@@ -38,6 +38,27 @@ def _canonical_json(spec: RunSpec) -> str:
     if isinstance(execution, dict) and execution.get("force_sequential_under_scalene", True):
         execution.pop("force_sequential_under_scalene", None)
 
+    # Backward compatibility: default/empty extension sections should not
+    # affect run_id for existing configurations.
+    extensions = payload.get("extensions")
+    if isinstance(extensions, dict) and not extensions:
+        payload.pop("extensions", None)
+
+    hooks = payload.get("hooks")
+    if isinstance(hooks, dict):
+        plugins = hooks.get("plugins")
+        fail_fast = hooks.get("fail_fast", True)
+        if (plugins is None or plugins == []) and fail_fast is True:
+            payload.pop("hooks", None)
+
+    # Backward compatibility: default empty duckdb options should not alter
+    # run_id for configurations that do not explicitly use DuckDB sink.
+    results = payload.get("results")
+    if isinstance(results, dict):
+        duckdb_cfg = results.get("duckdb")
+        if isinstance(duckdb_cfg, dict) and not duckdb_cfg:
+            results.pop("duckdb", None)
+
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 

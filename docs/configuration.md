@@ -4,6 +4,9 @@ Coleman uses **YAML configuration files** with typed
 [Pydantic v2](https://docs.pydantic.dev/) models for validation.  Configs
 are loaded via `load_spec()` (library) or `coleman --config` (CLI).
 
+For `coleman sweep`, the same YAML file may also include a top-level
+`sweep` section. This section is used only by sweep commands.
+
 ## Configuration file format
 
 A configuration file is a YAML document whose top-level keys map directly
@@ -58,10 +61,14 @@ contextual_information:
 
 results:
   enabled: true
-  sink: parquet               # "parquet" (default) or "clickhouse"
+  sink: parquet               # "parquet" (default), "duckdb" or "clickhouse"
   out_dir: ./runs
   batch_size: 1000
   top_k_prioritization: 0    # 0 = hash only
+  duckdb:
+    file_count: 1
+    base_name: results
+    shard_key: execution_id
 
 checkpoint:
   enabled: true
@@ -73,6 +80,25 @@ telemetry:
   otlp_endpoint: http://localhost:4318
   service_name: coleman
   export_interval_millis: 5000
+
+hooks:
+  fail_fast: false
+  plugins:
+    - my_project.hooks.ForecastHook
+
+extensions:
+  my_domain:
+    forecast_selection:
+      policy: ThompsonSampling
+      reward: Binary
+
+sweep:
+  axes:
+    - mode: grid
+      params:
+        algorithm.ucb.rnfail.c: [0.1, 0.3, 0.5]
+        execution.parallel_pool_size: [1, 4]
+  seeds: [0, 1, 2]
 ```
 
 ## RunSpec schema reference
@@ -87,9 +113,137 @@ the following typed sub-specs:
 | `algorithm` | `AlgorithmSpec` | Free-form nested dict — any algorithm can store its own parameters |
 | `hcs_configuration` | `HCSConfigurationSpec` | `wts_strategy` |
 | `contextual_information` | `ContextualInformationSpec` | `config` (previous build columns), `feature_group` |
-| `results` | `ResultsSpec` | `enabled`, `sink`, `out_dir`, `batch_size`, `top_k_prioritization` |
+| `results` | `ResultsSpec` | `enabled`, `sink`, `out_dir`, `batch_size`, `top_k_prioritization`, `duckdb`, `clickhouse` |
 | `checkpoint` | `CheckpointSpec` | `enabled`, `interval`, `base_dir` |
 | `telemetry` | `TelemetrySpec` | `enabled`, `otlp_endpoint`, `service_name`, `export_interval_millis` |
+| `hooks` | `HooksSpec` | `fail_fast`, `plugins` |
+| `extensions` | `dict[str, Any]` | namespaced custom config passthrough |
+
+`sweep` is not part of `RunSpec`; it is a CLI-level extension consumed by
+`coleman sweep`.
+
+## Parallelism model
+
+Coleman supports two independent parallelism layers:
+
+1. **Intra-run process pool** via `execution.parallel_pool_size`.
+  This controls how many worker processes execute one run's
+  `independent_executions`.
+2. **Inter-spec concurrency** via `coleman sweep --workers` (or API
+  `run_many(..., max_workers=...)`). This controls how many different
+  resolved specs run at the same time.
+
+When Scalene profiling is active, `force_sequential_under_scalene: true`
+forces intra-run pool size to `1` for profiling stability.
+
+## Runner hooks and extensions
+
+Coleman supports custom domain workflows via two top-level sections:
+
+1. `extensions`: namespaced custom config passed to hook contexts.
+2. `hooks`: lifecycle plugins loaded from dotted paths.
+
+### Hook registration
+
+```yaml
+hooks:
+  fail_fast: false
+  plugins:
+    - my_project.hooks.ForecastHook
+    - my_project.hooks.audit_hook
+```
+
+Supported plugin symbols:
+
+1. Class (instantiated with no arguments).
+2. Function with signature `(event_name, context, payload=None)`.
+
+### Lifecycle events
+
+Hook methods are optional. Coleman dispatches these events in order:
+
+1. `on_run_start(context)`
+2. `on_dataset_start(context)`
+3. `on_execution_start(context)`
+4. `on_execution_end(context, execution_result)`
+5. `on_dataset_end(context, dataset_result)`
+6. `on_run_end(context, run_result)`
+7. `on_error(context, error)`
+
+### Execution contract (sequential vs parallel)
+
+1. `on_run_*` and `on_dataset_*` execute in the coordinator process.
+2. `on_execution_*` execute in the worker process context.
+3. In sequential mode, worker and coordinator are the same process, but the event contract is unchanged.
+4. Hook plugin loading in workers is path-based and process-local to keep multiprocessing pickle-safe.
+
+### Error handling (`fail_fast`)
+
+1. `fail_fast: true` (default): hook exceptions stop execution.
+2. `fail_fast: false`: hook exceptions are logged with run/dataset/execution identifiers and execution continues.
+
+### Hook context and payloads
+
+`HookContext` includes stable identifiers and execution metadata:
+
+1. `run_id`
+2. `dataset_id`
+3. `execution_id`
+4. `worker_id`
+5. `parallel_mode`
+6. `iteration`, `trials`, `sched_time_ratio`
+7. `extensions`
+
+Event payloads:
+
+1. `ExecutionResult(status, duration_seconds)`
+2. `DatasetResult(status, executions, duration_seconds)`
+3. `RunResult(status, datasets, duration_seconds)`
+
+### Lifecycle diagram
+
+```mermaid
+flowchart TD
+    A[on_run_start] --> B[on_dataset_start]
+    B --> C[on_execution_start]
+    C --> D[runner execution]
+    D --> E[on_execution_end]
+    E --> F[on_dataset_end]
+    F --> G{more datasets?}
+    G -- yes --> B
+    G -- no --> H[on_run_end]
+    D -. exception .-> I[on_error]
+```
+
+### Minimal end-to-end config
+
+```yaml
+packs:
+  - execution/default
+  - experiment/alibaba_druid
+  - algorithm/defaults
+  - reward/rnfail
+  - results/parquet
+
+execution:
+  independent_executions: 10
+  parallel_pool_size: 4
+
+hooks:
+  fail_fast: false
+  plugins:
+    - my_project.hooks.ForecastHook
+
+extensions:
+  my_domain:
+    forecast_selection:
+      policy: ThompsonSampling
+      reward: Binary
+```
+
+For a complete extension guide including custom Policy/Reward and source-level
+Environment/EvaluationMetric customization paths, see
+[Extensibility & Parallelism](extensibility.md).
 
 All fields have sensible defaults.  A minimal config only needs to specify
 the settings you want to override:
@@ -138,7 +292,26 @@ execution:
 | `reward/rnfail` | Reward | RNFail reward function |
 | `runtime/local` | Runtime | Single-process local execution |
 | `results/parquet` | Results | Parquet sink with defaults |
+| `results/duckdb` | Results | DuckDB sink with consolidated files |
 | `telemetry/off` | Telemetry | Telemetry disabled |
+
+### DuckDB sink configuration
+
+Use `results.sink: duckdb` to write results directly into one or more DuckDB files.
+
+```yaml
+results:
+  enabled: true
+  sink: duckdb
+  out_dir: ./runs
+  batch_size: 1000
+  duckdb:
+    file_count: 1         # default: single consolidated .duckdb file
+    base_name: results    # output: results.duckdb (or results_000.duckdb, ...)
+    shard_key: execution_id
+```
+
+`file_count` allows partitioning writes across multiple DuckDB files when desired.
 
 ### Creating custom packs
 
@@ -215,6 +388,10 @@ specs = expand_sweep(base, sweep_spec)
 ### CLI sweep
 
 ```bash
+# Uses top-level sweep section from base.yaml (if present)
+coleman sweep --config base.yaml --workers 4
+
+# Add/override an extra grid dimension from CLI
 coleman sweep --config base.yaml \
     --grid algorithm.ucb.rnfail.c=0.1,0.3,0.5 \
     --grid execution.seed=range(0,20) \
@@ -225,6 +402,9 @@ coleman sweep --config base.yaml \
     --grid execution.seed=range(0,5) \
     --dry-run
 ```
+
+If both YAML `sweep.axes` and CLI `--grid` are provided, Coleman merges
+them and computes the Cartesian product across all axes.
 
 ## Deterministic run_id
 

@@ -5,6 +5,7 @@ Console-script entry-point ``coleman`` providing sub-commands:
 
 * ``coleman run   --config run.yaml``
 * ``coleman sweep --config base.yaml --grid key=v1,v2``
+    (also reads optional top-level ``sweep:`` from YAML)
 * ``coleman validate --config base.yaml``
 """
 
@@ -15,6 +16,7 @@ import sys
 from typing import Any
 
 from coleman.api import load_spec, run, run_many, save_resolved, sweep
+from coleman.spec.io import load_sweep_spec
 from coleman.spec.run_id import compute_run_id
 from coleman.spec.sweep import SweepAxis, SweepSpec
 
@@ -74,6 +76,7 @@ def _cmd_run(args: argparse.Namespace) -> None:
 def _cmd_sweep(args: argparse.Namespace) -> None:
     """Handle ``coleman sweep``."""
     base = load_spec(args.config, packs_dir=args.packs_dir)
+    yaml_sweep = load_sweep_spec(args.config, packs_dir=args.packs_dir)
 
     params: dict[str, list[Any]] = {}
     for group in args.grid or []:
@@ -81,8 +84,15 @@ def _cmd_sweep(args: argparse.Namespace) -> None:
             key, vals = _parse_kv(expr)
             params[key] = vals
 
+    axes: list[SweepAxis] = []
+    if yaml_sweep is not None:
+        axes.extend(ax.model_copy(deep=True) for ax in yaml_sweep.axes)
+    if params:
+        axes.append(SweepAxis(mode="grid", params=params))
+
     sweep_spec = SweepSpec(
-        axes=[SweepAxis(mode="grid", params=params)] if params else [],
+        axes=axes,
+        seeds=None if yaml_sweep is None else yaml_sweep.seeds,
     )
     specs = sweep(base, sweep_spec)
     print(f"Generated {len(specs)} specs")  # noqa: T201

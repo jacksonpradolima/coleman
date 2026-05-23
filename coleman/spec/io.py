@@ -5,6 +5,8 @@ Functions
 ---------
 load_spec
     Load and validate a ``RunSpec`` from a YAML file.
+load_sweep_spec
+    Load and validate an optional top-level ``SweepSpec`` from YAML.
 save_resolved
     Write the resolved spec as deterministic JSON.
 """
@@ -20,6 +22,25 @@ import yaml
 from coleman.spec.models import RunSpec
 from coleman.spec.packs import resolve_packs
 from coleman.spec.redaction import redact_sensitive_data
+from coleman.spec.sweep import SweepSpec
+
+_NON_RUNSPEC_TOP_LEVEL_KEYS = {"sweep"}
+
+
+def _load_resolved_config(
+    path: str | Path,
+    *,
+    packs_dir: str | Path | None = None,
+) -> dict[str, Any]:
+    """Load raw YAML, resolve packs, and return the merged dictionary."""
+    path = Path(path).resolve()
+    if packs_dir is None:
+        packs_dir = path.parent / "packs"
+
+    with open(path, encoding="utf-8") as fh:
+        raw: dict[str, Any] = yaml.safe_load(fh) or {}
+
+    return resolve_packs(raw, packs_dir=packs_dir)
 
 
 def load_spec(
@@ -53,15 +74,38 @@ def load_spec(
     pydantic.ValidationError
         If the resolved dict fails schema validation.
     """
-    path = Path(path).resolve()
-    if packs_dir is None:
-        packs_dir = path.parent / "packs"
-
-    with open(path, encoding="utf-8") as fh:
-        raw: dict[str, Any] = yaml.safe_load(fh) or {}
-
-    resolved = resolve_packs(raw, packs_dir=packs_dir)
+    resolved = _load_resolved_config(path, packs_dir=packs_dir)
+    for key in _NON_RUNSPEC_TOP_LEVEL_KEYS:
+        resolved.pop(key, None)
     return RunSpec.model_validate(resolved)
+
+
+def load_sweep_spec(
+    path: str | Path,
+    *,
+    packs_dir: str | Path | None = None,
+) -> SweepSpec | None:
+    """Load an optional top-level ``sweep`` section from a YAML config.
+
+    Parameters
+    ----------
+    path : str | Path
+        Path to the YAML config file.
+    packs_dir : str | Path | None
+        Root directory for config packs.  When ``None`` (the default),
+        the directory is derived as ``<config_dir>/packs``.
+
+    Returns
+    -------
+    SweepSpec | None
+        Validated sweep configuration, or ``None`` when the YAML has
+        no top-level ``sweep`` section.
+    """
+    resolved = _load_resolved_config(path, packs_dir=packs_dir)
+    sweep = resolved.get("sweep")
+    if sweep is None:
+        return None
+    return SweepSpec.model_validate(sweep)
 
 
 def save_resolved(spec: RunSpec, path: str | Path, *, redact_sensitive: bool = True) -> Path:

@@ -108,6 +108,7 @@ def run(spec: RunSpec) -> RunResult:
     # Execute the experiment with per-run output paths so results and
     # checkpoints do not collide across different run ids or sweeps.
     execution_spec = spec.model_dump()
+    execution_spec["_run_id"] = rid
     execution_spec["results"]["out_dir"] = str(run_dir / "results")
     checkpoint_cfg = execution_spec.get("checkpoint")
     if isinstance(checkpoint_cfg, dict) and "base_dir" in checkpoint_cfg:

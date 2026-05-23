@@ -36,7 +36,7 @@ import logging
 import os
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from multiprocessing import TimeoutError, get_context
 from typing import Any
 from uuid import uuid4
@@ -55,6 +55,14 @@ from coleman.agent import (
 )
 from coleman.environment import Environment
 from coleman.evaluation import NAPFDVerdictMetric
+from coleman.hooks import (
+    DatasetResult,
+    ExecutionResult,
+    HookContext,
+    RunResult,
+    dispatch_hook_event,
+    load_hook_plugins,
+)
 from coleman.policy import FRRMABPolicy, LinUCBPolicy, SWLinUCBPolicy
 from coleman.scenarios import (
     ContextScenarioLoader,
@@ -94,6 +102,10 @@ class EnvironmentBuildConfig:
     rewards_names: list[str]
     policy_names: list[str]
     seed: int | None = None
+    run_id: str | None = None
+    extensions: dict[str, Any] = field(default_factory=dict)
+    hook_plugin_paths: list[str] = field(default_factory=list)
+    hook_fail_fast: bool = True
 
 
 # taken from https://stackoverflow.com/questions/641420/how-should-i-log-while-using-multiprocessing-in-python
@@ -373,6 +385,8 @@ def exp_run_industrial_dataset(
 
 def exp_run_industrial_dataset_isolated(build_config: EnvironmentBuildConfig, plan: ExecutionPlan) -> None:
     """Execute one run by constructing an isolated Environment inside the worker process."""
+    execution_hooks = load_hook_plugins(build_config.hook_plugin_paths)
+
     if plan.seed is not None:
         coleman.policy.base._rng = np.random.default_rng(plan.seed)
         pl.set_random_seed(plan.seed)
@@ -382,8 +396,46 @@ def exp_run_industrial_dataset_isolated(build_config: EnvironmentBuildConfig, pl
         "worker_id": plan.worker_id,
         "parallel_mode": plan.parallel_mode,
     }
+
+    hook_context = HookContext(
+        run_id=build_config.run_id,
+        dataset_id=build_config.dataset,
+        execution_id=plan.execution_id,
+        worker_id=plan.worker_id,
+        parallel_mode=plan.parallel_mode,
+        iteration=plan.iteration,
+        trials=plan.trials,
+        sched_time_ratio=build_config.sched_time_ratio,
+        extensions=build_config.extensions,
+    )
+
+    dispatch_hook_event(
+        execution_hooks,
+        "on_execution_start",
+        hook_context,
+        fail_fast=build_config.hook_fail_fast,
+    )
+
+    started_at = time.time()
     env, _ = build_environment(build_config, runtime_metadata, agent_seed=plan.seed)
-    exp_run_industrial_dataset(plan.iteration, plan.trials, env, plan.level, runtime_metadata)
+    try:
+        exp_run_industrial_dataset(plan.iteration, plan.trials, env, plan.level, runtime_metadata)
+        dispatch_hook_event(
+            execution_hooks,
+            "on_execution_end",
+            hook_context,
+            ExecutionResult(status="ok", duration_seconds=time.time() - started_at),
+            fail_fast=build_config.hook_fail_fast,
+        )
+    except Exception as exc:  # noqa: BLE001
+        dispatch_hook_event(
+            execution_hooks,
+            "on_error",
+            hook_context,
+            exc,
+            fail_fast=build_config.hook_fail_fast,
+        )
+        raise
 
 
 def run_parallel_executions(
@@ -499,12 +551,20 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
     results_config = spec_dict.get("results", {})
     checkpoint_config = spec_dict.get("checkpoint", {})
     telemetry_config = spec_dict.get("telemetry", {})
+    hooks_config = spec_dict.get("hooks", {})
+    extensions = spec_dict.get("extensions", {})
+    run_id = spec_dict.get("_run_id")
 
     parallel_pool_size = execution.get("parallel_pool_size", 10)
     independent_executions = execution.get("independent_executions", 10)
     seed = execution.get("seed")
     verbose = execution.get("verbose", False)
     force_sequential_under_scalene = execution.get("force_sequential_under_scalene", True)
+    hook_plugin_paths = hooks_config.get("plugins", [])
+    hook_fail_fast = hooks_config.get("fail_fast", True)
+
+    coordinator_hooks = load_hook_plugins(hook_plugin_paths)
+    run_context = HookContext(run_id=run_id, extensions=extensions)
 
     # Apply seed to both RNGs for full reproducibility:
     # - numpy RNG is used by policy modules (RandomPolicy, EpsilonGreedyPolicy)
@@ -539,57 +599,104 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
         force_sequential_under_scalene=force_sequential_under_scalene,
     )
 
-    for tr in sched_time_ratio:
-        experiment_directory = f"{experiment_dir}time_ratio_{int(tr * 100)}/"
-        Path(experiment_directory).mkdir(parents=True, exist_ok=True)
+    run_started_at = time.time()
+    dispatch_hook_event(coordinator_hooks, "on_run_start", run_context, fail_fast=hook_fail_fast)
 
-        for dataset in datasets:
-            scenario = get_scenario_provider(
-                datasets_dir, dataset, tr, use_hcs, use_context, context_config, feature_groups
-            )
-            trials = scenario.max_builds
+    try:
+        for tr in sched_time_ratio:
+            experiment_directory = f"{experiment_dir}time_ratio_{int(tr * 100)}/"
+            Path(experiment_directory).mkdir(parents=True, exist_ok=True)
 
-            build_config = EnvironmentBuildConfig(
-                datasets_dir=datasets_dir,
-                dataset=dataset,
-                sched_time_ratio=tr,
-                use_hcs=use_hcs,
-                use_context=use_context,
-                context_config=context_config,
-                feature_groups=feature_groups,
-                results_config=results_config,
-                checkpoint_config=checkpoint_config,
-                telemetry_config=telemetry_config,
-                algorithm_configs=algorithm_configs,
-                rewards_names=rewards_names,
-                policy_names=policy_names,
-                seed=seed,
-            )
-
-            logging.info(
-                "Starting dataset=%s time_ratio=%.2f executions=%s agents=%s trials=%s",
-                dataset,
-                tr,
-                independent_executions,
-                len(agents),
-                trials,
-            )
-
-            parallel_mode = "process" if effective_parallel_pool_size > 1 else "sequential"
-            execution_plans = [
-                ExecutionPlan(
-                    iteration=i + 1,
-                    trials=trials,
-                    level=level,
-                    execution_id=build_runtime_metadata(dataset, tr, i + 1, parallel_mode)["execution_id"],
-                    worker_id=str(i + 1),
-                    parallel_mode=parallel_mode,
-                    seed=None if seed is None else seed + i,
+            for dataset in datasets:
+                dataset_context = HookContext(
+                    run_id=run_id,
+                    dataset_id=dataset,
+                    parallel_mode="process" if effective_parallel_pool_size > 1 else "sequential",
+                    sched_time_ratio=tr,
+                    extensions=extensions,
                 )
-                for i in range(independent_executions)
-            ]
+                dispatch_hook_event(coordinator_hooks, "on_dataset_start", dataset_context, fail_fast=hook_fail_fast)
+                dataset_started_at = time.time()
 
-            start = time.time()
-            _dispatch_executions(effective_parallel_pool_size, build_config, execution_plans)
-            end = time.time()
-            logging.info("Time spent running the experiments: %s\n\n", end - start)
+                scenario = get_scenario_provider(
+                    datasets_dir, dataset, tr, use_hcs, use_context, context_config, feature_groups
+                )
+                trials = scenario.max_builds
+
+                build_config = EnvironmentBuildConfig(
+                    datasets_dir=datasets_dir,
+                    dataset=dataset,
+                    sched_time_ratio=tr,
+                    use_hcs=use_hcs,
+                    use_context=use_context,
+                    context_config=context_config,
+                    feature_groups=feature_groups,
+                    results_config=results_config,
+                    checkpoint_config=checkpoint_config,
+                    telemetry_config=telemetry_config,
+                    algorithm_configs=algorithm_configs,
+                    rewards_names=rewards_names,
+                    policy_names=policy_names,
+                    seed=seed,
+                    run_id=run_id,
+                    extensions=extensions,
+                    hook_plugin_paths=hook_plugin_paths,
+                    hook_fail_fast=hook_fail_fast,
+                )
+
+                logging.info(
+                    "Starting dataset=%s time_ratio=%.2f executions=%s agents=%s trials=%s",
+                    dataset,
+                    tr,
+                    independent_executions,
+                    len(agents),
+                    trials,
+                )
+
+                parallel_mode = "process" if effective_parallel_pool_size > 1 else "sequential"
+                execution_plans = [
+                    ExecutionPlan(
+                        iteration=i + 1,
+                        trials=trials,
+                        level=level,
+                        execution_id=build_runtime_metadata(dataset, tr, i + 1, parallel_mode)["execution_id"],
+                        worker_id=str(i + 1),
+                        parallel_mode=parallel_mode,
+                        seed=None if seed is None else seed + i,
+                    )
+                    for i in range(independent_executions)
+                ]
+
+                start = time.time()
+                _dispatch_executions(effective_parallel_pool_size, build_config, execution_plans)
+                end = time.time()
+                logging.info("Time spent running the experiments: %s\n\n", end - start)
+
+                dispatch_hook_event(
+                    coordinator_hooks,
+                    "on_dataset_end",
+                    dataset_context,
+                    DatasetResult(
+                        status="ok",
+                        executions=independent_executions,
+                        duration_seconds=time.time() - dataset_started_at,
+                    ),
+                    fail_fast=hook_fail_fast,
+                )
+
+        dispatch_hook_event(
+            coordinator_hooks,
+            "on_run_end",
+            run_context,
+            RunResult(status="ok", datasets=len(datasets), duration_seconds=time.time() - run_started_at),
+            fail_fast=hook_fail_fast,
+        )
+    except Exception as exc:  # noqa: BLE001
+        dispatch_hook_event(
+            coordinator_hooks,
+            "on_error",
+            run_context,
+            exc,
+            fail_fast=hook_fail_fast,
+        )
+        raise

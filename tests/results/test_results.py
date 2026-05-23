@@ -6,6 +6,7 @@ import threading
 import pyarrow.parquet as pq
 import pytest
 
+from coleman.results.duckdb_sink import DuckDBSink
 from coleman.results.parquet_sink import ParquetSink, _hash_order, _top_k
 from coleman.results.sink_base import NullSink, ResultsSink
 from coleman.results.writer import _SENTINEL, ResultsWriter
@@ -264,6 +265,69 @@ class TestResultsWriter:
         assert len(sink.rows) == 1
         assert sink.rows[0]["step"] == 99
         assert sink.flushed is True
+
+
+# ============================================================================
+# DuckDBSink
+# ============================================================================
+
+
+class TestDuckDBSink:
+    def test_write_and_flush_single_file(self, tmp_path):
+        sink = DuckDBSink(out_dir=str(tmp_path / "runs"), batch_size=10, file_count=1)
+        for i in range(3):
+            sink.write_row(_make_row(step=i))
+        sink.flush()
+
+        db_file = tmp_path / "runs" / "results.duckdb"
+        assert db_file.exists()
+
+        import duckdb
+
+        conn = duckdb.connect(str(db_file))
+        count_row = conn.execute("SELECT COUNT(*) FROM coleman_results").fetchone()
+        conn.close()
+        sink.close()
+        assert count_row is not None
+        count = count_row[0]
+        assert count == 3
+
+    def test_multiple_files_respected(self, tmp_path):
+        sink = DuckDBSink(out_dir=str(tmp_path / "runs"), batch_size=100, file_count=2)
+        for i in range(20):
+            sink.write_row(_make_row(step=i, execution_id=f"exec-{i}"))
+        sink.close()
+
+        files = sorted((tmp_path / "runs").glob("results_*.duckdb"))
+        assert len(files) == 2
+
+        import duckdb
+
+        total = 0
+        for file in files:
+            conn = duckdb.connect(str(file))
+            count_row = conn.execute("SELECT COUNT(*) FROM coleman_results").fetchone()
+            conn.close()
+            assert count_row is not None
+            total += count_row[0]
+        assert total == 20
+
+    def test_prioritization_order_hash_columns(self, tmp_path):
+        sink = DuckDBSink(out_dir=str(tmp_path / "runs"), batch_size=10, top_k=2)
+        sink.write_row(_make_row(prioritization_order=["a", "b", "c"]))
+        sink.close()
+
+        import duckdb
+
+        conn = duckdb.connect(str(tmp_path / "runs" / "results.duckdb"))
+        row = conn.execute(
+            "SELECT prioritization_order_hash, prioritization_order_top_k FROM coleman_results"
+        ).fetchone()
+        conn.close()
+
+        assert row is not None
+        assert isinstance(row[0], str)
+        assert json.loads(row[1]) == ["a", "b"]
 
 
 # ============================================================================

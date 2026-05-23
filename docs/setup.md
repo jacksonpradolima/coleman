@@ -36,7 +36,7 @@ Coleman separates three concerns:
 
 | Layer | Purpose | Default | Optional |
 |-------|---------|---------|----------|
-| **Results** | Persist experiment facts (NAPFD, APFDc, …) | Partitioned Parquet | ClickHouse sink |
+| **Results** | Persist experiment facts (NAPFD, APFDc, …) | Partitioned Parquet | DuckDB sink, ClickHouse sink |
 | **Checkpoints** | Crash-safe resume | Local filesystem (pickle + progress.json) | — |
 | **Telemetry** | Observability (latency, throughput) | Disabled (NoOp) | OpenTelemetry + Collector |
 

@@ -10,6 +10,7 @@ from coleman.spec.models import (
     CheckpointSpec,
     ExecutionSpec,
     ExperimentSpec,
+    HooksSpec,
     ResultsSpec,
     RunSpec,
     TelemetrySpec,
@@ -108,6 +109,35 @@ class TestRunSpec:
         assert spec.results.sink == "parquet"
         assert spec.telemetry.enabled is False
         assert spec.checkpoint.enabled is True
+        assert spec.hooks == HooksSpec()
+        assert spec.extensions == {}
+
+    def test_extensions_accepts_namespaced_content(self):
+        spec = RunSpec.model_validate(
+            {
+                "extensions": {
+                    "my_domain": {
+                        "forecast_selection": {
+                            "policy": "ThompsonSampling",
+                            "reward": "Binary",
+                        }
+                    }
+                }
+            }
+        )
+        assert spec.extensions["my_domain"]["forecast_selection"]["policy"] == "ThompsonSampling"
+
+    def test_hooks_section_parses(self):
+        spec = RunSpec.model_validate(
+            {
+                "hooks": {
+                    "fail_fast": False,
+                    "plugins": ["my_project.hooks.ForecastHook"],
+                }
+            }
+        )
+        assert spec.hooks.fail_fast is False
+        assert spec.hooks.plugins == ["my_project.hooks.ForecastHook"]
 
     def test_from_dict(self, tmp_path):
         out_dir = str(tmp_path / "test_runs")

@@ -178,6 +178,22 @@ class Environment(AbstractEnvironment):
                 batch_size=results_config.get("batch_size", 1000),
                 top_k=top_k,
             )
+        if sink_type == "duckdb":
+            from coleman.results.duckdb_sink import DuckDBSink
+
+            duckdb_cfg = results_config.get("duckdb", {})
+            if not isinstance(duckdb_cfg, dict):
+                msg = "results.duckdb must be a dictionary of DuckDBSink keyword arguments"
+                raise TypeError(msg)
+
+            top_k_raw = results_config.get("top_k_prioritization", 0)
+            top_k = top_k_raw if top_k_raw and top_k_raw > 0 else None
+            return DuckDBSink(
+                out_dir=results_config.get("out_dir", "./runs"),
+                batch_size=results_config.get("batch_size", 1000),
+                top_k=top_k,
+                **duckdb_cfg,
+            )
         if sink_type == "clickhouse":
             from coleman.results.clickhouse_sink import ClickHouseSink
 
@@ -186,7 +202,7 @@ class Environment(AbstractEnvironment):
                 msg = "results.clickhouse must be a dictionary of ClickHouseSink keyword arguments"
                 raise TypeError(msg)
             return ClickHouseSink(**clickhouse_cfg)
-        msg = f"Unsupported results sink type: {sink_type!r}. Valid options are 'parquet' or 'clickhouse'."
+        msg = f"Unsupported results sink type: {sink_type!r}. Valid options are 'parquet', 'duckdb' or 'clickhouse'."
         raise ValueError(msg)
 
     def reset(self):

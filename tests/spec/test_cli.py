@@ -201,6 +201,86 @@ class TestCLISweep:
             captured = capsys.readouterr()
             assert "run_id=abc123" in captured.out
 
+    def test_sweep_uses_yaml_sweep_section(self, capsys):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg_path = os.path.join(tmpdir, "base.yaml")
+            with open(cfg_path, "w") as fh:
+                yaml.dump(
+                    {
+                        "execution": {
+                            "parallel_pool_size": 1,
+                            "independent_executions": 1,
+                        },
+                        "experiment": {
+                            "scheduled_time_ratio": [0.1],
+                            "datasets_dir": "examples",
+                            "datasets": ["fakedata"],
+                            "rewards": ["RNFail"],
+                            "policies": ["UCB"],
+                        },
+                        "results": {"out_dir": tmpdir},
+                        "sweep": {
+                            "axes": [
+                                {
+                                    "mode": "grid",
+                                    "params": {
+                                        "algorithm.ucb.rnfail.c": [0.1, 0.3, 0.5],
+                                    },
+                                }
+                            ]
+                        },
+                    },
+                    fh,
+                )
+            main(["sweep", "--config", cfg_path, "--dry-run"])
+            captured = capsys.readouterr()
+            assert "Generated 3 specs" in captured.out
+
+    def test_sweep_merges_yaml_sweep_with_cli_grid(self, capsys):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg_path = os.path.join(tmpdir, "base.yaml")
+            with open(cfg_path, "w") as fh:
+                yaml.dump(
+                    {
+                        "execution": {
+                            "parallel_pool_size": 1,
+                            "independent_executions": 1,
+                        },
+                        "experiment": {
+                            "scheduled_time_ratio": [0.1],
+                            "datasets_dir": "examples",
+                            "datasets": ["fakedata"],
+                            "rewards": ["RNFail"],
+                            "policies": ["UCB"],
+                        },
+                        "results": {"out_dir": tmpdir},
+                        "sweep": {
+                            "axes": [
+                                {
+                                    "mode": "grid",
+                                    "params": {
+                                        "algorithm.ucb.rnfail.c": [0.1, 0.3],
+                                    },
+                                }
+                            ]
+                        },
+                    },
+                    fh,
+                )
+            main(
+                [
+                    "sweep",
+                    "--config",
+                    cfg_path,
+                    "--grid",
+                    "execution.seed=1,2",
+                    "--dry-run",
+                ]
+            )
+            captured = capsys.readouterr()
+            # 2 values from YAML grid × 2 values from CLI grid
+            assert "Generated 4 specs" in captured.out
+
 
 class TestCLIRunArtifacts:
     def test_run_prints_artifacts_dir_when_set(self, capsys, tmp_path):
@@ -261,6 +341,7 @@ class TestCLIPrivateHandlers:
 
         with (
             patch("coleman.cli.load_spec", return_value=fake_spec),
+            patch("coleman.cli.load_sweep_spec", return_value=None),
             patch("coleman.cli.sweep", return_value=[fake_spec]),
             patch("coleman.cli.run_many", return_value=[fake_result]),
         ):

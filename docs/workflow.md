@@ -3,8 +3,23 @@
 This page covers the full operational loop for running and analyzing
 experiments.  Each section maps to a cell in the interactive
 [marimo notebook](https://github.com/jacksonpradolima/coleman/blob/main/docs/workflow.py)
-(`docs/workflow.py`) — open it locally with `marimo edit docs/workflow.py`
+([docs/workflow.py](workflow.py)) — open it locally with `marimo edit docs/workflow.py`
 for a live, executable version.
+
+Download options for the notebook source:
+
+- Browser raw view: https://raw.githubusercontent.com/jacksonpradolima/coleman/main/docs/workflow.py
+- Direct download with curl:
+
+```bash
+curl -L https://raw.githubusercontent.com/jacksonpradolima/coleman/main/docs/workflow.py -o workflow.py
+```
+
+- Direct download with wget:
+
+```bash
+wget https://raw.githubusercontent.com/jacksonpradolima/coleman/main/docs/workflow.py -O workflow.py
+```
 
 ---
 
@@ -188,6 +203,77 @@ ax.set_ylabel("Average NAPFD")
 ax.tick_params(axis="x", rotation=45)
 plt.tight_layout()
 ```
+
+---
+
+## 8 — Runner Extensions (hooks + extensions)
+
+When you need custom domain workflows without replacing Coleman orchestration,
+add `hooks` and `extensions` in YAML:
+
+```yaml
+hooks:
+  fail_fast: false
+  plugins:
+     - my_project.hooks.ForecastHook
+
+extensions:
+  my_domain:
+     forecast_selection:
+        policy: ThompsonSampling
+        reward: Binary
+```
+
+Recommended lifecycle contract:
+
+- Run and dataset hooks in coordinator process
+- Execution hooks in worker process
+- Keep hook code idempotent and free of global mutable state
+- Emit custom artifacts under each run directory when possible
+
+---
+
+## 9 — Advanced Analyses You Can Run
+
+Use this checklist after generating enough runs:
+
+1. **Policy stability**
+    - Compare mean, std, and coefficient of variation of NAPFD per policy.
+2. **Quality vs cost frontier**
+    - Build a Pareto frontier using high NAPFD + low APFDc.
+3. **Budget sensitivity**
+    - Compare policies per `scenario` / time-ratio group.
+4. **Execution variance**
+    - Track variance between independent executions for the same policy/reward.
+5. **Operational footprint**
+    - Compare memory and CPU metrics versus quality gains.
+6. **Custom extension impact**
+    - Group by extension-related dimensions (from custom artifacts) and compare uplift.
+
+See the complete guide in [analysis-playbook.md](analysis-playbook.md).
+
+---
+
+## 10 — Full Extensibility in Practice
+
+Coleman supports full orchestration customization patterns. Use this quick map:
+
+1. `hooks` + `extensions`
+    - Best option for domain logic without rewriting runner flow.
+2. New `Policy` and `Reward`
+    - Native extension model through module exports + YAML selection.
+3. Custom `EvaluationMetric` and `Environment`
+    - Source-level extension path for deeper runtime behavior changes.
+
+Parallel-safe implementation guidance:
+
+1. Keep execution hooks worker-local and idempotent.
+2. Keep run/dataset hooks coordinator-local for aggregation and reporting.
+3. Persist custom artifacts with `run_id` + `execution_id` so analyses can join safely across parallel runs.
+
+Complete implementation details and end-to-end examples:
+
+- [extensibility.md](extensibility.md)
 
 ---
 
