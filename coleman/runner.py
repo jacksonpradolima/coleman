@@ -788,6 +788,13 @@ def exp_run_industrial_dataset_isolated(build_config: EnvironmentBuildConfig, pl
         ),
     }
 
+    prebuilt_env: Environment | Any | None = None
+    effective_trials = plan.trials
+    if build_config.extension is not None and effective_trials <= 0:
+        prebuilt_env, max_builds = build_environment(build_config, runtime_metadata, agent_seed=plan.seed)
+        if isinstance(max_builds, int | float) and not isinstance(max_builds, bool) and max_builds > 0:
+            effective_trials = int(max_builds)
+
     hook_context = HookContext(
         run_id=build_config.run_id,
         dataset_id=build_config.dataset,
@@ -795,7 +802,7 @@ def exp_run_industrial_dataset_isolated(build_config: EnvironmentBuildConfig, pl
         worker_id=plan.worker_id,
         parallel_mode=plan.parallel_mode,
         iteration=plan.iteration,
-        trials=plan.trials,
+        trials=effective_trials,
         budget_mode=build_config.budget_mode,
         budget_value=(0.0 if build_config.budget_value is None else build_config.budget_value),
         extensions=build_config.extensions,
@@ -809,12 +816,15 @@ def exp_run_industrial_dataset_isolated(build_config: EnvironmentBuildConfig, pl
             hook_context,
             fail_fast=build_config.hook_fail_fast,
         )
-        env, max_builds = build_environment(build_config, runtime_metadata, agent_seed=plan.seed)
-        effective_trials = (
-            int(max_builds)
-            if isinstance(max_builds, int | float) and not isinstance(max_builds, bool) and max_builds > 0
-            else plan.trials
-        )
+        if prebuilt_env is None:
+            env, max_builds = build_environment(build_config, runtime_metadata, agent_seed=plan.seed)
+            effective_trials = (
+                int(max_builds)
+                if isinstance(max_builds, int | float) and not isinstance(max_builds, bool) and max_builds > 0
+                else effective_trials
+            )
+        else:
+            env = prebuilt_env
         exp_run_industrial_dataset(plan.iteration, effective_trials, env, plan.level, runtime_metadata)
         if build_config.extension is not None and build_config.extension.post_execution_fn is not None:
             build_config.extension.post_execution_fn(hook_context, env)

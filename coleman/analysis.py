@@ -31,7 +31,7 @@ _REPORT_QUERIES: dict[str, str] = {
             COUNT(*) AS n
         FROM experiment_results
         GROUP BY policy, reward_function
-        ORDER BY avg_apfdc ASC, policy, reward_function
+        ORDER BY avg_apfdc DESC, policy, reward_function
     """,
     "stability": """
         SELECT
@@ -127,8 +127,8 @@ def _run_pareto(input_path: str | Path) -> tuple[list[str], list[tuple[Any, ...]
                     s1.reward_function
                 FROM summary s1
                 JOIN summary s2
-                  ON (s2.avg_napfd >= s1.avg_napfd AND s2.avg_apfdc <= s1.avg_apfdc)
-                 AND (s2.avg_napfd > s1.avg_napfd OR s2.avg_apfdc < s1.avg_apfdc)
+                  ON (s2.avg_napfd >= s1.avg_napfd AND s2.avg_apfdc >= s1.avg_apfdc)
+                 AND (s2.avg_napfd > s1.avg_napfd OR s2.avg_apfdc > s1.avg_apfdc)
                 GROUP BY s1.policy, s1.reward_function
             )
             SELECT
@@ -141,7 +141,7 @@ def _run_pareto(input_path: str | Path) -> tuple[list[str], list[tuple[Any, ...]
               ON s.policy = d.policy
              AND s.reward_function = d.reward_function
             WHERE d.policy IS NULL
-            ORDER BY s.avg_apfdc ASC, s.avg_napfd DESC, s.policy, s.reward_function
+                        ORDER BY s.avg_apfdc DESC, s.avg_napfd DESC, s.policy, s.reward_function
             """
         ).fetchall()
     return ["policy", "reward_function", "avg_napfd", "avg_apfdc"], rows

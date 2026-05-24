@@ -1000,6 +1000,54 @@ def test_exp_run_isolated_prefers_build_environment_trial_count():
     assert run_patch.call_args.args[1] == 7
 
 
+def test_exp_run_isolated_with_extension_propagates_real_trials_to_hooks():
+    from coleman.runner import RunnerExtension
+
+    hook = Mock()
+    mock_env = Mock()
+    extension = RunnerExtension(build_environment_fn=lambda config, runtime_metadata, seed: (mock_env, 9))  # noqa: ARG005
+
+    config = EnvironmentBuildConfig(
+        datasets_dir="examples",
+        dataset="fakedata",
+        sched_time_ratio=0.0,
+        use_hcs=False,
+        use_context=False,
+        context_config={},
+        feature_groups={},
+        results_config={},
+        checkpoint_config={},
+        telemetry_config={},
+        algorithm_configs={},
+        rewards_names=["RNFail"],
+        policy_names=["Random"],
+        run_id="rid-999",
+        extensions={},
+        hook_plugin_paths=["tests.support.hook_plugins.RecordingHook"],
+        hook_fail_fast=True,
+        extension=extension,
+    )
+    plan = ExecutionPlan(
+        iteration=1,
+        trials=0,
+        level=20,
+        execution_id="exec-1",
+        worker_id="1",
+        parallel_mode="sequential",
+    )
+
+    with (
+        patch("coleman.runner.load_hook_plugins", return_value=[hook]),
+        patch("coleman.runner.exp_run_industrial_dataset") as run_patch,
+    ):
+        exp_run_industrial_dataset_isolated(config, plan)
+
+    run_patch.assert_called_once()
+    assert run_patch.call_args.args[1] == 9
+    assert hook.on_execution_start.call_args.args[0].trials == 9
+    assert hook.on_execution_end.call_args.args[0].trials == 9
+
+
 def test_exp_run_isolated_dispatches_error_when_build_environment_fails():
     hook = Mock()
 
