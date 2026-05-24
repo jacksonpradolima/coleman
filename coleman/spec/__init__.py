@@ -41,9 +41,11 @@ save_resolved
     Persist a resolved ``RunSpec`` as canonical JSON.
 """
 
+from coleman.budget import BudgetMode
 from coleman.spec.io import load_spec, save_resolved
 from coleman.spec.models import (
     AlgorithmSpec,
+    BudgetSpec,
     CheckpointSpec,
     ContextualInformationSpec,
     ExecutionSpec,
@@ -56,10 +58,13 @@ from coleman.spec.models import (
 )
 from coleman.spec.packs import resolve_packs
 from coleman.spec.run_id import compute_run_id
+from coleman.spec.selection import resolve_requested_names
 from coleman.spec.sweep import SweepAxis, SweepSpec, expand_sweep
 
 __all__ = [
     "AlgorithmSpec",
+    "BudgetMode",
+    "BudgetSpec",
     "CheckpointSpec",
     "ContextualInformationSpec",
     "ExecutionSpec",
@@ -74,6 +79,7 @@ __all__ = [
     "compute_run_id",
     "expand_sweep",
     "load_spec",
+    "resolve_requested_names",
     "resolve_packs",
     "save_resolved",
 ]

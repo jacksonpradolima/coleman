@@ -92,7 +92,7 @@ class TestComputeRunId:
             telemetry=TelemetrySpec(enabled=False),
         )
         # This pre-computed value must never change.
-        golden_rid = "33a651e6197b"
+        golden_rid = "38e7a380d87a"
         assert compute_run_id(spec) == golden_rid
         # Two independent constructions must match.
         spec_copy = RunSpec.model_validate(spec.model_dump())

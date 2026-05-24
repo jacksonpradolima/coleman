@@ -186,6 +186,73 @@ def test_topk_ndcg_perfect_ranking_is_one():
     assert metric.fitness == pytest.approx(1.0)
 
 
+def test_topk_constructor_rejects_non_positive_k():
+    with pytest.raises(ValueError, match="top_k must be a positive integer"):
+        PrecisionAtKMetric(top_k=0)
+
+
+def test_topk_metrics_empty_suite_sets_default_metrics():
+    metric = RecallAtKMetric(top_k=3)
+    metric.update_available_time(10.0)
+    metric.evaluate([])
+
+    assert metric.fitness == pytest.approx(1.0)
+    assert metric.cost == pytest.approx(1.0)
+    assert metric.ttf == -1
+
+
+def test_topk_time_budget_can_result_in_zero_selected_tests():
+    records = [
+        {"Name": "T1", "Duration": 5.0, "NumRan": 1, "NumErrors": 0, "Verdict": 1},
+        {"Name": "T2", "Duration": 5.0, "NumRan": 1, "NumErrors": 0, "Verdict": 0},
+    ]
+    metric = PrecisionAtKMetric(top_k=2, use_time_budget=True)
+    metric.update_available_time(0.1)
+    metric.evaluate(records)
+
+    assert metric.scheduled_testcases == []
+    assert metric.unscheduled_testcases == ["T1", "T2"]
+    assert metric.fitness == pytest.approx(0.0)
+
+
+def test_topk_apk_returns_zero_when_failures_exist_but_none_in_prefix():
+    records = [
+        {"Name": "T1", "Duration": 1.0, "NumRan": 1, "NumErrors": 0, "Verdict": 0},
+        {"Name": "T2", "Duration": 1.0, "NumRan": 1, "NumErrors": 0, "Verdict": 1},
+    ]
+    metric = AveragePrecisionAtKMetric(top_k=1)
+    metric.update_available_time(10.0)
+    metric.evaluate(records)
+
+    assert metric.detection_ranks == []
+    assert metric.fitness == pytest.approx(0.0)
+
+
+def test_topk_ndcg_returns_zero_when_failures_are_outside_selected_prefix():
+    records = [
+        {"Name": "T1", "Duration": 1.0, "NumRan": 1, "NumErrors": 0, "Verdict": 0},
+        {"Name": "T2", "Duration": 1.0, "NumRan": 1, "NumErrors": 0, "Verdict": 1},
+    ]
+    metric = NDCGAtKMetric(top_k=1)
+    metric.update_available_time(10.0)
+    metric.evaluate(records)
+
+    assert metric.detection_ranks == []
+    assert metric.fitness == pytest.approx(0.0)
+
+
+def test_topk_reciprocal_rank_without_failures_is_zero():
+    records = [
+        {"Name": "T1", "Duration": 1.0, "NumRan": 1, "NumErrors": 0, "Verdict": 0},
+        {"Name": "T2", "Duration": 1.0, "NumRan": 1, "NumErrors": 0, "Verdict": 0},
+    ]
+    metric = ReciprocalRankAtKMetric(top_k=2)
+    metric.update_available_time(10.0)
+    metric.evaluate(records)
+
+    assert metric.fitness == pytest.approx(0.0)
+
+
 def test_topk_precision_can_use_time_budget():
     """Precision@k can optionally cap the prefix by available_time."""
     records = [
@@ -231,6 +298,23 @@ def test_evaluation_metric_set_default_metrics():
     assert metric.avg_precision == 1
     assert metric.fitness == 1
     assert metric.cost == 1
+
+
+def test_napfd_verdict_metric_subset_size_budget_schedules_by_k():
+    """subset_size budget should schedule exactly k tests regardless of durations."""
+    records = [
+        {"Name": "T1", "Duration": 10.0, "NumRan": 1, "NumErrors": 0, "Verdict": 1},
+        {"Name": "T2", "Duration": 10.0, "NumRan": 1, "NumErrors": 0, "Verdict": 0},
+        {"Name": "T3", "Duration": 10.0, "NumRan": 1, "NumErrors": 0, "Verdict": 1},
+    ]
+
+    metric = NAPFDVerdictMetric()
+    metric.update_budget("subset_size", 2)
+    metric.update_available_time(0.0)
+    metric.evaluate(records)
+
+    assert metric.scheduled_testcases == ["T1", "T2"]
+    assert metric.unscheduled_testcases == ["T3"]
 
 
 def test_napfd_metric(sample_records, available_time):
@@ -297,6 +381,40 @@ def test_apfdc_metric(sample_records, available_time):
     assert metric.cost <= 1
     assert metric.fitness == pytest.approx(metric.cost)
     assert metric.testcase_costs == [item["Duration"] for item in sample_records]
+
+
+def test_apfdc_metric_without_failures_sets_defaults_and_keeps_costs():
+    records = [
+        {"Name": "T1", "Duration": 1.0, "NumRan": 1, "NumErrors": 0, "Verdict": 0},
+        {"Name": "T2", "Duration": 2.0, "NumRan": 1, "NumErrors": 0, "Verdict": 0},
+    ]
+    metric = APFDcMetric()
+    metric.update_available_time(10.0)
+    metric.evaluate(records)
+
+    assert metric.testcase_costs == [1.0, 2.0]
+    assert metric.fitness == pytest.approx(1.0)
+    assert metric.cost == pytest.approx(1.0)
+
+
+def test_apfdc_compute_metrics_without_detected_ranks_sets_zero_cost():
+    metric = APFDcMetric()
+    metric.detection_ranks = []
+    metric.detection_ranks_failures = []
+
+    metric.compute_metrics(costs=[1.0, 2.0], total_failure_count=1, total_failed_tests=1, no_testcases=2)
+
+    assert metric.cost == pytest.approx(0.0)
+    assert metric.fitness == pytest.approx(0.0)
+    assert metric.avg_precision == pytest.approx(0.0)
+
+
+def test_topk_base_compute_fitness_raises_not_implemented():
+    from coleman.evaluation.topk import _TopKVerdictMetric
+
+    metric = _TopKVerdictMetric(top_k=1)
+    with pytest.raises(NotImplementedError):
+        metric._compute_fitness(1, 1, 1)
 
 
 def test_evaluation_metric_as_suite_frame_empty_list():

@@ -175,6 +175,35 @@ def test_discounted_failure_reward_values():
     assert np.allclose(values, expected)
 
 
+def test_discounted_failure_reward_name_and_string():
+    reward = DiscountedFailureReward()
+    assert str(reward) == "Discounted Failure Reward"
+    assert reward.get_name() == "DiscountedFailure"
+
+
+def test_reciprocal_rank_reward_name_string_and_non_positive_rank_filtering():
+    reward = ReciprocalRankReward()
+    assert str(reward) == "Reciprocal-rank Reward"
+    assert reward.get_name() == "ReciprocalRank"
+
+    metric = MagicMock(spec=EvaluationMetric)
+    metric.detection_ranks = [0, -1, 2]
+    prioritization = ["Test1", "Test2", "Test3"]
+
+    values = reward.evaluate(metric, prioritization)
+    assert np.allclose(values, [0.0, 0.5, 0.0])
+
+
+def test_discounted_failure_reward_ignores_non_positive_detection_ranks():
+    reward = DiscountedFailureReward()
+    metric = MagicMock(spec=EvaluationMetric)
+    metric.detection_ranks = [0, -2, 1]
+    prioritization = ["Test1", "Test2", "Test3"]
+
+    values = reward.evaluate(metric, prioritization)
+    assert np.allclose(values, [1.0, 0.0, 0.0])
+
+
 def test_apfdc_reward_matches_cost_contributions():
     """APFDcReward should distribute the cost-aware score across failing ranks."""
     reward_metric = MagicMock(spec=EvaluationMetric)

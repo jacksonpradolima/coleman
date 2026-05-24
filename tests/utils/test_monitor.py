@@ -10,11 +10,26 @@ from unittest.mock import MagicMock
 import pyarrow.parquet as pq
 import pytest
 
+from coleman.budget import BudgetMode
 from coleman.evaluation import EvaluationMetric
 from coleman.results.parquet_sink import ParquetSink
-from coleman.results.sink_base import NullSink
+from coleman.results.sink_base import NullSink, ResultsSink
 from coleman.utils.monitor import MonitorCollector
 from coleman.utils.monitor_params import CollectParams
+
+
+class _CaptureSink(ResultsSink):
+    def __init__(self) -> None:
+        self.rows: list[dict[str, object]] = []
+
+    def write_row(self, row: dict[str, object]) -> None:
+        self.rows.append(row)
+
+    def flush(self) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
 
 
 @pytest.fixture
@@ -38,7 +53,8 @@ def mock_scenario_provider():
     """Create a mock for a scenario provider."""
     scenario_provider = MagicMock()
     scenario_provider.name = "TestScenario"
-    scenario_provider.avail_time_ratio = 0.5
+    scenario_provider.budget_mode = BudgetMode.RATIO
+    scenario_provider.budget_value = 0.5
     return scenario_provider
 
 
@@ -146,6 +162,84 @@ def test_null_sink_collect_does_not_fail(mock_scenario_provider, mock_metric):
     assert mc.rows_collected == 100
 
 
+def test_collect_derives_ratio_budget_value_from_available_time(mock_scenario_provider, mock_metric):
+    """When ratio budget lacks numeric value, collector derives it from available/total time."""
+    sink = _CaptureSink()
+    mc = MonitorCollector(sink=sink)
+
+    mock_scenario_provider.budget_mode = None
+    mock_scenario_provider.budget_value = "invalid"
+    params = _make_params(
+        mock_scenario_provider,
+        mock_metric,
+        budget_mode=BudgetMode.RATIO.value,
+        budget_value=None,
+        available_time=25.0,
+        total_build_duration=100.0,
+    )
+
+    mc.collect(params)
+
+    assert sink.rows[0]["budget_mode"] == BudgetMode.RATIO.value
+    assert sink.rows[0]["budget_value"] == pytest.approx(0.25)
+
+
+def test_collect_derives_fixed_time_budget_value_from_available_time(mock_scenario_provider, mock_metric):
+    """When fixed_time budget lacks numeric value, collector uses available_time."""
+    sink = _CaptureSink()
+    mc = MonitorCollector(sink=sink)
+
+    mock_scenario_provider.budget_mode = BudgetMode.FIXED_TIME
+    mock_scenario_provider.budget_value = "invalid"
+    params = _make_params(
+        mock_scenario_provider,
+        mock_metric,
+        budget_mode=BudgetMode.FIXED_TIME,
+        budget_value=None,
+        available_time=42.0,
+        total_build_duration=100.0,
+    )
+
+    mc.collect(params)
+
+    assert sink.rows[0]["budget_mode"] == BudgetMode.FIXED_TIME.value
+    assert sink.rows[0]["budget_value"] == pytest.approx(42.0)
+
+
+def test_collect_falls_back_to_ratio_mode_when_budget_mode_is_invalid(mock_scenario_provider, mock_metric):
+    sink = _CaptureSink()
+    mc = MonitorCollector(sink=sink)
+
+    params = _make_params(
+        mock_scenario_provider,
+        mock_metric,
+        budget_mode="not-a-valid-mode",
+        budget_value=0.5,
+    )
+
+    mc.collect(params)
+
+    assert sink.rows[0]["budget_mode"] == BudgetMode.RATIO.value
+
+
+def test_collect_defaults_budget_value_to_zero_for_non_ratio_and_non_fixed_time(mock_scenario_provider, mock_metric):
+    sink = _CaptureSink()
+    mc = MonitorCollector(sink=sink)
+
+    params = _make_params(
+        mock_scenario_provider,
+        mock_metric,
+        budget_mode=BudgetMode.SUBSET_SIZE.value,
+        budget_value=None,
+        total_build_duration=0.0,
+    )
+
+    mc.collect(params)
+
+    assert sink.rows[0]["budget_mode"] == BudgetMode.SUBSET_SIZE.value
+    assert sink.rows[0]["budget_value"] == pytest.approx(0.0)
+
+
 @pytest.mark.benchmark(group="monitor_collector")
 @pytest.mark.parametrize("num_records", [1000, 10_000, 100_000])
 def test_collect_performance(benchmark, num_records):
@@ -163,7 +257,8 @@ def test_collect_performance(benchmark, num_records):
 
     mock_scenario_provider = MagicMock()
     mock_scenario_provider.name = "BenchmarkScenario"
-    mock_scenario_provider.avail_time_ratio = 0.5
+    mock_scenario_provider.budget_mode = BudgetMode.RATIO
+    mock_scenario_provider.budget_value = 0.5
 
     def add_records():
         collector = MonitorCollector(sink=NullSink())

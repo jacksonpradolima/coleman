@@ -46,7 +46,8 @@ Key settings you should inspect:
 | Setting                  | Where it comes from                  |
 |--------------------------|--------------------------------------|
 | `datasets`               | `experiment.datasets`                |
-| `scheduled_time_ratio`   | `experiment.scheduled_time_ratio`    |
+| `budget.mode`            | `experiment.budget.mode`             |
+| `budget.values`          | `experiment.budget.values`           |
 | `results.enabled`        | `results.enabled`                    |
 | `results.sink`           | `results.sink` (parquet / clickhouse)|
 | `results.out_dir`        | `results.out_dir`                    |
@@ -237,6 +238,28 @@ construction failures, not only for failures inside the main run body.
 ---
 
 ## 9 — Advanced Analyses You Can Run
+
+Coleman now ships built-in analysis reports aligned with the analysis playbook.
+
+```bash
+# Quality ranking (NAPFD)
+coleman analyze quality --input ./runs --format markdown --out reports/quality.md
+
+# Stability (coefficient of variation)
+coleman analyze stability --input ./runs --format csv --out reports/stability.csv
+
+# Pareto frontier (quality vs cost)
+coleman analyze pareto --input ./runs --format table
+```
+
+Supported report modules:
+
+1. `quality`
+2. `cost`
+3. `stability`
+4. `pareto`
+5. `sensitivity`
+6. `resources`
 
 Use this checklist after generating enough runs:
 

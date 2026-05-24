@@ -1,0 +1,35 @@
+execution:
+  parallel_pool_size: 4
+  independent_executions: 8
+
+experiment:
+  datasets_dir: examples
+  datasets:
+    - fakedata
+  budget:
+    mode: ratio
+    values: [0.1, 0.5]
+  policies:
+    - PortfolioUCB
+  rewards:
+    - RNFail
+
+algorithm:
+  portfolioucb:
+    rnfail:
+      c: 1.0
+      policies:
+        - Random
+        - UCB1
+
+hooks:
+  fail_fast: true
+  plugins:
+    - my_project.hooks.ForecastHook
+    - my_project.hooks.audit_hook
+
+results:
+  enabled: true
+  sink: duckdb
+  out_dir: ./runs
+  manifest_enabled: true

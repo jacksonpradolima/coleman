@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import polars as pl
 
+from coleman.budget import BudgetMode
+
 
 class VirtualScenario:
     """Virtual scenario used to manipulate data for each commit.
@@ -35,6 +37,8 @@ class VirtualScenario:
         testcases: list[dict] | pl.DataFrame,
         build_id: int,
         total_build_duration: float,
+        budget_mode: BudgetMode = BudgetMode.RATIO,
+        budget_value: float | None = None,
     ):
         """Initialize the VirtualScenario.
 
@@ -52,6 +56,8 @@ class VirtualScenario:
         self.available_time = available_time
         self.build_id = build_id
         self.total_build_duration = total_build_duration
+        self.budget_mode = budget_mode
+        self.budget_value = budget_value
 
         if isinstance(testcases, pl.DataFrame):
             self._testcases_df: pl.DataFrame = testcases

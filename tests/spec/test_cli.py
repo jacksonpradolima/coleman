@@ -82,7 +82,7 @@ class TestCLIRun:
                             "verbose": False,
                         },
                         "experiment": {
-                            "scheduled_time_ratio": [0.1],
+                            "budget": {"mode": "ratio", "values": [0.1]},
                             "datasets_dir": "examples",
                             "datasets": ["fakedata"],
                             "rewards": ["RNFail"],
@@ -110,7 +110,7 @@ class TestCLISweep:
                             "verbose": False,
                         },
                         "experiment": {
-                            "scheduled_time_ratio": [0.1],
+                            "budget": {"mode": "ratio", "values": [0.1]},
                             "datasets_dir": "examples",
                             "datasets": ["fakedata"],
                             "rewards": ["RNFail"],
@@ -146,7 +146,7 @@ class TestCLISweep:
                             "independent_executions": 1,
                         },
                         "experiment": {
-                            "scheduled_time_ratio": [0.1],
+                            "budget": {"mode": "ratio", "values": [0.1]},
                             "datasets_dir": "examples",
                             "datasets": ["fakedata"],
                             "rewards": ["RNFail"],
@@ -186,7 +186,7 @@ class TestCLISweep:
                     {
                         "execution": {"parallel_pool_size": 1, "independent_executions": 1},
                         "experiment": {
-                            "scheduled_time_ratio": [0.1],
+                            "budget": {"mode": "ratio", "values": [0.1]},
                             "datasets_dir": "examples",
                             "datasets": ["fakedata"],
                             "rewards": ["RNFail"],
@@ -212,7 +212,7 @@ class TestCLISweep:
                             "independent_executions": 1,
                         },
                         "experiment": {
-                            "scheduled_time_ratio": [0.1],
+                            "budget": {"mode": "ratio", "values": [0.1]},
                             "datasets_dir": "examples",
                             "datasets": ["fakedata"],
                             "rewards": ["RNFail"],
@@ -247,7 +247,7 @@ class TestCLISweep:
                             "independent_executions": 1,
                         },
                         "experiment": {
-                            "scheduled_time_ratio": [0.1],
+                            "budget": {"mode": "ratio", "values": [0.1]},
                             "datasets_dir": "examples",
                             "datasets": ["fakedata"],
                             "rewards": ["RNFail"],
@@ -292,7 +292,7 @@ class TestCLISweep:
                             "independent_executions": 1,
                         },
                         "experiment": {
-                            "scheduled_time_ratio": [0.1],
+                            "budget": {"mode": "ratio", "values": [0.1]},
                             "datasets_dir": "examples",
                             "datasets": ["fakedata"],
                             "rewards": ["RNFail"],
@@ -443,3 +443,21 @@ class TestCLIErrorAndMainBlock:
                     runpy.run_module("coleman.cli", run_name="__main__")
         finally:
             sys.argv = argv
+
+
+class TestCLIAnalyze:
+    def test_analyze_prints_table_to_stdout(self, capsys):
+        with patch("coleman.cli.run_report", return_value=(["col"], [("v",)])):
+            main(["analyze", "quality", "--input", "./runs"])
+        captured = capsys.readouterr()
+        assert "col" in captured.out
+        assert "v" in captured.out
+
+    def test_analyze_writes_output_file(self, tmp_path, capsys):
+        out_path = tmp_path / "report.md"
+        with patch("coleman.cli.run_report", return_value=(["a", "b"], [(1, 2)])):
+            main(["analyze", "quality", "--input", "./runs", "--format", "markdown", "--out", str(out_path)])
+        captured = capsys.readouterr()
+        assert "analysis written to" in captured.out
+        assert out_path.exists()
+        assert "| a | b |" in out_path.read_text(encoding="utf-8")

@@ -63,6 +63,16 @@ def test_load_hook_plugin_invalid_path_and_missing_symbol():
         _load_hook_plugin("tests.support.hook_plugins.DoesNotExist")
 
 
+def test_load_hook_plugin_rejects_non_callable_symbol(monkeypatch):
+    import tests.support.hook_plugins as hook_plugins
+    from coleman.hooks import _load_hook_plugin
+
+    monkeypatch.setattr(hook_plugins, "NOT_A_HOOK", 123, raising=False)
+
+    with pytest.raises(ValueError, match="neither a class nor a callable"):
+        _load_hook_plugin("tests.support.hook_plugins.NOT_A_HOOK")
+
+
 def test_dispatch_hook_event_uses_function_adapter():
     hooks = load_hook_plugins(["tests.support.hook_plugins.functional_hook"])
     ctx = HookContext(run_id="rid-2")

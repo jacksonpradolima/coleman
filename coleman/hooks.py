@@ -13,6 +13,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
+from coleman.budget import BudgetMode
+
 
 @dataclass(frozen=True)
 class HookContext:
@@ -25,7 +27,8 @@ class HookContext:
     parallel_mode: str | None = None
     iteration: int | None = None
     trials: int | None = None
-    sched_time_ratio: float | None = None
+    budget_mode: BudgetMode | None = None
+    budget_value: float | None = None
     extensions: dict[str, Any] | None = None
 
 

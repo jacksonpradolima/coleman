@@ -45,12 +45,14 @@ import pytest
 
 import coleman.policy
 from coleman.agent import ContextualAgent, RewardSlidingWindowAgent
+from coleman.budget import BudgetMode
 from coleman.environment import Environment
 from coleman.policy import FRRMABPolicy, SWLinUCBPolicy
 from coleman.runner import (
     EnvironmentBuildConfig,
     ExecutionPlan,
     _effective_parallel_pool_size,
+    _resolve_budget_points,
     build_agents_from_config,
     build_runtime_metadata,
     create_agents,
@@ -110,12 +112,37 @@ def test_exp_run_industrial_dataset(mock_environment, mock_create_logger, tmpdir
 
 def test_build_runtime_metadata_is_unique_per_execution():
     """Execution metadata should uniquely identify independent runs."""
-    metadata_a = build_runtime_metadata("fakedata", 0.5, 1, "process")
-    metadata_b = build_runtime_metadata("fakedata", 0.5, 1, "process")
+    metadata_a = build_runtime_metadata("fakedata", 1, "process", BudgetMode.RATIO, 0.5)
+    metadata_b = build_runtime_metadata("fakedata", 1, "process", BudgetMode.RATIO, 0.5)
 
     assert metadata_a["worker_id"] == "1"
     assert metadata_a["parallel_mode"] == "process"
     assert metadata_a["execution_id"] != metadata_b["execution_id"]
+
+
+def test_build_runtime_metadata_includes_budget_identifiers():
+    metadata = build_runtime_metadata(
+        "fakedata",
+        1,
+        "process",
+        budget_mode=BudgetMode.FIXED_TIME,
+        budget_value=30.0,
+    )
+
+    assert metadata["budget_mode"] == "fixed_time"
+    assert metadata["budget_value"] == "30"
+    assert "bm=fixed_time" in metadata["execution_id"]
+
+
+def test_resolve_budget_points_uses_explicit_budget_model():
+    points = _resolve_budget_points({"budget": {"mode": "ratio", "values": [0.2, 0.6]}})
+    assert points == [(BudgetMode.RATIO, 0.2), (BudgetMode.RATIO, 0.6)]
+
+
+def test_resolve_budget_points_subset_size_mode():
+    experiment = {"budget": {"mode": "subset_size", "values": [10]}}
+    points = _resolve_budget_points(experiment)
+    assert points == [(BudgetMode.SUBSET_SIZE, 10.0)]
 
 
 def test_effective_parallel_pool_size_keeps_parallel_when_not_profiled():
@@ -348,7 +375,7 @@ def test_run_experiment_sets_seeds_when_config_seed_present(tmp_path):
     cfg = {
         "execution": {"seed": 7, "independent_executions": 1, "parallel_pool_size": 1, "verbose": False},
         "experiment": {
-            "scheduled_time_ratio": [0.1],
+            "budget": {"mode": "ratio", "values": [0.1]},
             "datasets_dir": "examples",
             "datasets": ["fakedata"],
             "rewards": ["RNFail"],
@@ -818,7 +845,7 @@ def test_run_experiment_dispatches_coordinator_hooks():
             "verbose": False,
         },
         "experiment": {
-            "scheduled_time_ratio": [0.1],
+            "budget": {"mode": "ratio", "values": [0.1]},
             "datasets_dir": "examples",
             "datasets": ["fakedata"],
             "rewards": ["RNFail"],
@@ -844,6 +871,47 @@ def test_run_experiment_dispatches_coordinator_hooks():
     hook.on_dataset_start.assert_called_once()
     hook.on_dataset_end.assert_called_once()
     hook.on_run_end.assert_called_once()
+
+
+def test_run_experiment_with_extension_skips_core_scenario_loading():
+    from coleman.runner import RunnerExtension, run_experiment_with_extension
+
+    extension = RunnerExtension(
+        build_environment_fn=lambda config, runtime_metadata, seed: (Mock(), 5),  # noqa: ARG005
+    )
+    cfg = {
+        "_run_id": "rid-123",
+        "execution": {
+            "seed": 7,
+            "independent_executions": 1,
+            "parallel_pool_size": 1,
+            "verbose": False,
+        },
+        "experiment": {
+            "budget": {"mode": "ratio", "values": [0.1]},
+            "datasets_dir": "examples",
+            "datasets": ["fakedata"],
+            "rewards": ["RNFail"],
+            "policies": ["Random"],
+        },
+        "results": {"enabled": False},
+    }
+
+    with (
+        patch(
+            "coleman.runner.get_scenario_provider", side_effect=AssertionError("must not be called")
+        ) as scenario_patch,
+        patch("coleman.runner.build_agents_from_config", return_value=[]),
+        patch("coleman.runner._dispatch_executions") as dispatch_patch,
+        patch("coleman.runner.load_hook_plugins", return_value=[]),
+    ):
+        run_experiment_with_extension(cfg, extension)
+
+    scenario_patch.assert_not_called()
+    dispatch_patch.assert_called_once()
+    plans = dispatch_patch.call_args.args[2]
+    assert plans
+    assert all(plan.trials == 0 for plan in plans)
 
 
 def test_exp_run_isolated_dispatches_execution_hooks():
@@ -887,6 +955,97 @@ def test_exp_run_isolated_dispatches_execution_hooks():
 
     hook.on_execution_start.assert_called_once()
     hook.on_execution_end.assert_called_once()
+
+
+def test_exp_run_isolated_prefers_build_environment_trial_count():
+    hook = Mock()
+    mock_env = Mock()
+
+    config = EnvironmentBuildConfig(
+        datasets_dir="examples",
+        dataset="fakedata",
+        sched_time_ratio=0.5,
+        use_hcs=False,
+        use_context=False,
+        context_config={},
+        feature_groups={},
+        results_config={},
+        checkpoint_config={},
+        telemetry_config={},
+        algorithm_configs={},
+        rewards_names=["RNFail"],
+        policy_names=["Random"],
+        run_id="rid-999",
+        extensions={},
+        hook_plugin_paths=["tests.support.hook_plugins.RecordingHook"],
+        hook_fail_fast=True,
+    )
+    plan = ExecutionPlan(
+        iteration=1,
+        trials=3,
+        level=20,
+        execution_id="exec-1",
+        worker_id="1",
+        parallel_mode="sequential",
+    )
+
+    with (
+        patch("coleman.runner.load_hook_plugins", return_value=[hook]),
+        patch("coleman.runner.build_environment", return_value=(mock_env, 7)),
+        patch("coleman.runner.exp_run_industrial_dataset") as run_patch,
+    ):
+        exp_run_industrial_dataset_isolated(config, plan)
+
+    run_patch.assert_called_once()
+    assert run_patch.call_args.args[1] == 7
+
+
+def test_exp_run_isolated_with_extension_propagates_real_trials_to_hooks():
+    from coleman.runner import RunnerExtension
+
+    hook = Mock()
+    mock_env = Mock()
+    extension = RunnerExtension(build_environment_fn=lambda config, runtime_metadata, seed: (mock_env, 9))  # noqa: ARG005
+
+    config = EnvironmentBuildConfig(
+        datasets_dir="examples",
+        dataset="fakedata",
+        sched_time_ratio=0.0,
+        use_hcs=False,
+        use_context=False,
+        context_config={},
+        feature_groups={},
+        results_config={},
+        checkpoint_config={},
+        telemetry_config={},
+        algorithm_configs={},
+        rewards_names=["RNFail"],
+        policy_names=["Random"],
+        run_id="rid-999",
+        extensions={},
+        hook_plugin_paths=["tests.support.hook_plugins.RecordingHook"],
+        hook_fail_fast=True,
+        extension=extension,
+    )
+    plan = ExecutionPlan(
+        iteration=1,
+        trials=0,
+        level=20,
+        execution_id="exec-1",
+        worker_id="1",
+        parallel_mode="sequential",
+    )
+
+    with (
+        patch("coleman.runner.load_hook_plugins", return_value=[hook]),
+        patch("coleman.runner.exp_run_industrial_dataset") as run_patch,
+    ):
+        exp_run_industrial_dataset_isolated(config, plan)
+
+    run_patch.assert_called_once()
+    assert run_patch.call_args.args[1] == 9
+    assert hook.on_execution_start.call_args.args[0].trials == 9
+    assert hook.on_execution_end.call_args.args[0].trials == 9
 
 
 def test_exp_run_isolated_dispatches_error_when_build_environment_fails():
@@ -991,7 +1150,7 @@ def test_run_experiment_dispatches_error_with_dataset_context():
             "verbose": False,
         },
         "experiment": {
-            "scheduled_time_ratio": [0.1],
+            "budget": {"mode": "ratio", "values": [0.1]},
             "datasets_dir": "examples",
             "datasets": ["fakedata"],
             "rewards": ["RNFail"],

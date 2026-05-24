@@ -3,6 +3,8 @@
 import numpy as np
 import polars as pl
 
+from coleman.budget import BudgetMode
+
 
 class EvaluationMetric:
     """Base class for evaluation metrics.
@@ -42,6 +44,8 @@ class EvaluationMetric:
     def __init__(self):
         """Initialize the EvaluationMetric."""
         self.available_time = 0
+        self.budget_mode = BudgetMode.RATIO
+        self.budget_value: float | None = None
         self.reset()
 
     def update_available_time(self, available_time: float):
@@ -53,6 +57,11 @@ class EvaluationMetric:
             Time available for the metric.
         """
         self.available_time = available_time
+
+    def update_budget(self, budget_mode: str | BudgetMode, budget_value: float | None) -> None:
+        """Update budget semantics used while selecting scheduled testcases."""
+        self.budget_mode = BudgetMode(str(budget_mode).lower())
+        self.budget_value = budget_value
 
     def reset(self):
         """Reset all attributes to their default values."""
@@ -115,7 +124,12 @@ class EvaluationMetric:
         verdicts = np.asarray(suite_df["Verdict"].to_numpy(), dtype=np.float64)
 
         cum_duration = np.cumsum(durations)
-        scheduled_mask = cum_duration <= float(self.available_time)
+        if self.budget_mode is BudgetMode.SUBSET_SIZE:
+            requested = 0 if self.budget_value is None else int(self.budget_value)
+            requested = max(0, requested)
+            scheduled_mask = np.arange(len(durations), dtype=np.int64) < requested
+        else:
+            scheduled_mask = cum_duration <= float(self.available_time)
         unscheduled_mask = ~scheduled_mask
         scheduled_rank = np.cumsum(scheduled_mask.astype(np.int64))
         detected_mask = scheduled_mask & (errors > 0)

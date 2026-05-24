@@ -9,6 +9,8 @@ from typing import cast
 
 import polars as pl
 
+from coleman.budget import BudgetMode
+
 from ..virtual import VirtualContextScenario, VirtualHCSScenario, VirtualScenario
 
 
@@ -26,8 +28,6 @@ class ScenarioLoader:
     ----------
     name : str
         Name derived from the dataset directory.
-    avail_time_ratio : float
-        The available time ratio for scheduling.
     current_build : int
         The current build number being processed.
     total_build_duration : float
@@ -42,7 +42,13 @@ class ScenarioLoader:
 
     REQUIRED_COLUMNS = ["Name", "Duration", "CalcPrio", "LastRun", "Verdict"]
 
-    def __init__(self, tcfile: str, sched_time_ratio: float = 0.5) -> None:
+    def __init__(
+        self,
+        tcfile: str,
+        sched_time_ratio: float = 0.5,
+        budget_mode: BudgetMode = BudgetMode.RATIO,
+        budget_value: float | None = None,
+    ) -> None:
         """Initialize the ScenarioLoader.
 
         Parameters
@@ -53,7 +59,8 @@ class ScenarioLoader:
             Ratio of scheduled time to total build time. Default is 0.5.
         """
         self.name = os.path.split(os.path.dirname(tcfile))[1]
-        self.avail_time_ratio = sched_time_ratio
+        self.budget_mode = BudgetMode(str(budget_mode).lower())
+        self.budget_value = float(sched_time_ratio if budget_value is None else budget_value)
         self.current_build = 0
         self._build_index = -1
         self.total_build_duration = 0.0
@@ -187,15 +194,45 @@ class ScenarioLoader:
         )
         return cast(pl.DataFrame, self._testcases_lazy.collect())
 
-    def get_avail_time_ratio(self) -> float:
-        """Return the available time ratio.
+    def get_budget_mode(self) -> BudgetMode:
+        """Return current budget mode."""
+        return self.budget_mode
 
-        Returns
-        -------
-        float
-            The available time ratio.
+    def get_budget_value(self) -> float:
+        """Return configured budget value."""
+        return self.budget_value
+
+    def get_avail_time_ratio(self) -> float:
+        """Return a legacy ratio view derived from budget settings.
+
+        This compatibility accessor is kept for integrations that still read a
+        ratio-style budget, but the canonical representation is
+        ``budget_mode`` + ``budget_value``.
         """
-        return self.avail_time_ratio
+        if self.budget_mode is BudgetMode.RATIO:
+            return float(self.budget_value)
+        if self.total_build_duration <= 0:
+            return 0.0
+        if self.budget_mode is BudgetMode.FIXED_TIME:
+            return float(self.budget_value) / float(self.total_build_duration)
+        if self.budget_mode is BudgetMode.SUBSET_SIZE and self._current_build_df is not None:
+            testcase_count = int(self._current_build_df.height)
+            if testcase_count > 0:
+                return float(self.budget_value) / float(testcase_count)
+        return 0.0
+
+    def compute_available_time(self, total_build_duration: float, testcase_count: int) -> float:
+        """Map generic budget to available time for this domain."""
+        if self.budget_mode is BudgetMode.RATIO:
+            return total_build_duration * self.budget_value
+        if self.budget_mode is BudgetMode.FIXED_TIME:
+            return float(self.budget_value)
+        if self.budget_mode is BudgetMode.SUBSET_SIZE:
+            # Subset-size is enforced by the evaluation metric; use full build
+            # duration as time cap so legacy time-based paths remain valid.
+            return total_build_duration
+        msg = f"Unsupported budget mode: {self.budget_mode!r}"
+        raise ValueError(msg)
 
     def last_build(self, build: int) -> None:
         """Set the last build number.
@@ -236,13 +273,16 @@ class ScenarioLoader:
 
         total_build_duration = cast(int | float | Decimal | None, self._current_build_df["Duration"].sum())
         self.total_build_duration = float(total_build_duration or 0.0)
-        available_time = self.total_build_duration * self.avail_time_ratio
+        testcase_count = int(self._current_build_df.height)
+        available_time = self.compute_available_time(self.total_build_duration, testcase_count)
 
         self.scenario = VirtualScenario(
             available_time=available_time,
             testcases=self._current_build_df.select(self.REQUIRED_COLUMNS),
             build_id=self.current_build,
             total_build_duration=self.total_build_duration,
+            budget_mode=self.budget_mode,
+            budget_value=self.budget_value,
         )
 
         return self.scenario
@@ -308,7 +348,14 @@ class HCSScenarioLoader(ScenarioLoader):
         DataFrame containing variant data.
     """
 
-    def __init__(self, tcfile: str, variantsfile: str, sched_time_ratio=0.5) -> None:
+    def __init__(
+        self,
+        tcfile: str,
+        variantsfile: str,
+        sched_time_ratio=0.5,
+        budget_mode: BudgetMode = BudgetMode.RATIO,
+        budget_value=None,
+    ) -> None:
         """Initialize the HCSScenarioLoader.
 
         Parameters
@@ -320,7 +367,7 @@ class HCSScenarioLoader(ScenarioLoader):
         sched_time_ratio : float, optional
             Ratio of scheduled time to total build time. Default is 0.5.
         """
-        super().__init__(tcfile, sched_time_ratio)
+        super().__init__(tcfile, sched_time_ratio, budget_mode, budget_value)
 
         self._variants_lazy = self._read_variants(variantsfile)
         self._variants_schema = self._variants_lazy.collect_schema()
@@ -439,6 +486,8 @@ class HCSScenarioLoader(ScenarioLoader):
             testcases=base_scenario.get_testcases_df(),
             build_id=base_scenario.build_id,
             total_build_duration=base_scenario.total_build_duration,
+            budget_mode=base_scenario.budget_mode,
+            budget_value=base_scenario.budget_value,
             variants=variants,
         )
 
@@ -485,6 +534,8 @@ class ContextScenarioLoader(ScenarioLoader):
         feature_group_values: list[str],
         previous_build: list[str],
         sched_time_ratio: float = 0.5,
+        budget_mode: BudgetMode = BudgetMode.RATIO,
+        budget_value: float | None = None,
     ):
         """Initialize the context-aware scenario loader.
 
@@ -502,7 +553,7 @@ class ContextScenarioLoader(ScenarioLoader):
             Ratio of the total build time to be used for scheduling.
             Default is 0.5.
         """
-        super().__init__(tcfile, sched_time_ratio)
+        super().__init__(tcfile, sched_time_ratio, budget_mode, budget_value)
         self.feature_group = feature_group_name
         self.features = feature_group_values
         self.previous_build = previous_build
@@ -600,6 +651,8 @@ class ContextScenarioLoader(ScenarioLoader):
             testcases=base_scenario.get_testcases_df(),
             build_id=base_scenario.build_id,
             total_build_duration=base_scenario.total_build_duration,
+            budget_mode=base_scenario.budget_mode,
+            budget_value=base_scenario.budget_value,
             feature_group=self.feature_group,
             features=self.features,
             context_features=context_features,

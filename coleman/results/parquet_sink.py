@@ -41,8 +41,8 @@ _RESULT_SCHEMA = pa.schema(
         ("parallel_mode", pa.utf8()),
         ("policy", pa.utf8()),
         ("reward_function", pa.utf8()),
-        ("sched_time", pa.float64()),
-        ("sched_time_duration", pa.float64()),
+        ("budget_mode", pa.utf8()),
+        ("budget_value", pa.float64()),
         ("total_build_duration", pa.float64()),
         ("prioritization_time", pa.float64()),
         ("process_memory_rss_mib", pa.float64()),
@@ -119,7 +119,7 @@ class ParquetSink(ResultsSink):
         addition to the hash.  Default ``None`` (hash only).
     partition_cols : list[str] or None
         Columns used for Hive partitioning.  Defaults to
-        ``["scenario", "policy", "reward_function"]``.
+        ``["scenario", "policy", "reward_function", "budget_mode", "budget_value"]``.
 
     Attributes
     ----------
@@ -150,12 +150,18 @@ class ParquetSink(ResultsSink):
             If set, store the first *k* entries of ``prioritization_order``.
         partition_cols : list[str] or None
             Hive partition columns.  Defaults to
-            ``["scenario", "policy", "reward_function"]``.
+            ``["scenario", "policy", "reward_function", "budget_mode", "budget_value"]``.
         """
         self.out_dir = out_dir
         self.batch_size = batch_size
         self.top_k = top_k
-        self._partition_cols = partition_cols or ["scenario", "policy", "reward_function"]
+        self._partition_cols = partition_cols or [
+            "scenario",
+            "policy",
+            "reward_function",
+            "budget_mode",
+            "budget_value",
+        ]
         self._buffer: list[dict[str, Any]] = []
         self._lock = threading.Lock()
         self._file_counter = 0

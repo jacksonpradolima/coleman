@@ -34,6 +34,7 @@ import pytest
 
 from coleman.agent import ContextualAgent
 from coleman.bandit import EvaluationMetricBandit
+from coleman.budget import BudgetMode
 from coleman.checkpoint.checkpoint_store import NullCheckpointStore
 from coleman.checkpoint.state import CheckpointPayload
 from coleman.environment import Environment
@@ -368,6 +369,8 @@ def test_run_prioritization_hcs(environment):
         {"Variant": ["v1", "v1", "v2"], "Name": ["tc1", "tc2", "tc3"], "Duration": [1.0, 2.0, 3.0]}
     )
     mock_virtual_scenario.get_variants.return_value = mock_variants
+    mock_virtual_scenario.budget_mode = BudgetMode.RATIO
+    mock_virtual_scenario.budget_value = 0.5
     environment.scenario_provider = MagicMock()
 
     mock_action = ["tc1", "tc2", "tc3"]
@@ -376,12 +379,9 @@ def test_run_prioritization_hcs(environment):
     environment.evaluation_metric.evaluate = MagicMock()
     environment.evaluation_metric.update_available_time = MagicMock()
 
-    avail_time_ratio = 0.5
-
     environment.run_prioritization_hcs(
         agent=mock_agent,
         action=mock_action,
-        avail_time_ratio=avail_time_ratio,
         bandit_duration=1.5,
         end=0,
         exp_name="mock_exp",

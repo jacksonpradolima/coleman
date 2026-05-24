@@ -1,5 +1,7 @@
 experiment:
-  scheduled_time_ratio: [0.1, 0.5, 0.8]
+  budget:
+    mode: ratio
+    values: [0.1, 0.5, 0.8]
   datasets_dir: examples
   datasets:
     - alibaba@druid

@@ -36,6 +36,9 @@ import logging
 import os
 import sys
 import time
+import warnings
+from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import dataclass, field
 from multiprocessing import TimeoutError, get_context
 from typing import Any
@@ -53,6 +56,7 @@ from coleman.agent import (
     RewardSlidingWindowAgent,
     SlidingWindowContextualAgent,
 )
+from coleman.budget import BudgetMode
 from coleman.environment import Environment
 from coleman.evaluation import NAPFDVerdictMetric
 from coleman.hooks import (
@@ -69,6 +73,8 @@ from coleman.scenarios import (
     HCSScenarioLoader,
     ScenarioLoader,
 )
+from coleman.spec import RunSpec
+from coleman.spec.selection import resolve_requested_names
 
 
 @dataclass(frozen=True)
@@ -101,11 +107,323 @@ class EnvironmentBuildConfig:
     algorithm_configs: dict[str, Any]
     rewards_names: list[str]
     policy_names: list[str]
+    budget_mode: BudgetMode = BudgetMode.RATIO
+    budget_value: float | None = None
     seed: int | None = None
     run_id: str | None = None
     extensions: dict[str, Any] = field(default_factory=dict)
     hook_plugin_paths: list[str] = field(default_factory=list)
     hook_fail_fast: bool = True
+    extension: RunnerExtension | None = None
+    resolved_spec: RunSpec | None = None
+
+
+@dataclass(frozen=True)
+class RunnerExtension:
+    """Typed extension points for core runner orchestration."""
+
+    build_environment_fn: Callable[[EnvironmentBuildConfig, dict[str, str], int | None], tuple[Any, int]]
+    build_metric_fn: Callable[[RunSpec, str, BudgetMode, float], Any] | None = None
+    post_execution_fn: Callable[[HookContext, Any], None] | None = None
+
+
+@dataclass(frozen=True)
+class AgentBuildIssue:
+    """Validation issue produced during agent build normalization."""
+
+    code: str
+    message: str
+    policy_name: str
+    reward_name: str | None = None
+    hint: str | None = None
+
+
+def _add_issue(
+    issues: list[AgentBuildIssue],
+    *,
+    code: str,
+    message: str,
+    policy_name: str,
+    reward_name: str | None = None,
+    hint: str | None = None,
+) -> None:
+    """Append one normalized agent-build validation issue."""
+    issues.append(
+        AgentBuildIssue(
+            code=code,
+            message=message,
+            policy_name=policy_name,
+            reward_name=reward_name,
+            hint=hint,
+        )
+    )
+
+
+def _resolve_policy_config(
+    *,
+    normalized: dict[str, Any],
+    policy_name: str,
+    policy_lookup: dict[str, str],
+    issues: list[AgentBuildIssue],
+) -> tuple[str, dict[str, Any] | None]:
+    """Resolve and validate one top-level policy config block."""
+    if policy_name.lower() not in policy_lookup:
+        _add_issue(
+            issues,
+            code="unknown_policy",
+            message=f"Unknown policy {policy_name!r}.",
+            policy_name=policy_name,
+            hint="Use one of the canonical policy names exported by coleman.policy.",
+        )
+        return policy_name.lower(), None
+
+    cfg_key = policy_name.lower()
+    policy_cfg = normalized.get(cfg_key, {})
+    if not isinstance(policy_cfg, dict):
+        _add_issue(
+            issues,
+            code="invalid_policy_config",
+            message=f"Algorithm config for policy {policy_name!r} must be a dictionary.",
+            policy_name=policy_name,
+        )
+        return cfg_key, None
+
+    return cfg_key, policy_cfg
+
+
+def _validate_window_size_requirements(
+    *,
+    policy_name: str,
+    cfg_key: str,
+    policy_cfg: dict[str, Any],
+    issues: list[AgentBuildIssue],
+) -> None:
+    """Validate non-empty window_sizes for sliding-window policies."""
+    if policy_name not in {"FRRMAB", "SWLinUCB"}:
+        return
+
+    window_sizes = policy_cfg.get("window_sizes", [])
+    if isinstance(window_sizes, list) and window_sizes:
+        return
+
+    _add_issue(
+        issues,
+        code="missing_window_sizes",
+        message=f"Policy {policy_name!r} requires a non-empty window_sizes list.",
+        policy_name=policy_name,
+        hint=f"Define algorithm.{cfg_key}.window_sizes: [5, 10] (example).",
+    )
+
+
+def _resolve_portfolio_candidates(
+    *,
+    candidate_policies_raw: list[str],
+    available_policy_names: list[str],
+    policy_name: str,
+    reward_name: str,
+    issues: list[AgentBuildIssue],
+) -> list[str]:
+    """Resolve nested PortfolioUCB candidate policy names and report issues."""
+    resolved_candidates, unknown_candidates = resolve_requested_names(
+        candidate_policies_raw,
+        available_policy_names,
+    )
+
+    for unknown_name in unknown_candidates:
+        _add_issue(
+            issues,
+            code="unknown_portfolio_policy",
+            message=f"Unknown nested portfolio policy {unknown_name!r} for reward {reward_name!r}.",
+            policy_name=policy_name,
+            reward_name=reward_name,
+        )
+
+    if any(candidate == "PortfolioUCB" for candidate in resolved_candidates):
+        _add_issue(
+            issues,
+            code="portfolio_recursive_reference",
+            message="PortfolioUCB cannot include itself as a nested candidate policy.",
+            policy_name=policy_name,
+            reward_name=reward_name,
+        )
+        return []
+
+    return resolved_candidates if not unknown_candidates else []
+
+
+def _instantiate_portfolio_candidates(
+    *,
+    normalized: dict[str, Any],
+    reward_key: str,
+    resolved_candidates: list[str],
+    policy_name: str,
+    reward_name: str,
+    issues: list[AgentBuildIssue],
+) -> list[Any]:
+    """Instantiate nested policies for one PortfolioUCB reward branch."""
+    candidate_instances: list[Any] = []
+    for candidate in resolved_candidates:
+        params = normalized.get(candidate.lower(), {}).get(reward_key, {})
+        if not isinstance(params, dict):
+            params = {}
+        try:
+            candidate_instances.append(load_class_from_module(coleman.policy, candidate + "Policy")(**params))
+        except (TypeError, ValueError) as exc:
+            _add_issue(
+                issues,
+                code="portfolio_policy_init_error",
+                message=f"Failed to initialize nested policy {candidate!r} for reward {reward_name!r}: {exc}",
+                policy_name=policy_name,
+                reward_name=reward_name,
+                hint=f"Provide required parameters under algorithm.{candidate.lower()}.{reward_key}.",
+            )
+    return candidate_instances
+
+
+def _normalize_portfolio_reward_branch(
+    *,
+    normalized: dict[str, Any],
+    policy_name: str,
+    policy_cfg: dict[str, Any],
+    reward_name: str,
+    reward_lookup: dict[str, str],
+    available_policy_names: list[str],
+    cfg_key: str,
+    issues: list[AgentBuildIssue],
+) -> None:
+    """Validate and normalize one PortfolioUCB reward configuration branch."""
+    if reward_name.lower() not in reward_lookup:
+        _add_issue(
+            issues,
+            code="unknown_reward",
+            message=f"Unknown reward {reward_name!r}.",
+            policy_name=policy_name,
+            reward_name=reward_name,
+            hint="Use one of the canonical reward names exported by coleman.reward.",
+        )
+        return
+
+    reward_key = reward_name.lower()
+    reward_cfg = policy_cfg.get(reward_key, {})
+    if not isinstance(reward_cfg, dict):
+        _add_issue(
+            issues,
+            code="invalid_reward_policy_config",
+            message=f"Config for policy {policy_name!r} and reward {reward_name!r} must be a dictionary.",
+            policy_name=policy_name,
+            reward_name=reward_name,
+        )
+        return
+
+    candidate_policies_raw = reward_cfg.get("policies")
+    if not isinstance(candidate_policies_raw, list):
+        _add_issue(
+            issues,
+            code="portfolio_missing_policies",
+            message=f"Policy {policy_name!r} requires '{reward_key}.policies' as a non-empty list.",
+            policy_name=policy_name,
+            reward_name=reward_name,
+            hint=(
+                f"Define algorithm.portfolioucb.{reward_key}.policies with canonical "
+                "policy names, e.g. ['UCB1', 'Random']."
+            ),
+        )
+        return
+
+    if not candidate_policies_raw:
+        _add_issue(
+            issues,
+            code="portfolio_empty_policies",
+            message=f"Policy {policy_name!r} received an empty policies list.",
+            policy_name=policy_name,
+            reward_name=reward_name,
+        )
+        return
+
+    non_string_candidates = [item for item in candidate_policies_raw if not isinstance(item, str)]
+    if non_string_candidates:
+        _add_issue(
+            issues,
+            code="portfolio_invalid_policies_entry",
+            message=(
+                f"Policy {policy_name!r} requires all entries in '{reward_key}.policies' to be strings; "
+                f"got invalid values: {non_string_candidates!r}."
+            ),
+            policy_name=policy_name,
+            reward_name=reward_name,
+            hint=(
+                f"Define algorithm.portfolioucb.{reward_key}.policies with canonical "
+                "policy names, e.g. ['UCB1', 'Random']."
+            ),
+        )
+        return
+
+    resolved_candidates = _resolve_portfolio_candidates(
+        candidate_policies_raw=candidate_policies_raw,
+        available_policy_names=available_policy_names,
+        policy_name=policy_name,
+        reward_name=reward_name,
+        issues=issues,
+    )
+    if not resolved_candidates:
+        return
+
+    candidate_instances = _instantiate_portfolio_candidates(
+        normalized=normalized,
+        reward_key=reward_key,
+        resolved_candidates=resolved_candidates,
+        policy_name=policy_name,
+        reward_name=reward_name,
+        issues=issues,
+    )
+
+    reward_cfg = dict(reward_cfg)
+    # Keep canonical names in config; concrete nested policy instances are
+    # built per-agent/per-run to avoid shared mutable state across executions.
+    if candidate_instances:
+        reward_cfg["policies"] = resolved_candidates
+    policy_cfg[reward_key] = reward_cfg
+    normalized[cfg_key] = policy_cfg
+
+
+def _normalize_portfolio_policy(
+    *,
+    normalized: dict[str, Any],
+    policy_name: str,
+    cfg_key: str,
+    policy_cfg: dict[str, Any],
+    rewards_names: list[str],
+    reward_lookup: dict[str, str],
+    available_policy_names: list[str],
+    issues: list[AgentBuildIssue],
+) -> None:
+    """Normalize nested PortfolioUCB policy definitions across rewards."""
+    if policy_name != "PortfolioUCB":
+        return
+
+    for reward_name in rewards_names:
+        _normalize_portfolio_reward_branch(
+            normalized=normalized,
+            policy_name=policy_name,
+            policy_cfg=policy_cfg,
+            reward_name=reward_name,
+            reward_lookup=reward_lookup,
+            available_policy_names=available_policy_names,
+            cfg_key=cfg_key,
+            issues=issues,
+        )
+
+
+def _raise_if_strict_issues(*, strict: bool, issues: list[AgentBuildIssue]) -> None:
+    """Raise consolidated validation error when strict mode is enabled."""
+    if not (strict and issues):
+        return
+
+    lines = [
+        "Invalid agent/policy configuration detected:",
+        *["- " + issue.message + (f" Hint: {issue.hint}" if issue.hint else "") for issue in issues],
+    ]
+    raise ValueError("\n".join(lines))
 
 
 # taken from https://stackoverflow.com/questions/641420/how-should-i-log-while-using-multiprocessing-in-python
@@ -201,6 +519,8 @@ def get_scenario_provider(  # pylint: disable=too-many-positional-arguments
     use_context: bool,
     context_config: dict[str, Any],
     feature_groups: dict[str, Any],
+    budget_mode: BudgetMode = BudgetMode.RATIO,
+    budget_value: float | None = None,
 ) -> ScenarioLoader | HCSScenarioLoader | ContextScenarioLoader:
     """Return the appropriate scenario loader based on the given configuration.
 
@@ -242,9 +562,18 @@ def get_scenario_provider(  # pylint: disable=too-many-positional-arguments
 
     base_tcfile = _prefer_parquet(f"{datasets_dir}/{dataset}/features-engineered")
 
+    effective_budget_mode = BudgetMode(str(budget_mode).lower())
+    effective_budget_value = sched_time_ratio if budget_value is None else float(budget_value)
+
     if use_hcs and not use_context:
         variants_file = _prefer_parquet(f"{datasets_dir}/{dataset}/data-variants")
-        return HCSScenarioLoader(base_tcfile, variants_file, sched_time_ratio)
+        return HCSScenarioLoader(
+            base_tcfile,
+            variants_file,
+            sched_time_ratio,
+            effective_budget_mode,
+            effective_budget_value,
+        )
 
     if use_hcs and use_context:
         raise NotImplementedError
@@ -270,9 +599,11 @@ def get_scenario_provider(  # pylint: disable=too-many-positional-arguments
             feature_group_values_raw,
             previous_build_raw,
             sched_time_ratio,
+            effective_budget_mode,
+            effective_budget_value,
         )
 
-    return ScenarioLoader(base_tcfile, sched_time_ratio)
+    return ScenarioLoader(base_tcfile, sched_time_ratio, effective_budget_mode, effective_budget_value)
 
 
 def build_agents_from_config(
@@ -282,15 +613,41 @@ def build_agents_from_config(
     seed: int | None = None,
 ) -> list[RewardAgent | RewardSlidingWindowAgent | ContextualAgent | SlidingWindowContextualAgent]:
     """Build all agents from config values in a process-local way."""
-    policies = {
-        policy_name: {
-            reward_name: load_class_from_module(coleman.policy, policy_name + "Policy")(
-                **algorithm_configs.get(policy_name.lower(), {}).get(reward_name.lower(), {})
-            )
-            for reward_name in rewards_names
-        }
-        for policy_name in policy_names
-    }
+    policies: dict[str, dict[str, Any]] = {}
+    for policy_name in policy_names:
+        reward_policies: dict[str, Any] = {}
+        policy_cfg = algorithm_configs.get(policy_name.lower(), {})
+        if not isinstance(policy_cfg, dict):
+            policy_cfg = {}
+
+        for reward_name in rewards_names:
+            reward_key = reward_name.lower()
+            reward_cfg = policy_cfg.get(reward_key, {})
+            if not isinstance(reward_cfg, dict):
+                reward_cfg = {}
+
+            if policy_name == "PortfolioUCB":
+                candidate_names = reward_cfg.get("policies", [])
+                if not isinstance(candidate_names, list):
+                    candidate_names = []
+
+                candidate_instances: list[Any] = []
+                for candidate_name in candidate_names:
+                    if not isinstance(candidate_name, str) or candidate_name == "PortfolioUCB":
+                        continue
+                    nested_params = algorithm_configs.get(candidate_name.lower(), {}).get(reward_key, {})
+                    if not isinstance(nested_params, dict):
+                        nested_params = {}
+                    candidate_instances.append(
+                        load_class_from_module(coleman.policy, candidate_name + "Policy")(**nested_params)
+                    )
+
+                reward_cfg = dict(reward_cfg)
+                reward_cfg["policies"] = candidate_instances
+
+            reward_policies[reward_name] = load_class_from_module(coleman.policy, policy_name + "Policy")(**reward_cfg)
+
+        policies[policy_name] = reward_policies
 
     return [
         agent
@@ -307,16 +664,19 @@ def build_agents_from_config(
 
 def build_runtime_metadata(
     dataset: str,
-    sched_time_ratio: float,
     iteration: int,
     parallel_mode: str,
+    budget_mode: BudgetMode = BudgetMode.RATIO,
+    budget_value: float = 0.0,
 ) -> dict[str, str]:
     """Build stable execution metadata for telemetry and persisted results."""
-    execution_id = f"{dataset}|tr={sched_time_ratio:.2f}|exp={iteration}|{uuid4().hex[:8]}"
+    execution_id = f"{dataset}|bm={budget_mode.value}|bv={budget_value:g}|exp={iteration}|{uuid4().hex[:8]}"
     return {
         "execution_id": execution_id,
         "worker_id": str(iteration),
         "parallel_mode": parallel_mode,
+        "budget_mode": budget_mode.value,
+        "budget_value": f"{budget_value:g}",
     }
 
 
@@ -327,6 +687,16 @@ def build_environment(
 ) -> tuple[Environment, int]:
     """Create a fresh environment for one execution."""
     effective_agent_seed = build_config.seed if agent_seed is None else agent_seed
+
+    if build_config.extension is not None and build_config.extension.build_environment_fn is not None:
+        env, max_builds = build_config.extension.build_environment_fn(
+            build_config, runtime_metadata, effective_agent_seed
+        )
+        metric = _resolve_metric(build_config)
+        if hasattr(env, "evaluation_metric"):
+            env.evaluation_metric = metric
+        return env, max_builds
+
     agents = build_agents_from_config(
         build_config.algorithm_configs,
         build_config.policy_names,
@@ -341,17 +711,32 @@ def build_environment(
         build_config.use_context,
         build_config.context_config,
         build_config.feature_groups,
+        build_config.budget_mode,
+        build_config.budget_value,
     )
     env = Environment(
         agents,
         scenario,
-        NAPFDVerdictMetric(),
+        _resolve_metric(build_config),
         results_config=build_config.results_config,
         checkpoint_config=build_config.checkpoint_config,
         telemetry_config=build_config.telemetry_config,
         runtime_metadata=runtime_metadata,
     )
     return env, scenario.max_builds
+
+
+def _resolve_metric(build_config: EnvironmentBuildConfig) -> Any:
+    """Resolve execution metric from extension callback or default metric."""
+    extension = build_config.extension
+    if extension is not None and extension.build_metric_fn is not None and build_config.resolved_spec is not None:
+        return extension.build_metric_fn(
+            build_config.resolved_spec,
+            build_config.dataset,
+            build_config.budget_mode,
+            float(build_config.budget_value or 0.0),
+        )
+    return NAPFDVerdictMetric()
 
 
 def exp_run_industrial_dataset(
@@ -395,7 +780,20 @@ def exp_run_industrial_dataset_isolated(build_config: EnvironmentBuildConfig, pl
         "execution_id": plan.execution_id,
         "worker_id": plan.worker_id,
         "parallel_mode": plan.parallel_mode,
+        "budget_mode": build_config.budget_mode.value,
+        "budget_value": (
+            f"{(build_config.budget_value or 0.0):g}"
+            if build_config.budget_value is None
+            else f"{build_config.budget_value:g}"
+        ),
     }
+
+    prebuilt_env: Environment | Any | None = None
+    effective_trials = plan.trials
+    if build_config.extension is not None and effective_trials <= 0:
+        prebuilt_env, max_builds = build_environment(build_config, runtime_metadata, agent_seed=plan.seed)
+        if isinstance(max_builds, int | float) and not isinstance(max_builds, bool) and max_builds > 0:
+            effective_trials = int(max_builds)
 
     hook_context = HookContext(
         run_id=build_config.run_id,
@@ -404,8 +802,9 @@ def exp_run_industrial_dataset_isolated(build_config: EnvironmentBuildConfig, pl
         worker_id=plan.worker_id,
         parallel_mode=plan.parallel_mode,
         iteration=plan.iteration,
-        trials=plan.trials,
-        sched_time_ratio=build_config.sched_time_ratio,
+        trials=effective_trials,
+        budget_mode=build_config.budget_mode,
+        budget_value=(0.0 if build_config.budget_value is None else build_config.budget_value),
         extensions=build_config.extensions,
     )
 
@@ -417,8 +816,18 @@ def exp_run_industrial_dataset_isolated(build_config: EnvironmentBuildConfig, pl
             hook_context,
             fail_fast=build_config.hook_fail_fast,
         )
-        env, _ = build_environment(build_config, runtime_metadata, agent_seed=plan.seed)
-        exp_run_industrial_dataset(plan.iteration, plan.trials, env, plan.level, runtime_metadata)
+        if prebuilt_env is None:
+            env, max_builds = build_environment(build_config, runtime_metadata, agent_seed=plan.seed)
+            effective_trials = (
+                int(max_builds)
+                if isinstance(max_builds, int | float) and not isinstance(max_builds, bool) and max_builds > 0
+                else effective_trials
+            )
+        else:
+            env = prebuilt_env
+        exp_run_industrial_dataset(plan.iteration, effective_trials, env, plan.level, runtime_metadata)
+        if build_config.extension is not None and build_config.extension.post_execution_fn is not None:
+            build_config.extension.post_execution_fn(hook_context, env)
         dispatch_hook_event(
             execution_hooks,
             "on_execution_end",
@@ -528,7 +937,80 @@ def _effective_parallel_pool_size(
     return parallel_pool_size
 
 
-def run_experiment(spec_dict: dict[str, Any]) -> None:
+def effective_parallel_pool_size(
+    configured_pool_size: int,
+    *,
+    force_sequential_under_scalene: bool = True,
+) -> int:
+    """Public helper mirroring runner Scalene-safe pool-size behavior."""
+    return _effective_parallel_pool_size(
+        configured_pool_size,
+        force_sequential_under_scalene=force_sequential_under_scalene,
+    )
+
+
+def _available_policy_names() -> list[str]:
+    """Return canonical policy names exported by ``coleman.policy``."""
+    names = [name[:-6] for name in coleman.policy.__all__ if name.endswith("Policy") and name != "Policy"]
+    return sorted(set(names), key=str.lower)
+
+
+def _available_reward_names() -> list[str]:
+    """Return canonical reward names exported by ``coleman.reward``."""
+    names = [name[:-6] for name in coleman.reward.__all__ if name.endswith("Reward") and name != "Reward"]
+    return sorted(set(names), key=str.lower)
+
+
+def normalize_and_validate_agent_build(
+    *,
+    algorithm_configs: dict[str, Any],
+    policy_names: list[str],
+    rewards_names: list[str],
+    strict: bool = True,
+) -> tuple[dict[str, Any], list[AgentBuildIssue]]:
+    """Normalize policy configs and validate compatibility before execution."""
+    normalized = deepcopy(algorithm_configs)
+    issues: list[AgentBuildIssue] = []
+
+    available_policy_names = _available_policy_names()
+    available_reward_names = _available_reward_names()
+
+    policy_lookup = {name.lower(): name for name in available_policy_names}
+    reward_lookup = {name.lower(): name for name in available_reward_names}
+
+    for policy_name in policy_names:
+        cfg_key, policy_cfg = _resolve_policy_config(
+            normalized=normalized,
+            policy_name=policy_name,
+            policy_lookup=policy_lookup,
+            issues=issues,
+        )
+        if policy_cfg is None:
+            continue
+
+        _validate_window_size_requirements(
+            policy_name=policy_name,
+            cfg_key=cfg_key,
+            policy_cfg=policy_cfg,
+            issues=issues,
+        )
+        _normalize_portfolio_policy(
+            normalized=normalized,
+            policy_name=policy_name,
+            cfg_key=cfg_key,
+            policy_cfg=policy_cfg,
+            rewards_names=rewards_names,
+            reward_lookup=reward_lookup,
+            available_policy_names=available_policy_names,
+            issues=issues,
+        )
+
+    _raise_if_strict_issues(strict=strict, issues=issues)
+
+    return normalized, issues
+
+
+def _run_experiment_impl(spec_dict: dict[str, Any], extension: RunnerExtension | None = None) -> None:
     """Run a full experiment from a resolved spec dictionary.
 
     This is the bridge between the new YAML/pack-based config system and
@@ -553,6 +1035,9 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
     hooks_config = spec_dict.get("hooks", {})
     extensions = spec_dict.get("extensions", {})
     run_id = spec_dict.get("_run_id")
+    resolved_payload = dict(spec_dict)
+    resolved_payload.pop("_run_id", None)
+    resolved_spec = RunSpec.model_validate(resolved_payload)
 
     parallel_pool_size = execution.get("parallel_pool_size", 10)
     independent_executions = execution.get("independent_executions", 10)
@@ -572,19 +1057,50 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
         coleman.policy.base._rng = np.random.default_rng(seed)
         pl.set_random_seed(seed)
 
-    sched_time_ratio = experiment.get("scheduled_time_ratio", [0.1, 0.5, 0.8])
+    budget_points = _resolve_budget_points(experiment)
     datasets_dir = experiment.get("datasets_dir", "examples")
     datasets = experiment.get("datasets", [])
     experiment_dir = experiment.get("experiment_dir", "results/experiments/")
     rewards_names = experiment.get("rewards", ["RNFail", "TimeRank"])
     policy_names = experiment.get("policies", ["Random"])
 
+    available_policy_names = _available_policy_names()
+    available_reward_names = _available_reward_names()
+
+    policy_names, unknown_policy_names = resolve_requested_names(policy_names, available_policy_names)
+    rewards_names, unknown_reward_names = resolve_requested_names(rewards_names, available_reward_names)
+
+    if unknown_policy_names:
+        warnings.warn(
+            f"Ignoring unknown policy names: {', '.join(unknown_policy_names)}",
+            stacklevel=2,
+        )
+    if unknown_reward_names:
+        warnings.warn(
+            f"Ignoring unknown reward names: {', '.join(unknown_reward_names)}",
+            stacklevel=2,
+        )
+
+    if not policy_names:
+        msg = "No valid policy names resolved from experiment.policies."
+        raise ValueError(msg)
+    if not rewards_names:
+        msg = "No valid reward names resolved from experiment.rewards."
+        raise ValueError(msg)
+
+    normalized_algorithm_configs, _ = normalize_and_validate_agent_build(
+        algorithm_configs=algorithm_configs,
+        policy_names=policy_names,
+        rewards_names=rewards_names,
+        strict=True,
+    )
+
     use_hcs = hcs_config.get("wts_strategy", False)
 
     context_config = contextual_info.get("config", {})
     feature_groups = contextual_info.get("feature_group", {})
 
-    agents = build_agents_from_config(algorithm_configs, policy_names, rewards_names, seed=seed)
+    agents = build_agents_from_config(normalized_algorithm_configs, policy_names, rewards_names, seed=seed)
 
     has_sliding_window_contextual_agent = any(isinstance(agent, SlidingWindowContextualAgent) for agent in agents)
     has_contextual_agent = any(isinstance(agent, ContextualAgent) for agent in agents)
@@ -603,8 +1119,9 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
     current_error_context = run_context
 
     try:
-        for tr in sched_time_ratio:
-            experiment_directory = f"{experiment_dir}time_ratio_{int(tr * 100)}/"
+        for budget_mode, budget_value in budget_points:
+            sched_time_ratio = budget_value if budget_mode is BudgetMode.RATIO else 0.0
+            experiment_directory = f"{experiment_dir}{_budget_directory_segment(budget_mode, budget_value)}/"
             Path(experiment_directory).mkdir(parents=True, exist_ok=True)
 
             for dataset in datasets:
@@ -612,22 +1129,36 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
                     run_id=run_id,
                     dataset_id=dataset,
                     parallel_mode="process" if effective_parallel_pool_size > 1 else "sequential",
-                    sched_time_ratio=tr,
+                    budget_mode=budget_mode,
+                    budget_value=budget_value,
                     extensions=extensions,
                 )
                 current_error_context = dataset_context
                 dispatch_hook_event(coordinator_hooks, "on_dataset_start", dataset_context, fail_fast=hook_fail_fast)
                 dataset_started_at = time.time()
 
-                scenario = get_scenario_provider(
-                    datasets_dir, dataset, tr, use_hcs, use_context, context_config, feature_groups
-                )
-                trials = scenario.max_builds
+                if extension is None:
+                    scenario = get_scenario_provider(
+                        datasets_dir,
+                        dataset,
+                        sched_time_ratio,
+                        use_hcs,
+                        use_context,
+                        context_config,
+                        feature_groups,
+                        budget_mode,
+                        budget_value,
+                    )
+                    trials = scenario.max_builds
+                else:
+                    # Extension environments may not depend on built-in scenario files.
+                    # The final trial count is provided by build_environment_fn per execution.
+                    trials = 0
 
                 build_config = EnvironmentBuildConfig(
                     datasets_dir=datasets_dir,
                     dataset=dataset,
-                    sched_time_ratio=tr,
+                    sched_time_ratio=sched_time_ratio,
                     use_hcs=use_hcs,
                     use_context=use_context,
                     context_config=context_config,
@@ -635,20 +1166,25 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
                     results_config=results_config,
                     checkpoint_config=checkpoint_config,
                     telemetry_config=telemetry_config,
-                    algorithm_configs=algorithm_configs,
+                    algorithm_configs=normalized_algorithm_configs,
                     rewards_names=rewards_names,
                     policy_names=policy_names,
+                    budget_mode=budget_mode,
+                    budget_value=budget_value,
                     seed=seed,
                     run_id=run_id,
                     extensions=extensions,
                     hook_plugin_paths=hook_plugin_paths,
                     hook_fail_fast=hook_fail_fast,
+                    extension=extension,
+                    resolved_spec=resolved_spec,
                 )
 
                 logging.info(
-                    "Starting dataset=%s time_ratio=%.2f executions=%s agents=%s trials=%s",
+                    "Starting dataset=%s budget_mode=%s budget_value=%s executions=%s agents=%s trials=%s",
                     dataset,
-                    tr,
+                    budget_mode,
+                    budget_value,
                     independent_executions,
                     len(agents),
                     trials,
@@ -660,7 +1196,13 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
                         iteration=i + 1,
                         trials=trials,
                         level=level,
-                        execution_id=build_runtime_metadata(dataset, tr, i + 1, parallel_mode)["execution_id"],
+                        execution_id=build_runtime_metadata(
+                            dataset,
+                            i + 1,
+                            parallel_mode,
+                            budget_mode,
+                            budget_value,
+                        )["execution_id"],
                         worker_id=str(i + 1),
                         parallel_mode=parallel_mode,
                         seed=None if seed is None else seed + i,
@@ -701,3 +1243,30 @@ def run_experiment(spec_dict: dict[str, Any]) -> None:
             fail_fast=hook_fail_fast,
         )
         raise
+
+
+def _resolve_budget_points(experiment: dict[str, Any]) -> list[tuple[BudgetMode, float]]:
+    """Resolve experiment budget points from the explicit budget model."""
+    budget = experiment.get("budget", {})
+    budget_mode = BudgetMode(str(budget.get("mode", BudgetMode.RATIO.value)).lower())
+    budget_values = budget.get("values", [0.1, 0.5, 0.8])
+    return [(budget_mode, float(value)) for value in budget_values]
+
+
+def _budget_directory_segment(budget_mode: BudgetMode, budget_value: float) -> str:
+    """Return deterministic directory segment for one budget point."""
+    if budget_mode is BudgetMode.RATIO:
+        return f"time_ratio_{int(round(budget_value * 100))}"
+
+    normalized_value = str(int(budget_value) if int(budget_value) == budget_value else budget_value).replace(".", "_")
+    return f"budget_{budget_mode.value}_{normalized_value}"
+
+
+def run_experiment(spec_dict: dict[str, Any]) -> None:
+    """Run a full experiment from a resolved spec dictionary."""
+    _run_experiment_impl(spec_dict, extension=None)
+
+
+def run_experiment_with_extension(spec_dict: dict[str, Any], extension: RunnerExtension) -> None:
+    """Run experiment preserving orchestration while delegating extension callbacks."""
+    _run_experiment_impl(spec_dict, extension=extension)

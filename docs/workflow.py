@@ -95,8 +95,12 @@ def _(mo, path_class, pd, yaml):
         [
             {"setting": "datasets", "value": ", ".join(experiment_cfg.get("datasets", []))},
             {
-                "setting": "scheduled_time_ratio",
-                "value": ", ".join(str(value) for value in experiment_cfg.get("scheduled_time_ratio", [])),
+                "setting": "budget.mode",
+                "value": str(experiment_cfg.get("budget", {}).get("mode", "ratio")),
+            },
+            {
+                "setting": "budget.values",
+                "value": ", ".join(str(value) for value in experiment_cfg.get("budget", {}).get("values", [])),
             },
             {"setting": "results.enabled", "value": str(results_cfg.get("enabled", False))},
             {"setting": "results.sink", "value": results_cfg.get("sink", "parquet")},

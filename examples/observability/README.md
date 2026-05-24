@@ -28,9 +28,9 @@ No manual datasource setup is required in Grafana.
 The overview dashboard includes "Active Runs" and "Current Cycle By Active
 Experiment" on the top row so optimization progress is visible in real time.
 
-It also includes a `Sched Time Ratio` filter (`time_ratio` label) so you can
-separate runs by CI budget percentage and compare behavior under tighter time
-budgets.
+It also includes a `budget_value` filter so
+you can separate runs by budget value and compare behavior under tighter
+or broader execution budgets.
 
 For step-oriented analysis, prefer the snapshot panels (current iteration)
 instead of timeline panels:

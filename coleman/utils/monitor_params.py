@@ -10,6 +10,7 @@ structured approach to managing data during experiment execution.
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from coleman.budget import BudgetMode
 from coleman.evaluation import EvaluationMetric
 
 
@@ -17,11 +18,8 @@ class ScenarioLoaderLike(Protocol):
     """Minimum interface needed by MonitorCollector during collection."""
 
     name: str
-    avail_time_ratio: float
-
-
-# Backward-compatible alias
-ScenarioProviderLike = ScenarioLoaderLike
+    budget_mode: BudgetMode
+    budget_value: float
 
 
 @dataclass
@@ -32,7 +30,8 @@ class CollectParams:
     ----------
     scenario_provider : ScenarioLoaderLike
         Any object satisfying the ``ScenarioLoaderLike`` protocol (must
-        expose ``name: str`` and ``avail_time_ratio: float``).
+        expose ``name: str``, ``budget_mode: BudgetMode``, and
+        ``budget_value: float``).
     available_time : float
         The time available for scheduling or execution.
     experiment : int
@@ -45,9 +44,9 @@ class CollectParams:
         The reward function used by the agent to observe the environment.
     metric : EvaluationMetric
         The evaluation metric containing experiment results.
-    total_build_duration : int
+    total_build_duration : float
         The total duration of the build process.
-    prioritization_time : int
+    prioritization_time : float
         The time spent on prioritizing the test cases.
     rewards : float
         The average reward from the prioritized test set.
@@ -59,6 +58,10 @@ class CollectParams:
         Logical worker identifier used in parallel runs.
     parallel_mode : str or None
         Execution mode label, for example ``sequential`` or ``process``.
+    budget_mode : BudgetMode or None
+        Budget mode in use (``ratio``, ``fixed_time``, ``subset_size``).
+    budget_value : float or None
+        Numeric budget value associated with ``budget_mode``.
     process_memory_rss_mib : float or None
         Current process resident memory in MiB.
     process_memory_peak_rss_mib : float or None
@@ -80,13 +83,15 @@ class CollectParams:
     policy: str
     reward_function: str
     metric: EvaluationMetric
-    total_build_duration: int
-    prioritization_time: int
+    total_build_duration: float
+    prioritization_time: float
     rewards: float
     prioritization_order: list[Any]
     execution_id: str | None = None
     worker_id: str | None = None
     parallel_mode: str | None = None
+    budget_mode: BudgetMode | None = None
+    budget_value: float | None = None
     process_memory_rss_mib: float | None = None
     process_memory_peak_rss_mib: float | None = None
     process_cpu_utilization_percent: float | None = None

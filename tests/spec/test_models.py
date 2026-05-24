@@ -5,8 +5,10 @@ import json
 import pytest
 from pydantic import ValidationError
 
+from coleman.budget import BudgetMode
 from coleman.spec.models import (
     AlgorithmSpec,
+    BudgetSpec,
     CheckpointSpec,
     ExecutionSpec,
     ExperimentSpec,
@@ -46,7 +48,8 @@ class TestExecutionSpec:
 class TestExperimentSpec:
     def test_defaults(self):
         spec = ExperimentSpec()
-        assert spec.scheduled_time_ratio == [0.1, 0.5, 0.8]
+        assert spec.budget.mode == "ratio"
+        assert spec.budget.values == [0.1, 0.5, 0.8]
         assert spec.datasets_dir == "examples"
         assert spec.datasets == ["alibaba@druid"]
         assert "Random" in spec.policies
@@ -56,6 +59,42 @@ class TestExperimentSpec:
         spec = ExperimentSpec(policies=["LinUCB"], rewards=["TimeRank"])
         assert spec.policies == ["LinUCB"]
         assert spec.rewards == ["TimeRank"]
+
+    def test_budget_config(self):
+        spec = ExperimentSpec(budget=BudgetSpec(mode=BudgetMode.SUBSET_SIZE, values=[5, 10]))
+        assert spec.budget is not None
+        assert spec.budget.mode == "subset_size"
+        assert spec.budget.values == [5.0, 10.0]
+
+
+class TestBudgetSpec:
+    def test_ratio_validation(self):
+        spec = BudgetSpec(mode=BudgetMode.RATIO, values=[0.1, 1.0])
+        assert spec.values == [0.1, 1.0]
+
+    def test_fixed_time_validation(self):
+        spec = BudgetSpec(mode=BudgetMode.FIXED_TIME, values=[30.0, 60.0])
+        assert spec.values == [30.0, 60.0]
+
+    def test_subset_size_requires_integer_values(self):
+        with pytest.raises(ValidationError, match="subset_size"):
+            BudgetSpec(mode=BudgetMode.SUBSET_SIZE, values=[1.5])
+
+    def test_subset_size_requires_positive_values(self):
+        with pytest.raises(ValidationError, match="subset_size"):
+            BudgetSpec(mode=BudgetMode.SUBSET_SIZE, values=[0])
+
+    def test_budget_values_must_not_be_empty(self):
+        with pytest.raises(ValidationError, match="must contain at least one value"):
+            BudgetSpec(mode=BudgetMode.RATIO, values=[])
+
+    def test_ratio_requires_values_within_open_closed_interval(self):
+        with pytest.raises(ValidationError, match=r"within \(0, 1\]"):
+            BudgetSpec(mode=BudgetMode.RATIO, values=[0.0, 1.2])
+
+    def test_fixed_time_requires_positive_values(self):
+        with pytest.raises(ValidationError, match="fixed_time"):
+            BudgetSpec(mode=BudgetMode.FIXED_TIME, values=[0.0])
 
 
 class TestAlgorithmSpec:
