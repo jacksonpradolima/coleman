@@ -2,11 +2,11 @@
 
 [![Docs](https://img.shields.io/badge/Docs-Coleman%20Site-3D9970?style=flat-square)](https://jacksonpradolima.github.io/coleman/)
 ![](https://img.shields.io/badge/python-3.14+-blue.svg)
-[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=jacksonpradolima_coleman&metric=bugs)](https://sonarcloud.io/summary/new_code?id=jacksonpradolima_coleman)
-[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=jacksonpradolima_coleman&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=jacksonpradolima_coleman)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=jacksonpradolima_coleman&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=jacksonpradolima_coleman)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=jacksonpradolima_coleman&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=jacksonpradolima_coleman)
-[![codecov](https://codecov.io/github/jacksonpradolima/coleman/branch/main/graph/badge.svg?token=BW04LB0B5Y)](https://codecov.io/github/jacksonpradolima/coleman)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=jacksonpradolima_coleman4hcs&metric=bugs)](https://sonarcloud.io/summary/new_code?id=jacksonpradolima_coleman4hcs)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=jacksonpradolima_coleman4hcs&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=jacksonpradolima_coleman4hcs)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=jacksonpradolima_coleman4hcs&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=jacksonpradolima_coleman4hcs)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=jacksonpradolima_coleman4hcs&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=jacksonpradolima_coleman4hcs)
+[![codecov](https://codecov.io/github/jacksonpradolima/coleman/branch/main/graph/badge.svg?token=BW04LB0B5Y)](https://codecov.io/github/jacksonpradolima/coleman4hcs)
 
 
 ### Solving the Test Case Prioritization using Multi-Armed Bandit Algorithms
