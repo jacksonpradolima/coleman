@@ -136,6 +136,9 @@ flowchart TD
     Store --> Projection
     Projection --> Evidence
     Store --> Evidence[Inspection and immutable prefix evidence]
+    Evidence --> Manifest[One verified digest-bound manifest per connection]
+    Manifest --> Download[Owned byte ranges and requested-file integrity]
+    Jobs --> Download
     Evidence --> App
 ```
 
@@ -183,3 +186,15 @@ protected access. Partial trial summaries are explicitly labeled projections wit
 full-receipt/ranking digests. Large completed reports and original native bytes use
 caller-owned artifact handles and bounded byte-range downloads, with no private
 learning pickle in the export membership.
+
+Reusing a completed stage rechecks every metric against its pinned Parquet, with
+aggregate footer limits before decoding. Continuation rejects a valid but older
+checkpoint/marker pair when durable job metadata already acknowledges a later
+build, before restoring RNG or reconciling native output.
+
+A connected service retains at most one digest-bound artifact manifest: up to
+65,538 descriptors and the existing 16 MiB limits on each plan/report payload.
+Subsequent ranges check live ownership/completion and the requested native or
+source file's bytes; they do not rehash unrelated files or reparse the report.
+Verified plan/report bytes remain immutable snapshots. Closing or reconnecting
+starts a fresh verification; expiry prevents cached downloads as well.

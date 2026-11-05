@@ -5,6 +5,9 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+import polars as pl
+import pyarrow.parquet as pq
+
 from coleman.application.baseline_storage import _bounded_native_table, read_baseline_artifact
 from coleman.artifacts import ArtifactWriter
 from coleman.corpus.materialization import validate_source_storage
@@ -81,7 +84,34 @@ def verify_trial(root: Path, path: Path, plan: ExperimentPlan, trial: Trial, sta
     for pin in receipt.files:
         if pin_file(root, root / pin.name) != pin:
             raise WorkflowError("Workflow native evidence bytes changed")
+    if _receipt_native_rows(root, receipt, plan, trial) != receipt.rows:
+        raise WorkflowError("Workflow receipt metrics differ from actual native bytes")
     return receipt
+
+
+def _receipt_native_rows(root: Path, receipt: TrialResult, plan: ExperimentPlan, trial: Trial) -> tuple[NativeRow, ...]:
+    """Check aggregate stage footers before decoding only the pinned native files."""
+    paths, rows, decoded, encoded = [], 0, 0, 0
+    for pin in receipt.files:
+        path = root / pin.name
+        if path.suffix != ".parquet":
+            raise WorkflowError("Workflow native evidence must be Parquet")
+        encoded += pin.size_bytes
+        with pq.ParquetFile(path) as source:
+            rows += source.metadata.num_rows
+            decoded += sum(source.metadata.row_group(i).total_byte_size for i in range(source.metadata.num_row_groups))
+            if rows > len(receipt.rows) or decoded > 67108864 or len(source.schema_arrow) > 64:
+                raise WorkflowError("Workflow native receipt exceeds aggregate row/column/decoded-byte bounds")
+        if encoded > plan.request.limits.max_output_bytes:
+            raise WorkflowError("Workflow native receipt exceeds its encoded byte allowance")
+        paths.append(path)
+    if rows != len(receipt.rows):
+        raise WorkflowError("Workflow native receipt has missing rows")
+    try:
+        table = pl.read_parquet(paths, hive_partitioning=True, glob=False)
+    except pl.exceptions.PolarsError as error:
+        raise WorkflowError("Workflow native receipt schema is incompatible") from error
+    return native_rows(table, plan, trial)
 
 
 def publish_trial(

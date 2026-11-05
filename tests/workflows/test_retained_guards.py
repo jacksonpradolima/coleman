@@ -9,7 +9,7 @@ from functools import partial
 import polars as pl
 import pytest
 
-from coleman.application.workflow_artifacts import verify_trial
+from coleman.application.workflow_artifacts import pin_file, verify_trial
 from coleman.application.workflow_checkpoint import WorkflowRandomState
 from coleman.application.workflow_downloads import artifact_page
 from coleman.application.workflow_exports import EvidenceBundle
@@ -118,7 +118,7 @@ def complete(tmp_path_factory):
     return service, job, service.saved_plan(preview.plan_id), service.report(job.job_id)
 
 
-@pytest.mark.parametrize("change", ["binding", "steps", "source", "duplicate_files", "missing_bytes"])
+@pytest.mark.parametrize("change", ["binding", "steps", "source", "duplicate_files", "missing_bytes", "napfd", "apfdc"])
 def test_local_receipt_corruption_cannot_be_reused(complete, tmp_path, change):
     service, job, plan, report = complete
     receipt = report.trials[0]
@@ -132,12 +132,36 @@ def test_local_receipt_corruption_cannot_be_reused(complete, tmp_path, change):
         data["rows"][0]["source_build_id"] = 99
     elif change == "duplicate_files":
         data["files"].append(data["files"][0])
+    elif change in ("napfd", "apfdc"):
+        data["rows"][0][change] = 0.25 if data["rows"][0][change] != 0.25 else 0.75
     else:
         data["files"][0]["name"] = "absent.parquet"
     path = tmp_path / "receipt.json"
     path.write_text(json.dumps(data))
     with pytest.raises((ValueError, OSError)):
         verify_trial(service.store.root / "jobs" / job.job_id, path, plan, trial, "descriptive")
+
+
+def test_local_receipt_bounds_aggregate_decoding_before_reading_rows(complete, tmp_path, monkeypatch):
+    _, _, plan, report = complete
+    receipt = report.trials[0]
+    trial = next(t for t in plan.trials if t.trial_id == receipt.trial_id)
+    target = tmp_path / receipt.files[0].name
+    target.parent.mkdir(parents=True)
+    pl.DataFrame({"oversized": [str(i) + "x" * (24 * 1024**2) for i in range(3)]}).write_parquet(
+        target, use_pyarrow=True, pyarrow_options={"use_dictionary": False}
+    )
+    pin = pin_file(tmp_path, target)
+    changed = receipt.model_copy(update={"files": (pin,)})
+    path = tmp_path / "receipt.json"
+    path.write_text(changed.to_json())
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Oversized native footers must reject before row decoding")
+
+    monkeypatch.setattr(pl, "read_parquet", forbidden)
+    with pytest.raises(ValueError, match="decoded-byte"):
+        verify_trial(tmp_path, path, plan, trial, "descriptive")
 
 
 def test_imported_descriptive_evidence_rejects_duplicate_physical_reservations(complete):

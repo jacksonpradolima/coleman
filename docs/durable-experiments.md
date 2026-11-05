@@ -352,6 +352,9 @@ not silently reset learning. Restoring the exact original private files permits
 compatible continuation. Portable evidence cannot supply those executable files.
 An unsuccessful restoration retains that acknowledged frontier as well: a later
 retry cannot erase the obligation to continue the original learned state.
+Restoring an otherwise valid checkpoint/marker pair from an earlier build also
+rejects before RNG restoration or native output reconciliation; it cannot rewind
+work that durable job metadata already acknowledges.
 
 Native checkpoints also retain the global Random policy generator through the
 existing `CheckpointPayload.extra` extension, with a versioned PCG64 codec and

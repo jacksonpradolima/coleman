@@ -176,7 +176,10 @@ def _execute_trial(store, job, plan, trial, steps, progress_hook, deadline) -> T
         if progress_hook is not None:
             progress_hook(trial.trial_id, step)
 
-    native = execute_native(root, plan, trial, steps, progress, attempt_id=attempt_id)
+    minimum_step = job.checkpoint_step if job.current_trial == trial.trial_id else 0
+    if job.stage == "evaluation":
+        minimum_step = max(minimum_step, _prefix_steps(plan))
+    native = execute_native(root, plan, trial, steps, progress, attempt_id=attempt_id, minimum_step=minimum_step)
     _check_output(store, job.job_id, plan, deadline)
     result = publish_trial(root, native, plan, trial, job.stage, steps)
     _check_output(store, job.job_id, plan, deadline)

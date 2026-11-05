@@ -62,6 +62,53 @@ def test_bounded_file_handles_reassemble_exact_plan_report_and_native_bytes(comp
     assert service.status(job.job_id).attempts == 8
 
 
+def test_chunk_ranges_verify_membership_once_per_service_and_preserve_expiry(completed, monkeypatch):
+    import coleman.application.workflow_downloads as downloads
+
+    original_service, job = completed
+    service = WorkflowService(original_service.store.root)
+    calls = []
+    original = downloads._membership
+
+    def counted(*args):
+        calls.append(args[1])
+        return original(*args)
+
+    monkeypatch.setattr(downloads, "_membership", counted)
+    descriptor = artifact_page(service, job.job_id, limit=2).artifacts[1]
+    for offset in (0, 32, 64, 96):
+        chunk = read_artifact(service, job.job_id, descriptor.artifact_id, offset=offset, maximum_bytes=32)
+        assert len(base64.b64decode(chunk.content_base64)) == 32
+    assert calls == [job.job_id]
+    with service.store.transaction() as connection:
+        record = service._job(connection, job.job_id)
+        expired = JobRecord.model_validate({**record.model_dump(), "state": "expired"})
+        service.store.save_job(connection, expired)
+    try:
+        with pytest.raises(ValueError, match="completed"):
+            read_artifact(service, job.job_id, descriptor.artifact_id)
+    finally:
+        with service.store.transaction() as connection:
+            service.store.save_job(connection, record)
+
+
+def test_cached_manifest_still_verifies_requested_native_bytes(completed):
+    original, job = completed
+    service = WorkflowService(original.store.root)
+    descriptor = next(a for a in artifact_page(service, job.job_id, limit=32).artifacts if a.kind == "native_parquet")
+    path = service.store.root / "jobs" / job.job_id / descriptor.name
+    before = path.read_bytes()
+    path.write_bytes(before[:-1] + bytes([before[-1] ^ 1]))
+    try:
+        with pytest.raises(ValueError, match="changed"):
+            read_artifact(service, job.job_id, descriptor.artifact_id)
+    finally:
+        path.write_bytes(before)
+    assert base64.b64decode(read_artifact(service, job.job_id, descriptor.artifact_id).content_base64) == before
+    service.close()
+    assert service._artifact_manifest is None
+
+
 @pytest.mark.parametrize("offset,limit", [(-1, 1), (True, 1), (0, 0), (0, 65)])
 def test_invalid_manifest_page_rejects_before_read(completed, offset, limit):
     service, job = completed

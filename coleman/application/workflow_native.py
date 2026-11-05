@@ -76,6 +76,7 @@ def _build(
     allowed: tuple[int, ...],
     attempt_id: str,
     binding: str,
+    minimum_step: int,
     progress: Callable[[int], None],
 ):
     """Build actual native components; only the execution frontier is stage bounded."""
@@ -92,12 +93,21 @@ def _build(
         runtime_metadata=metadata,
     )
     env.progress = progress
-    env.checkpoint_store = WorkflowCheckpointStore(str(config.checkpoint_config["base_dir"]), binding)
+    env.checkpoint_store = WorkflowCheckpointStore(
+        str(config.checkpoint_config["base_dir"]), binding, minimum_step=minimum_step
+    )
     return env, steps
 
 
 def execute_native(
-    root: Path, plan: ExperimentPlan, trial: Trial, steps: int, progress: Callable[[int], None], *, attempt_id: str
+    root: Path,
+    plan: ExperimentPlan,
+    trial: Trial,
+    steps: int,
+    progress: Callable[[int], None],
+    *,
+    attempt_id: str,
+    minimum_step: int = 0,
 ) -> Path:
     """Run/continue one real logical coordinate with a stable native configuration.
 
@@ -118,6 +128,9 @@ def execute_native(
     attempt_id : str
         Host-issued physical reservation ID, supplied outside RunSpec so native
         logical/checkpoint identity remains stable through continuation.
+    minimum_step : int
+        Per-trial native build ordinal already acknowledged by durable metadata.
+        Older restored state is rejected before RNG or native output recovery.
 
     Returns
     -------
@@ -137,6 +150,8 @@ def execute_native(
     """
     if not 1 <= steps <= len(plan.dataset.build_ids):
         raise WorkflowError("Invalid native workflow frontier")
+    if type(minimum_step) is not int or not 0 <= minimum_step <= steps:
+        raise WorkflowError("Acknowledged native frontier exceeds the requested stage")
     payload = RunSpec.model_validate_json(trial.resolved_spec_json).model_dump()
     payload["experiment"]["datasets_dir"] = str(root / "inputs")
     payload["results"]["out_dir"] = str(root / "native" / trial.trial_id[7:])
@@ -151,6 +166,7 @@ def execute_native(
                 progress=progress,
                 attempt_id=attempt_id,
                 binding=fingerprint([plan.fingerprint, trial.trial_id]),
+                minimum_step=minimum_step,
             )
         ),
     )

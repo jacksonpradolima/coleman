@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import base64
 import hashlib
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import Field, model_validator
@@ -73,6 +77,22 @@ class EvidenceArtifact(WorkflowContract):
     name: Annotated[str, Field(strict=True, max_length=512)]
     kind: Literal["plan", "report", "native_parquet", "source_receipt"]
     size_bytes: Annotated[int, Field(strict=True, ge=0, le=67108864)]
+
+
+@dataclass(frozen=True)
+class _ArtifactManifest:
+    """One connection-local, digest-bound manifest; never persistent executable state.
+
+    At most one completed job is retained by a service, with at most 65,538
+    descriptors and the existing 16 MiB limits on each plan/report payload.
+    Native/source files remain paths and are rehashed only when requested.
+    """
+
+    owner: str
+    job_id: str
+    result_digest: Fingerprint
+    entries: tuple[tuple[EvidenceArtifact, bytes | Path], ...]
+    by_id: Mapping[str, tuple[EvidenceArtifact, bytes | Path]]
 
 
 class ArtifactPage(WorkflowContract):
@@ -247,15 +267,37 @@ def artifact_page(service: WorkflowService, job_id: str, *, offset: int = 0, lim
     """
     if type(offset) is not int or type(limit) is not int or not 0 <= offset <= 65538 or not 1 <= limit <= 64:
         raise WorkflowError("Artifact pages require bounded integer offsets and one through 64 descriptors")
-    report, values = _membership(service, job_id)
+    manifest = _resolved_membership(service, job_id)
+    values = manifest.entries
     return ArtifactPage(
         schema_version=1,
         job_id=job_id,
-        result_digest=report.fingerprint,
+        result_digest=manifest.result_digest,
         artifacts=tuple(item for item, _ in values[offset : offset + limit]),
         total_artifacts=len(values),
         next_offset=offset + limit if offset + limit < len(values) else None,
     )
+
+
+def _resolved_membership(service: WorkflowService, job_id: str) -> _ArtifactManifest:
+    """Verify once per retained job/digest while checking current ownership/state on every read."""
+    view = service.status(job_id)
+    if view.state != "completed" or view.result_digest is None:
+        service._artifact_manifest = None
+        raise WorkflowError("Workflow has no completed report")
+    manifest = service._artifact_manifest
+    binding = (service.owner, job_id, view.result_digest)
+    if manifest is not None and (manifest.owner, manifest.job_id, manifest.result_digest) == binding:
+        return manifest
+    report, entries = _membership(service, job_id)
+    if report.fingerprint != view.result_digest or len(entries) > 65538:
+        raise WorkflowError("Workflow artifact manifest binding/count mismatch")
+    by_id = {item.artifact_id: (item, source) for item, source in entries}
+    if len(by_id) != len(entries):
+        raise WorkflowError("Workflow artifact manifest has duplicate handles")
+    manifest = _ArtifactManifest(service.owner, job_id, report.fingerprint, entries, MappingProxyType(by_id))
+    service._artifact_manifest = manifest
+    return manifest
 
 
 def read_artifact(
@@ -280,6 +322,13 @@ def read_artifact(
         Exact bytes, complete-file/chunk digests and next offset. Reassemble and
         verify the whole-file digest; chunks are not executable checkpoint imports.
 
+    Notes
+    -----
+    Each service retains at most one verified manifest. Subsequent ranges check
+    live ownership/completion and the requested file's hash without reparsing
+    the report or rehashing unrelated files. Plan/report bytes are immutable
+    verified snapshots. Reconnecting or closing the service drops this cache.
+
     Raises
     ------
     KeyError, ValueError, OSError
@@ -288,8 +337,8 @@ def read_artifact(
     """
     if type(offset) is not int or type(maximum_bytes) is not int or offset < 0 or not 1 <= maximum_bytes <= 65536:
         raise WorkflowError("Artifact reads require bounded integer byte offsets and at most 64 KiB")
-    _, values = _membership(service, job_id)
-    found = next(((item, source) for item, source in values if item.artifact_id == artifact_id), None)
+    manifest = _resolved_membership(service, job_id)
+    found = manifest.by_id.get(artifact_id)
     if found is None:
         raise KeyError("No owned workflow evidence artifact")
     item, source = found

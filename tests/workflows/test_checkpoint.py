@@ -147,3 +147,69 @@ def test_descriptive_resume_cannot_reset_a_previously_committed_native_checkpoin
     reference = service.execute(ExecutePlan(schema_version=1, request_id="fresh-reference", plan_id=preview.plan_id))
     wait(service, reference.job_id)
     assert mathematics(service.report(job.job_id)) == mathematics(service.report(reference.job_id))
+
+
+def test_valid_older_checkpoint_pair_cannot_rewind_the_acknowledged_frontier(tmp_path, monkeypatch):
+    service, preview = setup_workflow(tmp_path, policies=("Random",), seeds=(42,))
+    with monkeypatch.context() as patch:
+        patch.setattr(service, "_start", lambda: None)
+        job = service.execute(ExecutePlan(schema_version=1, request_id="rolled-back-pair", plan_id=preview.plan_id))
+    capture = """    if step==1:
+        marker=next((root/'jobs'/job_id/'native').rglob('progress_ex1.json'))
+        (root/'earlier-marker.json').write_bytes(marker.read_bytes())
+"""
+    code = _CRASH_AT_REAL_CHECKPOINT.replace("    if job.completed_trials==1 and step==1:", capture + "    if step==2:")
+    with baseline_lock(tmp_path / "locks" / f"{job.job_id}.lock", handoff=True) as descriptor:
+        with service.store.transaction() as connection:
+            record = service._job(connection, job.job_id)
+            service.store.save_job(
+                connection, JobRecord.model_validate({**record.model_dump(), "state": "running", "invocations": 1})
+            )
+        process = subprocess.Popen(
+            [sys.executable, "-c", code, str(tmp_path), job.job_id],
+            pass_fds=(descriptor,),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
+    _, error = process.communicate(timeout=30)
+    assert process.returncode == 87, error.decode()
+    assert service.status(job.job_id).checkpoint_step == 2
+    root = tmp_path / "jobs" / job.job_id
+    marker = next((root / "native").rglob("progress_ex1.json"))
+    acknowledged = marker.read_bytes()
+    native_bytes = {p: p.read_bytes() for p in (root / "native").rglob("*.parquet")}
+    marker.write_bytes((tmp_path / "earlier-marker.json").read_bytes())
+    assert json.loads(marker.read_text())["step_committed"] == 1
+    service.resume(job.job_id)
+    rejected = wait(service, job.job_id, "failed")
+    assert rejected.checkpoint_step == 2
+    assert all(p.read_bytes() == payload for p, payload in native_bytes.items())
+    marker.write_bytes(acknowledged)
+    service.resume(job.job_id)
+    wait(service, job.job_id)
+    reference = service.execute(ExecutePlan(schema_version=1, request_id="rollback-reference", plan_id=preview.plan_id))
+    wait(service, reference.job_id)
+    assert mathematics(service.report(job.job_id)) == mathematics(service.report(reference.job_id))
+
+
+@pytest.mark.parametrize("minimum", [-1, True, 1.5, 513])
+def test_acknowledged_frontier_requires_a_bounded_ordinal(tmp_path, minimum):
+    with pytest.raises(ValueError, match="frontier"):
+        WorkflowCheckpointStore(str(tmp_path), "sha256:" + "a" * 64, minimum_step=minimum)
+
+
+def test_older_or_missing_frontier_rejects_before_pickle_or_rng_restore(tmp_path, monkeypatch):
+    store = WorkflowCheckpointStore(str(tmp_path), "sha256:" + "a" * 64)
+    store.save(CheckpointPayload(run_id="owned", experiment=1, step=1))
+    strict = WorkflowCheckpointStore(str(tmp_path), "sha256:" + "a" * 64, minimum_step=2)
+
+    def forbidden(*args):
+        raise AssertionError("An older frontier must reject before loading executable state")
+
+    monkeypatch.setattr(LocalCheckpointStore, "load", forbidden)
+    before = policy_base._rng.bit_generator.state
+    with pytest.raises(ValueError, match="acknowledged"):
+        strict.load("owned", 1)
+    assert policy_base._rng.bit_generator.state == before
+    with pytest.raises(ValueError, match="acknowledged"):
+        strict.load("absent", 1)

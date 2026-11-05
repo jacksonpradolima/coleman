@@ -66,6 +66,10 @@ class WorkflowCheckpointStore(LocalCheckpointStore):
         never supply executable checkpoint files or this path.
     binding : str
         Exact frozen workflow/trial fingerprint, verified before restoring RNG state.
+    minimum_step : int
+        Already acknowledged per-trial native build ordinal, zero through 512.
+        Older or absent state rejects before pickle loading, RNG restoration or
+        native output reconciliation. Zero permits a genuinely fresh trial.
 
     Notes
     -----
@@ -77,10 +81,13 @@ class WorkflowCheckpointStore(LocalCheckpointStore):
     single native worker, as the workflow coordinator does, never concurrent threads.
     """
 
-    def __init__(self, base_dir: str, binding: str):
+    def __init__(self, base_dir: str, binding: str, *, minimum_step: int = 0):
         """Configure the existing native store and its required workflow compatibility binding."""
+        if type(minimum_step) is not int or not 0 <= minimum_step <= 512:
+            raise ValueError("Acknowledged checkpoint frontier must be an integer from zero through 512")
         super().__init__(base_dir)
         self.binding = binding
+        self.minimum_step = minimum_step
 
     def save(self, payload: CheckpointPayload) -> None:
         """Save native state and the actual global generator together through its existing extra field.
@@ -126,6 +133,8 @@ class WorkflowCheckpointStore(LocalCheckpointStore):
         """
         marker = Path(self.base_dir) / run_id / f"progress_ex{experiment}.json"
         if not marker.exists():
+            if self.minimum_step:
+                raise WorkflowError("Previously acknowledged native checkpoint is missing")
             return None
         validate_source_storage(marker)
         with marker.open("rb") as stream:
@@ -136,6 +145,8 @@ class WorkflowCheckpointStore(LocalCheckpointStore):
         step = progress.get("step_committed")
         if type(step) is not int or not 1 <= step <= 512:
             raise WorkflowError("Native checkpoint frontier is incompatible with this workflow")
+        if step < self.minimum_step:
+            raise WorkflowError("Native checkpoint is older than its acknowledged workflow frontier")
         expected = marker.parent / f"ckpt_ex{experiment}_step{step}.pkl"
         if (
             progress.get("checkpoint_path") != str(expected)

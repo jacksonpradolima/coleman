@@ -7,6 +7,7 @@ import shutil
 import time
 from contextlib import closing
 from pathlib import Path
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import polars as pl
@@ -34,6 +35,9 @@ from coleman.workflows.lifecycle import (
     WorkflowReport,
 )
 from coleman.workflows.planning import make_plan
+
+if TYPE_CHECKING:
+    from coleman.application.workflow_downloads import _ArtifactManifest
 
 _QUEUE_CAPACITY_ERROR = "Workspace running/queue capacity is exhausted"
 
@@ -81,9 +85,11 @@ class WorkflowService:
         """Open durable metadata; no fixture, source acquisition or native work is implicit."""
         self.owner = TypeAdapter(WorkflowId).validate_python(owner)
         self.store = WorkflowStore(root, policy)
+        self._artifact_manifest: _ArtifactManifest | None = None
 
     def close(self) -> None:
-        """Detach this stateless handle; persisted jobs/workers/evidence remain owned by the host."""
+        """Release the bounded connection-local artifact cache; durable jobs/evidence remain owned by the host."""
+        self._artifact_manifest = None
 
     def reconnect(self) -> tuple[JobView, ...]:
         """Reconcile owned jobs and restart only the trusted workspace coordinator.

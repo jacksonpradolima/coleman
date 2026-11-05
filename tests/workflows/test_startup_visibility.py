@@ -16,6 +16,7 @@ from tests.workflows.test_execution import setup_workflow
 _OBSERVE_INITIAL_SNAPSHOT = """
 import sys
 from pathlib import Path
+from coleman.artifacts import ArtifactWriter
 import coleman.application.workflow_worker as worker
 from coleman.application.workflow_supervisor import main
 original_read = worker._read_job
@@ -23,7 +24,7 @@ marker = Path(sys.argv[2]) / 'initial-worker-snapshot.txt'
 def observe(store, job_id):
     job = original_read(store, job_id)
     if not marker.exists():
-        marker.write_text(job.state)
+        ArtifactWriter(marker.parent).write_immutable(marker, job.state)
     return job
 worker._read_job = observe
 main()
