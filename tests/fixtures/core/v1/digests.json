@@ -1,0 +1,11 @@
+{
+  "capability.json": "4dbdbd8d16d0fafee7a640fe5d63f4d2263292ddd4d1d5449d8f49f788b91ca4",
+  "choice-action.json": "e7463a7fbc197a26431ffc6049acde9f250571b0a8fbe240309f62271e4ba6b6",
+  "decision-request.json": "4ae1387ed33d3c6ba92c05e3da933bdb5c0bbb78d855e1288fb3afbffe431138",
+  "decision.json": "4ffc424da7e23f5bd1c62325668f71c26d5f15d48a064fc02b7586b87b72a84e",
+  "executed-decision.json": "88a5de22e7b1ebb4b0a464dbfa49026aa32d707dd11d0397ed7292c2a49c52d8",
+  "feedback-batch.json": "426f9779d7d5b72136e3459ac4aff724285fbb1984d76b5542e98ca0948b3e8b",
+  "mixture-action.json": "86f6fef78fcef5b1d958b700159fccf72f036d8264b13f0249c3e7886f681599",
+  "problem-capabilities.json": "fabeb9ea52a131d99c5442023ebf1f5395804f9005270ab55333d1a6fc4b85b5",
+  "ranking-action.json": "32b4b7d25bcd09a1bee6816b2e0e4c3d6a41ea91ecbba5d9828382aab87a3b05"
+}

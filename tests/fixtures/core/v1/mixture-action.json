@@ -1,0 +1,1 @@
+{"kind":"mixture","schema_version":1,"space":{"feasible_set":{"id":"two-alternatives","version":"v1"},"kind":"mixture","members":[{"id":"a","version":"v1"},{"id":"b","version":"v1"}],"profile":"binary64-simplex-v1"},"weights":[{"member":{"id":"a","version":"v1"},"value":0.25},{"member":{"id":"b","version":"v1"},"value":0.75}]}

@@ -1,0 +1,1 @@
+{"decision_id":"build-42","inputs":[],"member_inputs":[],"objective":{"id":"detect-faults-under-ci-budget","version":"v1"},"round":0,"schema_version":1,"signals":[],"space":{"feasible_set":{"id":"two-alternatives","version":"v1"},"kind":"choice","members":[{"id":"a","version":"v1"},{"id":"b","version":"v1"}]},"task":{"id":"ci-suite-selection","version":"v1"},"timing":null}

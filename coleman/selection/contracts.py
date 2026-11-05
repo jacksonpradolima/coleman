@@ -6,8 +6,6 @@ from decimal import MAX_EMAX, MIN_EMIN, ROUND_HALF_EVEN, Context, Decimal, local
 from typing import Annotated, Any, Literal, Self, cast
 
 from pydantic import (
-    BaseModel,
-    ConfigDict,
     Field,
     ValidatorFunctionWrapHandler,
     field_serializer,
@@ -15,6 +13,8 @@ from pydantic import (
     model_validator,
 )
 
+from coleman.core.base import Immutable as Immutable
+from coleman.core.units import UnitSemantics as UnitSemantics
 from coleman.results.domain import Fingerprint, Identifier
 from coleman.results.versioned import VersionedContract
 
@@ -90,19 +90,6 @@ def validate_decimal_schema(value: Any, handler: ValidatorFunctionWrapHandler) -
     context = Context(prec=110, Emin=MIN_EMIN, Emax=MAX_EMAX, rounding=ROUND_HALF_EVEN, traps=[])
     with localcontext(context):
         return cast(Decimal, handler(value))
-
-
-class Immutable(BaseModel):
-    """Strict immutable nested input; unchecked instances are revalidated at boundaries."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True, revalidate_instances="always")
-
-
-class UnitSemantics(Immutable):
-    """A unit symbol and versioned meaning; mismatches never trigger implicit conversion."""
-
-    unit: Identifier
-    meaning: Identifier
 
 
 class Quantity(Immutable):

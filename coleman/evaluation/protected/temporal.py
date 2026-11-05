@@ -3,38 +3,19 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import UTC, datetime
-from typing import Annotated, Any, Literal, Self
+from datetime import datetime
+from typing import Any, Literal, Self
 
 from pydantic import (
-    AfterValidator,
-    AwareDatetime,
     BaseModel,
-    BeforeValidator,
     ConfigDict,
     model_validator,
 )
 
+from coleman.core.temporal import Timestamp as Timestamp
 from coleman.results.domain import Identifier
 
 Partition = Literal["train", "validation", "test"]
-
-
-def _iso_time(value: Any) -> Any:
-    """Accept ISO strings or datetimes, without numeric epoch/scale inference."""
-    if isinstance(value, str):
-        return datetime.fromisoformat(value)
-    if not isinstance(value, datetime):
-        raise ValueError("An explicitly zoned ISO timestamp is required")
-    return value
-
-
-def _utc(value: datetime) -> datetime:
-    """Normalize aware instants to UTC; AwareDatetime rejects naive inputs first."""
-    return value.astimezone(UTC)
-
-
-Timestamp = Annotated[AwareDatetime, BeforeValidator(_iso_time), AfterValidator(_utc)]
 
 
 class TemporalObservation(BaseModel):  # pylint: disable=too-few-public-methods

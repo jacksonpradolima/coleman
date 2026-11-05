@@ -6,11 +6,15 @@ selection remain a first-class application. A researcher should also be able to
 use a learner in a notebook, solve a finite allocation problem, or compose an
 experiment without constructing a CI environment.
 
-**Status:** this page specifies the v5 architecture. It does not introduce the
-proposed generic APIs. The implementation baseline is COLEMAN **4.20.0**, commit
+**Status:** this page specifies the v5 architecture. The v5 integration source
+now implements [generic decision contracts and direct-use protocols](decision-contracts.md)
+in a lightweight core. Generic learners, adapters and durable sessions below
+remain planned until individually qualified. The original implementation baseline
+is COLEMAN **4.20.0**, commit
 `1edbee874129aa85e26e592d9649826e85e1ac6b`. Examples explicitly identified as
 existing use that source. Proposed namespaces and call sequences below are design
-contracts to qualify in subsequent work, rather than importable APIs today.
+contracts to qualify in subsequent work, except for the explicitly linked
+implemented contract layer. No v5 release wheel has been published.
 
 Read the [compatibility and migration policy](v5-compatibility.md) alongside this
 specification. Use the [current getting-started guide](getting-started.md) for the
@@ -41,9 +45,9 @@ thin wrapper; inheritance from a framework-wide `Problem` or `Agent` is unnecess
 Conceptually, direct learning supplies a loss vector to an update and inspects
 new weights; direct MAB asks for one action, supplies that action's outcome and
 exports/restores its algorithm/RNG state; direct solving supplies a problem and
-receives a checked result. These are **proposed interactions**, not Python method
-signatures. Contract implementation must publish and test the actual signatures
-before documentation offers executable generic examples.
+receives a checked result. The [contract guide](decision-contracts.md) now publishes
+the direct structural protocol signatures and an executable CI contract cycle.
+The actual generic learning methods remain separate implementation work.
 
 ## Components and responsibility
 
@@ -75,7 +79,7 @@ flowchart TD
     Host[User application or notebook] --> DirectLearner[Planned direct learner and MAB capabilities]
     Host --> DirectSolver[Planned solver boundary reusing existing finite solvers]
     Host --> Problem[Planned typed problem adapters including CI]
-    Problem --> Contracts[Planned generic contracts and capability validation]
+    Problem --> Contracts[Implemented generic contracts and capability validation]
     DirectLearner --> Contracts
     DirectSolver --> Contracts
     DirectLearner --> State[Planned owned algorithm state and RNG]
@@ -240,9 +244,10 @@ flowchart LR
 
 ## Dependency direction and staged extraction
 
-Start with one maintained distribution and logical modularity. The proposed
+Start with one maintained distribution and logical modularity. The implemented
 `coleman.core` namespace contains minimal contracts, temporal/numeric primitives
-and independently usable learner capabilities. It may have internal submodules;
+and direct-use structural protocols. Independently usable learning methods remain
+planned. It may have internal submodules;
 there is no requirement to publish one wheel per abstraction. Existing import
 paths remain subject to the explicit compatibility policy.
 
@@ -301,8 +306,10 @@ imports for transitive imports and package initializers. Installed checks run
 outside the checkout with optional integrations absent, no network discovery or
 storage initialization. Cycles and forbidden edges fail the gate; allowlists
 name specific transitional legacy modules rather than exempting the new core.
-The architecture issue specifies this graph; it does not claim the future core
-boundary is implemented by documenting it.
+The decision-contract implementation qualifies this boundary with AST and
+noneditable-wheel cold-import tests for the new core contracts. This does not
+qualify the future learner graph, a resolver-minimal installation or all optional
+dependency combinations; those remain staged extraction work.
 
 ## Two executable baseline slices before extraction
 
