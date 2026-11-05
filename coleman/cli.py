@@ -202,6 +202,10 @@ def main(argv: list[str] | None = None) -> None:
     p_application = sub.add_parser("application", help="Execute one approved bounded CI decision")
     p_application.add_argument("--request", required=True, help="Versioned submit JSON; no paths or plugin imports")
 
+    from coleman.application.workflow_cli import configure_parser, run_command
+
+    configure_parser(sub.add_parser("workflow", help="Plan and recover durable local CI experiments"))
+
     # --- run ---
     p_run = sub.add_parser("run", help="Execute a single run")
     p_run.add_argument("--config", required=True, help="Path to YAML config")
@@ -242,6 +246,7 @@ def main(argv: list[str] | None = None) -> None:
         "validate": _cmd_validate,
         "analyze": _cmd_analyze,
         "application": _cmd_application,
+        "workflow": run_command,
     }
     dispatch[args.command](args)
 

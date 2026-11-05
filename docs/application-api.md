@@ -1,5 +1,10 @@
 # Bounded CI application API and optional MCP
 
+For configurable Random/UCB tuning, persistent jobs and conversational recovery,
+start with [durable experiment workflows](durable-experiments.md). That opt-in
+workspace uses a separate versioned contract. This page documents the original
+seven ephemeral tools and their compatibility boundaries.
+
 Expose bounded CI operations through shared application services. The application layer makes its existing
 native services available through reusable, bounded commands. It does not introduce a new runner,
 an LLM decision algorithm, or a hosted service.

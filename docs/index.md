@@ -41,12 +41,14 @@ flowchart TD
     D --> X
     X --> E
     E --> I
+    I --> W[Durable experiments and MCP]
     C --> R[Research]
     click S "getting-started/" "Run your first experiment"
     click D "datasets/" "Choose a source and workflow"
     click X "experiments/" "Configure experiments"
     click E "evaluation-guide/" "Evaluate evidence"
     click I "integration-guide/" "Explore integration"
+    click W "durable-experiments/" "Plan, tune and recover an experiment"
     click R "research/" "Read the research"
 ```
 
@@ -84,6 +86,7 @@ The links below provide the same routes as the graph, including keyboard access.
 | Allocate resources under declared scenarios | [Scenario-payoff allocation](scenario-payoffs.md), signed outcomes, resource constraints and conservative evidence handling |
 | Check a CI decision before adoption | [Independent mathematical benchmarks](decision-benchmarks.md), [protected comparisons](protected-evaluation.md) and [operational accounting](operational-pilot.md) |
 | Extend or integrate the platform | [Library API](api/experiment-api.md), [application API and optional MCP](application-api.md), [versioned domain results](domain-results.md), hooks and [runner extensions](extensibility.md) |
+| Tune an experiment and return to it later | [Durable experiment workflows](durable-experiments.md): typed Random/UCB plans, bounded grids, native checkpoint recovery and audited evaluation; requires this source revision's wheel |
 
 The workflows retain their own assumptions: a source conversion, controlled fault,
 mathematical check and historical policy comparison answer different questions.

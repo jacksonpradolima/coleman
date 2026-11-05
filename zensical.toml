@@ -74,6 +74,8 @@ nav = [
     { "Shadow evaluation" = "prospective-shadow.md" },
     { "Public CI collection" = "public-ci-feasibility.md" },
     { "Application API and optional MCP" = "application-api.md" },
+    { "Durable experiments and MCP" = "durable-experiments.md" },
+    { "Workflow contracts and recovery" = "workflow-contracts.md" },
     { "Observability" = "observability.md" }
   ] },
   { "Reference" = [

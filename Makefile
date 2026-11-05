@@ -69,7 +69,9 @@ interrogate: ensure-uv ## Check docstring coverage with interrogate
 docstrings: ensure-uv ## Check NumPy parameter coverage of documented public entry points
 	$(UV) run --python $(PYTHON) --no-project python scripts/audit_docstrings.py --check \
 		coleman/api.py coleman/artifacts.py coleman/results/domain.py \
-		coleman/corpus/materialization.py coleman/spec/io.py coleman/spec/run_id.py coleman/spec/sweep.py
+		coleman/corpus/materialization.py coleman/spec/io.py coleman/spec/run_id.py coleman/spec/sweep.py \
+		coleman/workflows coleman/application/workflow*.py \
+		coleman/transports/mcp.py coleman/transports/workflow_tools.py
 
 # ——— Testing ——————————————————————————————————————————————
 

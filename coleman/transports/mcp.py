@@ -15,10 +15,36 @@ from coleman.results.domain import canonical_json
 if TYPE_CHECKING:
     from mcp.server import MCPServer
 
+    from coleman.application.workflows import WorkflowService
 
-def create_server(service: ApplicationService, *, caller: Caller) -> MCPServer:
+
+def create_server(
+    service: ApplicationService, *, caller: Caller, workflows: WorkflowService | None = None
+) -> MCPServer:
     """Bind seven local tools to the shared service and trusted process-session identity.
 
+    Parameters
+    ----------
+    service : ApplicationService
+        Existing ephemeral application-v1 service; its lifetime remains unchanged.
+    caller : Caller
+        Trusted host identity for the existing seven tools.
+    workflows : WorkflowService or None
+        Optional persistent local workflow service with its own trusted principal.
+        None preserves the original exact seven-tool interface.
+
+    Returns
+    -------
+    mcp.server.MCPServer
+        Optional SDK server with typed durable tools only when explicitly enabled.
+
+    Raises
+    ------
+    ImportError
+        Optional pinned MCP SDK is not installed.
+
+    Notes
+    -----
     Imports the optional pinned SDK only here. Caller identity is host-supplied;
     tools accept no owner, paths, URLs, plugin imports or shell commands. A single
     stdio process is one local security principal, not a multi-user hosted server.
@@ -70,19 +96,32 @@ def create_server(service: ApplicationService, *, caller: Caller) -> MCPServer:
         """Import bounded portable evidence and issue a new caller-owned handle; never execute imported content."""
         return commands.invoke("import", bundle_json)
 
+    if workflows is not None:
+        from coleman.transports.workflow_tools import register_workflow_tools
+
+        register_workflow_tools(server, workflows)
     return server
 
 
 def main() -> None:
     """Start local stdio tools; stdout is exclusively MCP protocol traffic."""
     parser = argparse.ArgumentParser(description="COLEMAN optional local MCP stdio tools")
-    parser.parse_args()
+    parser.add_argument(
+        "--workspace", type=Path, help="Trusted persistent workflow workspace; initialize using coleman workflow"
+    )
+    args = parser.parse_args()
+    workflows = None
+    if args.workspace is not None:
+        from coleman.application.workflows import WorkflowService
+
+        workflows = WorkflowService(args.workspace)
+        workflows.reconnect()
     with (
         tempfile.TemporaryDirectory(prefix="coleman-mcp-") as directory,
         ApplicationService(default_registry(), root=Path(directory)) as service,
     ):
         try:
-            create_server(service, caller=Caller(subject="local-stdio")).run(transport="stdio")
+            create_server(service, caller=Caller(subject="local-stdio"), workflows=workflows).run(transport="stdio")
         except ImportError as exc:
             print(str(exc), file=sys.stderr)
             raise SystemExit(2) from exc

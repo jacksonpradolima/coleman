@@ -15,19 +15,39 @@ class BaselineBusyError(RuntimeError):
 
 
 @contextmanager
-def baseline_lock(path: Path):
-    """Hold a nonblocking POSIX advisory lock, released by the kernel on process death.
+def baseline_lock(path: Path, *, handoff: bool = False):
+    """Hold a nonblocking local POSIX lock, optionally handing ownership to a child.
 
-    Lock files are retained to avoid inode replacement races. The caller must
-    use a trusted local filesystem and serialize its own threads; this is not a
-    distributed or hostile-filesystem lock. Symlink/nonregular/multiply linked
-    lock files reject. Unsupported platforms/filesystems and I/O errors propagate.
-    Active contention raises BaselineBusyError without declaring work complete.
+    Parameters
+    ----------
+    path : pathlib.Path
+        Trusted retained lock file; symlinks, nonregular or multiply linked files
+        reject. Callers must serialize their own threads and use local storage.
+    handoff : bool
+        If true, close without an explicit unlock at context exit. A fixed trusted
+        subprocess may retain the yielded descriptor through explicit pass_fds;
+        kernel ownership then survives parent death until its last copy closes.
+        Default false preserves existing matrix/worker unlock semantics.
 
-    A parent matrix lock alone is insufficient: an existing native child may
-    outlive a killed parent. Each native worker separately holds its execution
-    lock through result/checkpoint publication, so a new parent cannot race that
-    child. Descriptors are not inherited across exec/spawn.
+    Yields
+    ------
+    int
+        Close-on-exec descriptor, inherited only when a trusted caller explicitly
+        requests it. The parent must retain this context until spawn completes.
+
+    Raises
+    ------
+    BaselineBusyError
+        A live local process already owns this execution; no work is completed.
+    ValueError, OSError
+        Unsafe/unsupported local storage or lock/publication I/O failure.
+
+    Notes
+    -----
+    Retained files avoid inode replacement races. This is neither a distributed
+    lock nor protection against a hostile filesystem. PIDs never establish
+    ownership. Existing matrix children independently hold native execution locks
+    so a killed parent cannot make their running work look abandoned.
     """
     import fcntl
 
@@ -43,8 +63,9 @@ def baseline_lock(path: Path):
         except BlockingIOError as error:
             raise BaselineBusyError("Baseline execution is already active; retry after its owner finishes") from error
         try:
-            yield
+            yield descriptor
         finally:
-            fcntl.flock(descriptor, fcntl.LOCK_UN)
+            if not handoff:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
     finally:
         os.close(descriptor)

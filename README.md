@@ -112,6 +112,7 @@ flowchart TD
 | Allocate resources under declared scenarios | [Scenario-payoff allocation](docs/scenario-payoffs.md), signed outcomes, resource constraints and conservative evidence handling |
 | Check a CI decision before adoption | [Independent mathematical benchmarks](docs/decision-benchmarks.md), [protected comparisons](docs/protected-evaluation.md) and [operational accounting](docs/operational-pilot.md) |
 | Extend or integrate the platform | [Library API](#library-api), [application API and optional MCP](docs/application-api.md), [versioned domain results](docs/domain-results.md), hooks and [runner extensions](docs/extensibility.md) |
+| Tune an experiment and return to it later | [Durable experiment workflows](docs/durable-experiments.md): typed Random/UCB plans, bounded grids, native checkpoint recovery and a separate audited evaluation stage; requires this source revision's wheel |
 
 The workflows retain their own assumptions: a source conversion, controlled fault,
 mathematical check and historical policy comparison answer different questions.
