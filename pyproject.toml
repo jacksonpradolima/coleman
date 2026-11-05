@@ -143,10 +143,20 @@ fail-under = 100
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
-branch = "main"
 commit_message = "chore(release): {version}"
 assets = ["uv.lock"]
 build_command = "uv lock && uv build --no-build-isolation"
+
+[tool.semantic_release.branches.main]
+match = "^main$"
+prerelease = false
+
+# This group supports isolated local prerelease rehearsals. CI never publishes
+# from the integration branch; only the final reviewed merge to main releases.
+[tool.semantic_release.branches.v5_integration]
+match = "^release/v5$"
+prerelease = true
+prerelease_token = "alpha"
 
 [dependency-groups]
 build = ["build==1.6.1", "hatchling==1.32.4", "editables==0.6"]

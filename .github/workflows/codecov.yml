@@ -2,6 +2,7 @@ name: Run tests and upload coverage and analytics
 
 on:
   push:
+  pull_request:
 
 permissions:
   contents: read
@@ -31,7 +32,7 @@ jobs:
         run: uv venv .venv --python 3.14
       - name: Install dependencies
         run: |
-          uv sync --frozen --extra dev --extra mcp --group build --no-build --no-install-project
+          uv sync --frozen --extra dev --extra mcp --extra release --group build --no-build --no-install-project
           uv pip install --no-deps --no-build --no-build-isolation --editable .
       - name: Run tests
         run: uv run --frozen --no-sync --no-build pytest --cov --cov-branch --junitxml=junit.xml -o junit_family=legacy

@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+      - release/v5
   release:
     types: [created]
   workflow_dispatch:
@@ -39,14 +40,19 @@ jobs:
       - name: Build docs
         run: uv run --frozen --no-sync --no-build zensical build --strict
 
+      - name: Verify canonical publication branch
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        shell: bash
+        run: test "$GITHUB_REF" = refs/heads/main
+
       - name: Upload Pages artifact
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site
 
   deploy-docs:
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     name: Deploy to GitHub Pages
     needs: build-docs
     runs-on: ubuntu-latest
@@ -58,6 +64,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Verify canonical publication branch
+        shell: bash
+        run: test "$GITHUB_REF" = refs/heads/main
+
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
