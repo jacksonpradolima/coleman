@@ -1,0 +1,1 @@
+{"chosen":{"id":"a","version":"v1"},"kind":"choice","schema_version":1,"space":{"feasible_set":{"id":"two-alternatives","version":"v1"},"kind":"choice","members":[{"id":"a","version":"v1"},{"id":"b","version":"v1"}]}}

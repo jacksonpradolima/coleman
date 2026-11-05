@@ -117,6 +117,8 @@ nav = [
     { "Release preparation" = "releases.md" },
     { "v5 development" = [
       { "Architecture and composition" = "v5-architecture.md" },
+      { "Describe a decision" = "decision-contracts.md" },
+      { "Decision contract API" = "api/core-contracts.md" },
       { "Compatibility and migration decisions" = "v5-compatibility.md" },
       { "Integration and release" = "v5-release-integration.md" }
     ] },

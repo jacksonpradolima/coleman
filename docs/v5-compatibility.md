@@ -13,6 +13,12 @@ lightweight core have shipped. The architecture change itself moves no public
 Python modules and rewrites no retained data. See the
 [architecture specification](v5-architecture.md) for the component boundaries.
 
+The integration source now includes [versioned generic decision contracts](decision-contracts.md)
+and shared primitive implementations below result/selection/temporal consumers.
+Their old namespaces retain compatible reexports and existing wire semantics.
+This step does not publish v5, migrate executable checkpoints or complete the
+planned TCPCI adapter and minimal-installation qualification.
+
 ## Choose an execution route
 
 Use a **pinned v4 environment** to continue an existing executable experiment or
@@ -126,8 +132,9 @@ requirements. They are not dependencies of a mathematical learner call.
 
 ### One modular distribution first
 
-Keep one distribution and the `coleman` import root initially. The planned
-`coleman.core` namespace supplies narrow mathematical contracts and learners;
+Keep one distribution and the `coleman` import root initially. The implemented
+`coleman.core` namespace supplies narrow mathematical contracts and protocols;
+generic learners remain planned. The
 existing source adapters, artifacts, services and transports remain separate
 modules in that distribution. This does not mean the current wheel is already
 lightweight: its base dependencies include NumPy, Polars, PyArrow, DuckDB, SciPy,

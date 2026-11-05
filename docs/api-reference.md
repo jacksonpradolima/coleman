@@ -3,6 +3,10 @@
 Start from a workflow when learning the platform. Use this index to find the
 symbol and its contract once you know which boundary you need.
 
+The unreleased v5 integration source also provides [generic decision contracts](api/core-contracts.md).
+Use the [CI input → decision → feedback walkthrough](decision-contracts.md) to
+understand their scope before composing a host-owned learner or solver.
+
 ## Run and configure experiments
 
 | Entry point | Purpose | Working guide |
