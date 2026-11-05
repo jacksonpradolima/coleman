@@ -3,7 +3,7 @@
 # DevContainer post-create setup for Coleman
 # =============================================================================
 # Runs once after the container is created.  Installs uv, Python 3.14,
-# project dependencies (including telemetry + clickhouse extras), pre-commit
+# project dependencies (including release tooling, telemetry + clickhouse extras), pre-commit
 # hooks, and prepares the environment so that observability works out of the
 # box — zero manual steps.
 # =============================================================================
@@ -19,9 +19,10 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 # 2. Install Python 3.14, create the venv, and install ALL dependencies
-#    (dev + docs + notebook + telemetry + clickhouse extras)
+#    (dev + docs + notebook + release + telemetry + clickhouse extras).
+#    Release tooling is required for pytest discovery of release-routing tests.
 make setup
-uv sync --frozen --extra dev --extra docs --extra notebook --extra telemetry --extra clickhouse --group build --no-build --no-install-project
+uv sync --frozen --extra dev --extra docs --extra notebook --extra telemetry --extra clickhouse --extra release --group build --no-build --no-install-project
 uv pip install --no-deps --no-build --no-build-isolation --editable .
 
 # 3. Install pre-commit hooks (non-critical)

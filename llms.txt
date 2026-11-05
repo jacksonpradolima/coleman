@@ -16298,9 +16298,11 @@ These guards describe the workflows delivered on this integration branch.
 The existing v4 `main` retains its previous workflow files until a reviewed
 backport or final promotion; this change alone does not harden old refs.
 The test workflow covers pushes and PRs; those can produce two observations for a
-local branch PR, with the PR event checking the synthetic merge result. Read-only
-decision benchmarks can be manually run on the integration branch and preserve
-their observations as workflow artifacts without creating a release.
+local branch PR, with the PR event checking the synthetic merge result. Their
+check names include the event (`push` or `pull_request`), so integration protection
+can require the PR result without accepting a push result under the same name.
+Read-only decision benchmarks can be manually run on the integration branch and
+preserve their observations as workflow artifacts without creating a release.
 
 ## Rehearse versions without publishing
 

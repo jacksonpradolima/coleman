@@ -3,13 +3,16 @@
 import os
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import tomlkit
 import yaml
 from semantic_release.cli.config import RawConfig, RuntimeContext
 from semantic_release.errors import NotAReleaseBranch
+from tomlkit.items import Table
 
 ROOT = Path(__file__).parents[1]
 
@@ -103,10 +106,32 @@ def test_integration_pr_checks_are_not_restricted_to_main():
     assert "--extra release" in install
 
 
-@pytest.fixture
-def release_repo(tmp_path):
-    """Create independent local Git history with the real project configuration."""
-    (tmp_path / "pyproject.toml").write_bytes((ROOT / "pyproject.toml").read_bytes())
+def test_pr_tests_have_a_distinct_required_check_context():
+    workflow = _workflow("codecov.yml")
+    assert {"push", "pull_request"} <= workflow[True].keys()
+    job = workflow["jobs"]["test"]
+    assert "if" not in job
+    contexts = {event: job["name"].replace("${{ github.event_name }}", event) for event in ("push", "pull_request")}
+    assert contexts["push"] != contexts["pull_request"]
+    assert "pull_request" in contexts["pull_request"]
+    # The default PR checkout tests the merge result, rather than replacing it
+    # with the head ref and making the two differently named checks equivalent.
+    checkout = next(step for step in job["steps"] if step.get("name") == "Checkout")
+    assert "ref" not in checkout.get("with", {})
+
+
+def _project_metadata_with_version(project_text, version):
+    """Update only the structured project version, retaining the release configuration."""
+    metadata = tomlkit.parse(project_text)
+    project = metadata["project"]
+    assert isinstance(project, Table)
+    project["version"] = version
+    return tomlkit.dumps(metadata)
+
+
+def _make_release_repo(tmp_path, project_text):
+    """Freeze synthetic history independently of the checkout's current version."""
+    (tmp_path / "pyproject.toml").write_text(_project_metadata_with_version(project_text, "4.20.0"))
     git = ["git", "-c", "core.hooksPath=/dev/null"]
     commands = [
         ["init", "--initial-branch=main"],
@@ -125,6 +150,12 @@ def release_repo(tmp_path):
     hook.write_text("#!/bin/sh\nexit 1\n")
     hook.chmod(0o755)
     return tmp_path
+
+
+@pytest.fixture
+def release_repo(tmp_path):
+    """Use the real project release configuration with a fixed historical version."""
+    return _make_release_repo(tmp_path, (ROOT / "pyproject.toml").read_text())
 
 
 def _git(directory, *args):
@@ -161,7 +192,14 @@ def _preview(directory, *args):
     return result.stdout.strip()
 
 
-def test_real_release_tool_keeps_v4_maintenance_separate_and_promotes_once(release_repo):
+@pytest.mark.parametrize("checkout_version", ["4.20.0", "4.20.1", "5.0.0"])
+def test_real_release_tool_keeps_v4_maintenance_separate_and_promotes_once(tmp_path, checkout_version):
+    checkout_text = _project_metadata_with_version((ROOT / "pyproject.toml").read_text(), checkout_version)
+    checkout = tomllib.loads(checkout_text)
+    release_repo = _make_release_repo(tmp_path, checkout_text)
+    baseline = tomllib.loads((release_repo / "pyproject.toml").read_text())
+    assert baseline["project"]["version"] == "4.20.0"
+    assert baseline["tool"]["semantic_release"] == checkout["tool"]["semantic_release"]
     _git(release_repo, "switch", "-c", "release/v5")
     _git(release_repo, "commit", "--allow-empty", "-m", "feat!: introduce generic decision contracts")
     assert _preview(release_repo) == "5.0.0-alpha.1"
@@ -169,13 +207,13 @@ def test_real_release_tool_keeps_v4_maintenance_separate_and_promotes_once(relea
     _git(release_repo, "commit", "--allow-empty", "-m", "fix: preserve native CI checkpoint recovery")
     assert _preview(release_repo) == "4.20.1"
     metadata = release_repo / "pyproject.toml"
-    metadata.write_text(metadata.read_text().replace('version = "4.20.0"', 'version = "4.20.1"', 1))
+    metadata.write_text(_project_metadata_with_version(metadata.read_text(), "4.20.1"))
     _git(release_repo, "add", "pyproject.toml")
     _git(release_repo, "commit", "-m", "chore(release): 4.20.1")
     _git(release_repo, "tag", "v4.20.1")
     _git(release_repo, "switch", "release/v5")
     _git(release_repo, "merge", "--no-ff", "main", "-m", "chore: synchronize stable v4 maintenance")
-    assert 'version = "4.20.1"' in metadata.read_text()
+    assert tomllib.loads(metadata.read_text())["project"]["version"] == "4.20.1"
     assert _preview(release_repo) == "5.0.0-alpha.1"
     _git(release_repo, "switch", "main")
     _git(release_repo, "merge", "--no-ff", "release/v5", "-m", "feat!: integrate qualified v5 contracts")
@@ -193,8 +231,6 @@ def test_real_prerelease_rehearsals_are_local_and_explicit(release_repo, token):
     "branch", ["Main", "main-preview", "master", "release/v50", "release/v5-fix", "feat/v5-355-contracts"]
 )
 def test_release_groups_reject_unrecognized_branches(branch):
-    import tomllib
-
     config = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["semantic_release"]
     branches = RawConfig.model_validate(config).branches
     with pytest.raises(NotAReleaseBranch):
