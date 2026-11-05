@@ -818,10 +818,9 @@ def test_feedback_application_cannot_predate_its_originating_decision(mode, know
         if not known_receipt:
             assert feedback_timing.received_at is None
             assert feedback_timing.usable_at is None
+            receipt_required = _cap(timing_modes=(mode,), requires_known_receipt=True)
             with pytest.raises(ValueError, match="known feedback receipt"):
-                validate_feedback(
-                    executed, batch, _cap(timing_modes=(mode,), requires_known_receipt=True), apply_at=apply_at
-                )
+                validate_feedback(executed, batch, receipt_required, apply_at=apply_at)
 
 
 def test_any_supplied_timing_is_honored_even_when_decision_is_untimed():

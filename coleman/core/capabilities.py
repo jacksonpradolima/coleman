@@ -493,17 +493,18 @@ def _timing(
         raise ValueError("Timed feedback requires an explicit batch timing envelope")
     if capability.requires_known_receipt and (timing is None or timing.received_at is None):
         raise ValueError("This capability requires a known feedback receipt")
-    if timing is not None:
-        if apply_at is None:
-            raise ValueError("Timed feedback requires explicit apply_at")
-        instant = TypeAdapter(Timestamp).validate_python(apply_at)
-        clocks = [timing.event_at, timing.available_at, timing.mature_at]
-        if decision_timing is not None:
-            clocks.append(decision_timing.decision_at)
-        if timing.received_at is not None:
-            clocks.append(timing.received_at)
-        if instant < max(clocks):
-            raise ValueError("Feedback cannot apply before known decision, availability, maturity or receipt")
+    if timing is None:
+        return
+    if apply_at is None:
+        raise ValueError("Timed feedback requires explicit apply_at")
+    instant = TypeAdapter(Timestamp).validate_python(apply_at)
+    clocks = [timing.event_at, timing.available_at, timing.mature_at]
+    if decision_timing is not None:
+        clocks.append(decision_timing.decision_at)
+    if timing.received_at is not None:
+        clocks.append(timing.received_at)
+    if instant < max(clocks):
+        raise ValueError("Feedback cannot apply before known decision, availability, maturity or receipt")
 
 
 def validate_feedback(
