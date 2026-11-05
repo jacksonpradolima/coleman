@@ -785,6 +785,45 @@ def test_unknown_receipt_stays_unknown_and_is_accepted_only_without_a_receipt_re
         validate_feedback(_executed(), feedback, _cap(requires_known_receipt=True))
 
 
+@pytest.mark.parametrize("mode", ["ongoing", "future"])
+@pytest.mark.parametrize("known_receipt", [False, True])
+@pytest.mark.parametrize("apply_hour", [9, 10, 11])
+def test_feedback_application_cannot_predate_its_originating_decision(mode, known_receipt, apply_hour):
+    decision_timing = DecisionTiming.model_validate(
+        {
+            "decision_at": "2026-01-01T10:00:00Z",
+            "information_cutoff": "2026-01-01T09:00:00Z",
+            "target_start": "2026-01-01T08:00:00Z" if mode == "ongoing" else "2026-01-01T10:00:00Z",
+            "target_end": "2026-01-01T12:00:00Z",
+            "eligible_input_fingerprint": "sha256:" + "a" * 64,
+            "mode": mode,
+        }
+    )
+    earlier = datetime(2026, 1, 1, 8, tzinfo=UTC)
+    feedback_timing = FeedbackTiming(
+        event_at=earlier,
+        available_at=earlier,
+        mature_at=earlier,
+        received_at=earlier if known_receipt else None,
+    )
+    executed = _executed(_decision(timing=decision_timing))
+    batch = _batch(executed, ChosenFeedback(row=_row()), timing=feedback_timing)
+    profile = _cap(timing_modes=(mode,))
+    apply_at = datetime(2026, 1, 1, apply_hour, tzinfo=UTC)
+    if apply_hour < 10:
+        with pytest.raises(ValueError, match="before known decision"):
+            validate_feedback(executed, batch, profile, apply_at=apply_at)
+    else:
+        validate_feedback(executed, batch, profile, apply_at=apply_at)
+        if not known_receipt:
+            assert feedback_timing.received_at is None
+            assert feedback_timing.usable_at is None
+            with pytest.raises(ValueError, match="known feedback receipt"):
+                validate_feedback(
+                    executed, batch, _cap(timing_modes=(mode,), requires_known_receipt=True), apply_at=apply_at
+                )
+
+
 def test_any_supplied_timing_is_honored_even_when_decision_is_untimed():
     executed = _executed()
     batch = _batch(executed, ChosenFeedback(row=_row()), timing=_feedback_timing())

@@ -484,12 +484,12 @@ def _transforms(rows: tuple[FeedbackRow, ...], required: tuple[ScalarSpec, ...])
 def _timing(
     executed: ExecutedDecision, batch: FeedbackBatch | None, capability: Capability, apply_at: Timestamp | None
 ) -> None:
-    """Check explicit update time against known feedback clocks without inventing receipt."""
-    timed = executed.proposal.request.timing is not None
+    """Check application against decision and feedback clocks without inventing receipt."""
+    decision_timing = executed.proposal.request.timing
     timing = None if batch is None else batch.timing
     if batch is not None and batch.delay_rounds > 0 and not capability.supports_delayed_feedback:
         raise ValueError("Additional logical feedback rounds are unsupported")
-    if timed and timing is None:
+    if decision_timing is not None and timing is None:
         raise ValueError("Timed feedback requires an explicit batch timing envelope")
     if capability.requires_known_receipt and (timing is None or timing.received_at is None):
         raise ValueError("This capability requires a known feedback receipt")
@@ -498,10 +498,12 @@ def _timing(
             raise ValueError("Timed feedback requires explicit apply_at")
         instant = TypeAdapter(Timestamp).validate_python(apply_at)
         clocks = [timing.event_at, timing.available_at, timing.mature_at]
+        if decision_timing is not None:
+            clocks.append(decision_timing.decision_at)
         if timing.received_at is not None:
             clocks.append(timing.received_at)
         if instant < max(clocks):
-            raise ValueError("Feedback cannot apply before known availability, maturity or receipt")
+            raise ValueError("Feedback cannot apply before known decision, availability, maturity or receipt")
 
 
 def validate_feedback(
@@ -526,14 +528,16 @@ def validate_feedback(
         are checked independently from observed member coverage.
     apply_at : Timestamp or None, optional
         Explicit zoned update instant when timing is supplied/required. Must not
-        precede any known event, availability, maturity or receipt time.
+        precede the originating decision or any known event, availability,
+        maturity or receipt time.
 
     Raises
     ------
     ValueError
         Bad executed binding, unsupported coverage, incorrect actual members,
         schema/units/bounds/origin, missing required values/receipt, timing,
-        unsupported delay, incompatible transforms or invalidated sampling.
+        application before the decision, unsupported delay, incompatible
+        transforms or invalidated sampling.
     TypeError
         Feedback is not one of the declared typed variants or a FeedbackBatch.
 
@@ -542,6 +546,8 @@ def validate_feedback(
     Admitted absence supplies no zero and performs no adaptive update. Required
     transforms must agree across rows, but this function executes none and
     certifies no expected-transform policy, source lineage or causal inference.
+    Earlier event clocks remain valid declarations; the decision gate constrains
+    application without imposing a universal event-after-decision ordering.
     It performs no I/O, registry lookup, replay ordering, deduplication or commit.
     """
     executed = ExecutedDecision.model_validate(executed)

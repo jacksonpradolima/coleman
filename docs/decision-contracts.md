@@ -189,9 +189,11 @@ the operation or authenticate lineage.
 
 `FeedbackBatch` binds the **executed-decision fingerprint**, feedback ID, revision
 ID, explicit nullable predecessor and horizon. Unknown receipt stays unknown.
-Timed feedback needs explicit clocks and an application instant at or after
-availability, maturity and known receipt; receipt-dependent capabilities reject
-unknown receipt. Delays in extra logical rounds require explicit support.
+Timed feedback needs explicit clocks and an application instant at or after the
+originating decision, availability, maturity and known receipt; receipt-dependent
+capabilities reject unknown receipt. Earlier observation clocks can be valid for
+an ongoing target, but never authorize an update before its decision.
+Delays in extra logical rounds require explicit support.
 Plain feedback is valid for an untimed direct capability without receipt/envelope
 requirements. Full panels of continuous coordinates are unsupported: gradients
 need a separately qualified oracle contract.

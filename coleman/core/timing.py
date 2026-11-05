@@ -88,8 +88,13 @@ class FeedbackTiming(CoreImmutable):
         Returns
         -------
         datetime or None
-            Earliest explicitly known admissible application instant. No clock
-            is read and no feedback application is performed.
+            Latest feedback-local clock, or None when receipt is unknown.
+            The originating decision's clock is checked separately by feedback
+            validation; this property alone does not authorize an update.
+
+        Notes
+        -----
+        No clock is read and no feedback application is performed.
         """
         if self.received_at is None:
             return None
