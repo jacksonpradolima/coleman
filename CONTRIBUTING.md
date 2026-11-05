@@ -19,7 +19,7 @@ Use Python 3.14+, uv and Git. From the cloned repository:
 ```bash
 git clone https://github.com/jacksonpradolima/coleman.git
 cd coleman
-uv sync --frozen --extra dev --extra docs --extra telemetry --extra mcp --group build
+uv sync --frozen --extra dev --extra docs --extra telemetry --extra mcp --extra release --group build
 uv run --frozen --no-sync pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push
 ```
 
@@ -29,7 +29,12 @@ additional extras or the exact runtime in that guide. `make install` provisions
 the broader development environment; the DevContainer is an optional route with
 its own monitoring services. Read its scripts before choosing that setup.
 
-Create a focused branch from updated `main`. Keep source archives, raw capture
+For v5 work, create a focused issue branch from updated `release/v5` and open its
+PR against `release/v5`. Stable v4 maintenance continues from `main`. See the
+[v5 integration guide](docs/v5-release-integration.md) for the reviewed release
+route and how to record integrated but unreleased work.
+
+Keep source archives, raw capture
 outputs and large datasets outside the Git worktree. Normal tests use small owned
 fixtures and run without network access.
 

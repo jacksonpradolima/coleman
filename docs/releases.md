@@ -1,10 +1,20 @@
 # Release preparation
 
-COLEMAN keeps public product documentation centered on CI test prioritization,
-selection and evidence. Generic decision contracts support that product; a release
-should explain the value to CI users before listing internal implementation work.
+Release descriptions explain the user's problem, supported workflows and evidence
+before listing internal work. Stable v4 centers on CI test prioritization and
+selection. The v5 architecture broadens the independent decision components while
+preserving CI/TCPCI as a first-class application; its release notes must describe
+the qualified scope rather than promise arbitrary problem solvability.
 
 ## Versioning and integration
+
+The next major version is developed on `release/v5`, with one reviewed issue PR
+at a time targeting that branch. Integration runs CI without publishing releases.
+The [v5 integration guide](v5-release-integration.md) explains the single final
+5.0 release, stable v4 maintenance and isolated alpha/beta/RC rehearsals.
+The [architecture](v5-architecture.md) and [compatibility inventory](v5-compatibility.md)
+describe the intended changes; those specifications do not advertise implemented
+generic APIs.
 
 The published [COLEMAN 4.9](releases/4.9.0.md) release adds [larger LRTS histories
 with explicit stage views](lrts-stage-views.md): frozen ActiveMQ and Log4j source

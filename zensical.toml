@@ -115,6 +115,11 @@ nav = [
     { "Dependency security" = "dependency-security.md" },
     { "Evidence limits and next steps" = "roadmap.md" },
     { "Release preparation" = "releases.md" },
+    { "v5 development" = [
+      { "Architecture and composition" = "v5-architecture.md" },
+      { "Compatibility and migration decisions" = "v5-compatibility.md" },
+      { "Integration and release" = "v5-release-integration.md" }
+    ] },
     { "Compatibility archive" = [
       { "Read release history" = "release-history.md" },
       { "4.18.0" = "releases/4.18.0.md" },

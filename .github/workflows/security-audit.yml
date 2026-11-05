@@ -8,7 +8,7 @@ on:
       - scripts/audit_lock.py
       - .github/workflows/security-audit.yml
   push:
-    branches: [main]
+    branches: [main, release/v5]
     paths: [pyproject.toml, uv.lock]
   schedule:
     - cron: '17 6 * * 1'

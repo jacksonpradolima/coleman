@@ -111,6 +111,9 @@ parallel execution, and extensibility via hooks and namespaced custom config.
 - docs/rtptorrent.md
 - docs/scenario-payoffs.md
 - docs/setup.md
+- docs/v5-architecture.md
+- docs/v5-compatibility.md
+- docs/v5-release-integration.md
 - docs/westermo-parquet-etl.md
 - docs/workflow-contracts.md
 - docs/workflow.md
@@ -516,7 +519,7 @@ Use Python 3.14+, uv and Git. From the cloned repository:
 ```bash
 git clone https://github.com/jacksonpradolima/coleman.git
 cd coleman
-uv sync --frozen --extra dev --extra docs --extra telemetry --extra mcp --group build
+uv sync --frozen --extra dev --extra docs --extra telemetry --extra mcp --extra release --group build
 uv run --frozen --no-sync pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push
 ```
 
@@ -526,7 +529,12 @@ additional extras or the exact runtime in that guide. `make install` provisions
 the broader development environment; the DevContainer is an optional route with
 its own monitoring services. Read its scripts before choosing that setup.
 
-Create a focused branch from updated `main`. Keep source archives, raw capture
+For v5 work, create a focused issue branch from updated `release/v5` and open its
+PR against `release/v5`. Stable v4 maintenance continues from `main`. See the
+[v5 integration guide](docs/v5-release-integration.md) for the reviewed release
+route and how to record integrated but unreleased work.
+
+Keep source archives, raw capture
 outputs and large datasets outside the Git worktree. Normal tests use small owned
 fixtures and run without network access.
 
@@ -13975,11 +13983,21 @@ reproducible pipeline, not an algorithm effectiveness or production-savings clai
 
 # Release preparation
 
-COLEMAN keeps public product documentation centered on CI test prioritization,
-selection and evidence. Generic decision contracts support that product; a release
-should explain the value to CI users before listing internal implementation work.
+Release descriptions explain the user's problem, supported workflows and evidence
+before listing internal work. Stable v4 centers on CI test prioritization and
+selection. The v5 architecture broadens the independent decision components while
+preserving CI/TCPCI as a first-class application; its release notes must describe
+the qualified scope rather than promise arbitrary problem solvability.
 
 ## Versioning and integration
+
+The next major version is developed on `release/v5`, with one reviewed issue PR
+at a time targeting that branch. Integration runs CI without publishing releases.
+The [v5 integration guide](v5-release-integration.md) explains the single final
+5.0 release, stable v4 maintenance and isolated alpha/beta/RC rehearsals.
+The [architecture](v5-architecture.md) and [compatibility inventory](v5-compatibility.md)
+describe the intended changes; those specifications do not advertise implemented
+generic APIs.
 
 The published [COLEMAN 4.9](releases/4.9.0.md) release adds [larger LRTS histories
 with explicit stage views](lrts-stage-views.md): frozen ActiveMQ and Log4j source
@@ -15424,6 +15442,954 @@ when validating a change from a branch.
 [Maintainability](maintainability.md) records current measurements and targeted
 improvement priorities. [Observability](observability.md) explains optional
 monitoring, and [the analysis playbook](analysis-playbook.md) covers result queries.
+
+
+
+### FILE: docs/v5-architecture.md
+
+# Adaptive decision architecture
+
+COLEMAN v5 is designed to let an application reuse adaptive learning, decision
+solvers and experiment infrastructure independently. CI test prioritization and
+selection remain a first-class application. A researcher should also be able to
+use a learner in a notebook, solve a finite allocation problem, or compose an
+experiment without constructing a CI environment.
+
+**Status:** this page specifies the v5 architecture. It does not introduce the
+proposed generic APIs. The implementation baseline is COLEMAN **4.20.0**, commit
+`1edbee874129aa85e26e592d9649826e85e1ac6b`. Examples explicitly identified as
+existing use that source. Proposed namespaces and call sequences below are design
+contracts to qualify in subsequent work, rather than importable APIs today.
+
+Read the [compatibility and migration policy](v5-compatibility.md) alongside this
+specification. Use the [current getting-started guide](getting-started.md) for the
+implemented CI workflow.
+
+## Start with the decision, then choose the components
+
+Describe what may be chosen, what can be observed afterwards, and what resources
+or state change. These determine whether a method is applicable. Calling a problem
+a bandit, supplying context, or using an algorithm's name does not establish its
+feedback assumptions or a performance guarantee.
+
+An application chooses among four consumption modes:
+
+| Mode | Required inputs and work | Optional outer components |
+| --- | --- | --- |
+| Learning only | A declared mathematical input/loss contract, learner update and algorithm state | Domain mapping, experiment history, artifacts and evaluation |
+| MAB only | Available discrete actions, the actual selection mechanism, chosen-action feedback and learner-owned RNG/state | Logged replay, a durable session and protected comparisons |
+| Solver only | A typed problem, objective, feasible set and bounded solve call | Any learner, event loop, workspace or transport |
+| Complete experiment | Explicit composition of problem, learner/solver and executor | Persistence, recovery, evaluation, telemetry, CLI and MCP |
+
+The first three modes require no RunSpec, dataset file, database, workspace,
+DomainRecord, protected-evaluation manifest or global registry initialization.
+Units, bounds and timing actually needed by the selected mathematics remain
+explicit. A user-owned learner can satisfy a small structural protocol or use a
+thin wrapper; inheritance from a framework-wide `Problem` or `Agent` is unnecessary.
+
+Conceptually, direct learning supplies a loss vector to an update and inspects
+new weights; direct MAB asks for one action, supplies that action's outcome and
+exports/restores its algorithm/RNG state; direct solving supplies a problem and
+receives a checked result. These are **proposed interactions**, not Python method
+signatures. Contract implementation must publish and test the actual signatures
+before documentation offers executable generic examples.
+
+## Components and responsibility
+
+Each boundary has one purpose. Application code can compose stages using ordinary
+typed calls; no mandatory pipeline language, graph engine or service locator is
+introduced.
+
+| Boundary | Owns | Does not implicitly own |
+| --- | --- | --- |
+| Problem adapter | Domain observations, available actions, objectives, feasibility and feedback mapping | Algorithm state, a transport or scientific admission |
+| Learner adapter | Supported decision/update capabilities, algorithm statistics, RNG and state codec | Workspace construction, durable delivery deduplication or external effects |
+| Solver | Declared finite/continuous optimization, limits and result certificates/status | Learning, executing the proposal or manufacturing missing inputs |
+| Execution adapter | Work or effects, proposed-to-executed action mapping, outcome receipts and reconciliation limits | A regret guarantee, universal retry safety or automatically observed counterfactuals |
+| Optional session | Accepted event identity, ordering, applied-event deduplication and a committed frontier | Changing past decisions after a correction without a new replay lineage |
+| Optional storage adapter | Atomic publication, reads, durability and conflict detection under its documented backend assumptions | Authenticating a source or proving an external effect occurred once |
+| Application service | Frozen plans, registered trusted implementations, attempts, cancellation and orchestration | Mandatory dependencies for direct mathematical calls |
+| Transport | CLI/MCP input validation and calls into the shared service | Its own learner, solver or orchestration rules |
+| Evaluator | Frozen estimands, eligibility, dependence units, comparisons and stated uncertainty | Converting arbitrary scores into calibrated probabilities or causal effects |
+
+Capability-required pending decision information must have one declared owner.
+For a direct MAB it may live in the learner or an explicit caller-supplied decision
+token; a session may retain its durable envelope without creating a competing
+mathematical state. A raw update is not automatically idempotent. Delivery safety
+belongs to the optional session or to a caller that implements an equivalent
+explicit acceptance protocol.
+
+```mermaid
+flowchart TD
+    Host[User application or notebook] --> DirectLearner[Planned direct learner and MAB capabilities]
+    Host --> DirectSolver[Planned solver boundary reusing existing finite solvers]
+    Host --> Problem[Planned typed problem adapters including CI]
+    Problem --> Contracts[Planned generic contracts and capability validation]
+    DirectLearner --> Contracts
+    DirectSolver --> Contracts
+    DirectLearner --> State[Planned owned algorithm state and RNG]
+    Service[Existing application services with planned generic executor] --> Problem
+    Service --> DirectLearner
+    Service --> DirectSolver
+    Service --> Execution[Planned executor capabilities]
+    Service --> Session[Planned optional generic session]
+    Session --> State
+    Session --> Storage[Existing artifact and checkpoint infrastructure]
+    Evidence[Existing protected evaluation with planned generic protocol] --> Storage
+    Transport[Existing CLI and optional MCP] --> Service
+    Legacy[Existing native CI facade with planned migration boundary] --> Service
+```
+
+Here an arrow means a call or dependency toward the component used. Storage,
+session, evaluation and transport can be absent when the host directly calls a
+learner or solver. Existing finite solver APIs remain independently callable;
+their current package dependency closure is heavier than the planned minimal
+core and must be measured during extraction.
+
+## Action and feedback capabilities
+
+Context is orthogonal to feedback visibility. A complete table of retrospective
+CI outcomes can support offline scoring without making those outcomes available
+at a live decision. Likewise, an observed scalar for a selected slate supplies
+neither every member's outcome nor the outcomes of unselected slates.
+
+Use these separate action shapes:
+
+| Action | Required shape and invariant |
+| --- | --- |
+| Complete ranking | A permutation of the declared candidate set; scheduling/execution is a separate operation |
+| Discrete choice | One available, versioned alternative, or explicit abstention |
+| Subset/slate | A selected set or ordered slate with explicit cardinality/resource constraints; not a full ranking called top-k |
+| Simplex mixture | Nonnegative weights summing to one over named experts/recipes; weights alone do not describe a random draw |
+| Continuous feasible vector | Named coordinates, bounds, feasible-set version and unit/meaning per coordinate; signed values only where permitted |
+| Information acquisition | A bounded observation/fidelity request with its resource charge, delay and terminal/cumulative objective |
+
+The following matrix specifies the **architectural support envelope**. “Required”
+means a v5.0 implementation/qualification obligation, not an implemented method.
+“Legacy” means only the documented v4 CI boundary. “Unsupported” means no generic
+learner may accept that pair by coercion. Static solving without subsequent
+feedback is separately supported and does not require a learner.
+
+| Action \ feedback | Complete comparable vector | Observed component feedback | Aggregate chosen-action feedback | Absent feedback |
+| --- | --- | --- | --- | --- |
+| Complete ranking | Legacy offline CI evaluation; generic full-information ranking learner unsupported | Legacy scheduled-test reward semantics only; generic ranking semi-bandit unsupported | Generic ranking learner unsupported | Existing fixed/random ranking execution; no adaptive update |
+| Discrete choice | Generic full-vector discrete learner unsupported; an explicit adapter may expose only the selected outcome to a qualified chosen-only method | Required genuine chosen-action UCB/Exp3; unused full-vector members are not imputed | Required genuine chosen-action UCB/Exp3 with declared bounded scalar outcome | Fixed choice/abstention only; no adaptive update |
+| Subset/slate | Generic online full-information subset learner unsupported; modeled coverage belongs to the static solver route | Required real subset/acquisition baseline within its qualified visibility contract; general combinatorial semi-bandit guarantees unsupported | General slate bandit unsupported | Existing finite coverage solving; no adaptive update |
+| Simplex mixture | Required Hedge and one precisely specified Fixed Share reference with complete eligible bounded expert losses | Unsupported for those full-information references | Unsupported for those full-information references | Fixed/equal mixture only; no adaptive update |
+| Continuous feasible vector | A loss vector alone is unsupported; required projected first-order updates use a separately typed convex objective/gradient oracle | Unsupported without a separately qualified oracle/estimator | General bandit convex optimization unsupported | Static constrained solve when all required objective inputs are supplied |
+| Information acquisition | Generic online full-vector acquisition learner unsupported; complete modeled scores belong to a separate static problem | Required equal-allocation/successive-halving baseline with purchased observation/fidelity feedback | Unsupported unless that exact aggregate observation is admitted by the implemented baseline | Stop/abstain or a declared nonadaptive purchase plan |
+
+Pairwise preference feedback is an additional distinct shape. Generic preference
+learning remains evidence-gated research. No row above may turn an ordering,
+scalar reward or chosen-item result into an observed pairwise preference.
+For continuous methods, the full-information oracle supplies the declared loss
+function or its required gradient at the appropriate point; an arbitrary vector
+of outcome measurements is not that oracle. Static modeled costs/weights are
+inputs to a solve, not feedback received from an executed action.
+Delayed feedback and revisions also require an explicit capability; synchronous
+updates do not automatically inherit guarantees after arbitrary delays.
+
+Composition validation checks action shape, available identities/versions,
+feasibility, feedback visibility, units and loss bounds, information cutoff,
+maturity/receipt, state ownership and required sampling information **before**
+execution. Unknown or incompatible capabilities return a typed unsupported
+disposition or validation error. Infeasibility, resource exhaustion, abstention,
+missing feedback and insufficient comparative evidence remain different results.
+A fallback is applied only when declared and feasible; its execution is recorded.
+
+### What the native policy code actually does
+
+The existing native public names describe ranking adaptations. They are retained
+at the legacy boundary until their individual migration disposition is qualified.
+They do not qualify generic methods through their names.
+
+| Source observation at the 4.20 baseline | Architectural consequence |
+| --- | --- |
+| [`Agent.choose()`](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman/agent/base.py) first shuffles all names and later calls `policy.choose_all`; attempt increments are rank-weighted across the ranking | Native actions and counters do not already form a standard single-pull MAB contract |
+| [`EXP3Policy.choose_all()`](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman/policy/mab/adversarial.py) sorts every action by computed weights/probabilities; EXP3IX inherits this selection | Those values are ranking scores in this execution path, not logged probabilities of an actual sampled chosen action |
+| [`CombinatorialUCBPolicy` and `CombinatorialThompsonPolicy`](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman/policy/combinatorial/policies.py) return the full order; concatenating its first k and remaining items retains that order | A native top-k label does not supply an independent subset action or a qualified semi-bandit estimator |
+| [`PortfolioUCBPolicy`](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman/policy/portfolio/policies.py) chooses a candidate ranking policy, passes the shared agent and scores bounded deltas of total value estimates | This is a ranking-policy selector, not asset portfolio construction, independent virtual books or generic full-information expert aggregation |
+| [`DuelingUCBPolicy` and `PairwiseThompsonRankingPolicy`](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman/policy/dueling/policies.py) update pair counters from the produced ranking | Their current update is not externally observed preference feedback |
+| [`LinUCBPolicy`](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman/policy/contextual/linucb.py) returns a full ranking and updates each action from native value estimates and context | Context support does not establish the standard chosen-action contextual-bandit observation model |
+| [`RNFailReward`](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman/reward/rnfail.py) emits a ranking-aligned zero/one learning vector from detected failure ranks | An unscheduled test's zero learning credit must not become an observed passing verdict in a generic dataset |
+| [`bounded_reward()`](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman/policy/mab/shared.py) transforms out-of-range values and maps nonfinite input to zero | Preserve legacy behavior under its version; generic contracts reject nonfinite values and require an explicit versioned transform |
+
+The full native policy audit covers all 37 configuration names. This architecture
+issue neither repairs their mathematics nor rewrites historical outputs. New
+sampled-action learners have distinct capability identities and qualification.
+
+For comparison, full-information expert weighting requires the complete eligible
+loss vector; the original Hedge formulation distinguishes mixture allocation and
+mixture loss from a chosen-action estimator. See [Freund and Schapire, *Journal of
+Computer and System Sciences*](https://www.schapire.net/papers/FreundSc95.pdf).
+Constant-rate and decreasing-rate versions also have different properties; see
+[Mourtada and Gaïffas, *JMLR*](https://jmlr.org/papers/v20/18-869.html).
+Actual adversarial MAB sampling and chosen-only feedback are specified separately
+in [Auer et al., *SIAM Journal on Computing*](https://homepages.math.uic.edu/~lreyzin/papers/auer02.pdf).
+These papers motivate boundaries; they do not certify COLEMAN's implementations.
+
+## Typed data, time and identity
+
+Generic mathematical inputs remain small. The optional experiment envelope adds
+the information needed for audit and recovery:
+
+| Value | Producer → consumer | Invariants |
+| --- | --- | --- |
+| Eligible input view | Problem adapter → learner/solver | Source/input fingerprints, cutoff and versioned availability rule; future information excluded |
+| Supplied forecast/signal | User model or provider adapter → learner/solver | Units, meaning, target interval, availability and producer identity; not implicitly learned or calibrated |
+| Learner output | Learner → application/solver | Expert/action version, declared semantics and predecision state binding; mixture, score and probability distinct |
+| Proposal | Learner/solver → execution adapter | Feasible-set/objective version, proposed action and selection mechanism when relevant |
+| Executed action | Execution adapter → feedback/session | Actual action/effect status, overrides, execution identity and available sampling evidence |
+| Feedback | Executor/source → learner through optional session | Producing decision, origin, observed members, units, maturity, receipt and revision lineage |
+| Evidence record | Outer application → result/artifact adapters | Existing Measurement/DomainRecord semantics, provenance, schema version and logical identity |
+
+A decision's information cutoff cannot be later than its decision time. Event,
+source availability, first local receipt, target interval and feedback maturity
+are separate quantities. Unknown historical receipt is not replaced by a download
+time and presented as a historical fact. Pending, not-yet-mature and unavailable
+feedback must not become an observed zero.
+
+`0`, a permitted finite negative value, unknown/null, unavailable and not applicable
+retain their distinct contracts and explicit units. Nonfinite input and
+bool-as-number reject in the new contracts. Seconds do not silently become
+milliseconds; a reward transform does not change a raw monetary or physical
+measurement's meaning. Reuse the existing canonical JSON and measurement rules;
+do not normalize legacy signed float zero using the finite solver's distinct
+decimal-zero convention.
+
+Logical task/decision/component identities identify the modeled computation.
+Content digests identify exact serialized content. Attempt IDs identify physical
+retries/workers. A new core identity generation cannot silently replace the old
+RunSpec run ID, artifact key or checkpoint binding. See the
+[compatibility policy](v5-compatibility.md) for each existing surface.
+
+Filtering, projection, constraint repair or an execution override preserves the
+proposal and executed action separately. The adapter must establish whether the
+actual sampling mechanism is preserved, recomputed or unavailable. A normalized
+score is not sufficient evidence for a propensity. Unsupported approximations
+cannot enable off-policy inference or a sampled-action theorem.
+
+```mermaid
+flowchart LR
+    Source[Owned observations and source clocks] --> Cutoff[Eligible view at decision cutoff]
+    Cutoff --> Signal[Optional supplied signal with units and availability]
+    Signal --> Learning[Optional learner output]
+    Cutoff --> Solve[Optional constrained solve]
+    Learning --> Solve
+    Solve --> Proposed[Proposed action]
+    Learning --> Proposed
+    Proposed --> Execute[Execution adapter]
+    Execute --> Actual[Executed action and effect receipt]
+    Actual --> Feedback[Later typed feedback and revision lineage]
+    Feedback --> Learning
+    Actual --> Records[Optional raw records and provenance]
+    Feedback --> Records
+    Records --> Compare[Optional frozen comparison and fallback]
+```
+
+## Dependency direction and staged extraction
+
+Start with one maintained distribution and logical modularity. The proposed
+`coleman.core` namespace contains minimal contracts, temporal/numeric primitives
+and independently usable learner capabilities. It may have internal submodules;
+there is no requirement to publish one wheel per abstraction. Existing import
+paths remain subject to the explicit compatibility policy.
+
+The currently supported Python minimum is **3.14**. Changing it or introducing
+another distribution needs resolver, wheel ownership, import and support-matrix
+evidence. Install examples must identify this repository's built wheel: the bare
+PyPI project name is not a reliable instruction for installing this repository.
+Minimal-core and optional CI/analysis/transport dependencies are qualified during
+extraction; the current mandatory scientific dependency list is not already a
+minimal-core installation.
+
+The target import graph uses arrows from importer to dependency. This is a DAG;
+runtime orchestration imports capabilities, never the reverse.
+
+```mermaid
+flowchart TD
+    CLI[CLI and MCP transports] --> Application[Application orchestration]
+    Application --> Domain[CI and other problem or execution adapters]
+    Application --> Session[Optional session and replay]
+    Application --> Storage[Storage and telemetry adapters]
+    Application --> Evaluation[Evaluation and evidence]
+    Domain --> Learners[Core learners]
+    Domain --> Solvers[Finite and continuous solvers]
+    Session --> Learners
+    Session --> Contracts[Core contracts]
+    Storage --> Contracts
+    Evaluation --> Contracts
+    Learners --> Contracts
+    Solvers --> Contracts
+    Contracts --> Primitives[Core units clocks identities and canonical codecs]
+```
+
+The source baseline has several edges that must move or be isolated:
+
+| Current edge | Staged change and verification |
+| --- | --- |
+| `policy.base → coleman.agent → coleman.bandit`; those package initializers pull native metric classes | Extract independent learner protocols/math; keep the native Agent adaptation at the CI boundary. Cold core imports must not load these native packages |
+| `observations.contracts → evaluation.protected.temporal`; importing a submodule also executes evaluation package initializers | Put shared clocks/temporal primitives below observation/evaluation consumers; retain compatible wrappers and wire meanings |
+| `selection.contracts` owns shared Immutable/Quantity helpers used by allocation and workflows | Extract common primitives once, keep compatibility imports, and check decimal/serialization goldens rather than duplicating numeric rules |
+| `selection/allocation` contracts import `results.domain` and `results.versioned`; `results.__init__` also exposes the sink interface | Move shared canonical/identity/version primitives below both consumers with compatible reexports; core must not depend on a results-pipeline namespace or execute its initialization |
+| `selection.__init__` and `allocation.__init__` import artifact publication modules alongside solvers | Separate pure solver import paths from optional artifact/storage paths; test both documented direct and compatibility imports |
+| `workflows.contracts/planning` import protected evaluation, native BudgetSpec/RunSpec and corpus contracts | Keep v1 native workflows at the adapter boundary; add typed generic executor/plan contracts without making RunSpec a core algorithm parameter |
+| `application.workflow_native` constructs Environment and native runner agents | Retain as the native executor; the application dispatches a host-registered typed executor instead of moving its native imports into core |
+| Native policies share `policy.base._rng`; workflow recovery wraps it with PCG64 state in an isolated process | New learners own declared streams and codecs; preserve the separately qualified native isolated-worker path rather than sharing it across threads |
+
+The enforceable boundary is explicit: core modules may import only their core
+dependencies and individually declared numerical backends. They must not import
+`coleman.agent`, `bandit`, `policy`, `reward`, `scenarios`, `runner`, `environment`,
+`cli`, `transports`, `application`, `results`, `selection`, `allocation`, evaluation, artifact/storage backends,
+telemetry or provider SDKs. Generic solvers/learners depend on core contracts; core
+contracts never import their consumers. Any selected optional numerical backend
+needs its own declared install/import envelope.
+
+Extraction must add AST/import-graph checks for direct edges and subprocess cold
+imports for transitive imports and package initializers. Installed checks run
+outside the checkout with optional integrations absent, no network discovery or
+storage initialization. Cycles and forbidden edges fail the gate; allowlists
+name specific transitional legacy modules rather than exempting the new core.
+The architecture issue specifies this graph; it does not claim the future core
+boundary is implemented by documenting it.
+
+## Two executable baseline slices before extraction
+
+Two existing examples establish a small public vertical seam. Build and install
+the repository wheel noneditably, copy the examples outside the checkout, and run
+from that external directory with the installed environment's Python:
+
+```bash
+python resources.py allocation-output
+python ci.py ci-output
+```
+
+The source files are
+[`resources.py`](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/examples/scenario-payoffs/resources.py)
+and
+[`ci.py`](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/examples/scenario-payoffs/ci.py).
+Their output directories must remain under the invocation directory. They use
+real finite allocation, artifacts, and, for `ci.py`, real native runner/reward/
+metric/Parquet components. They do not download a dataset or execute subject test
+commands. These are baseline examples, not the planned generic runtime or the
+substantive v5 portfolio adapter.
+
+### Synthetic allocation without CI
+
+`resources.py` declares two joint scenarios with assumed weight `0.5` each. It
+starts from a balance of `10 credit`, no holdings and zero occupied runner slots,
+with capacity `2 slot`. It calls the existing `select_allocation` directly.
+
+| Complete plan | Slot use | Gross increments in idle/busy, credit | Transaction cost, credit | Expected net increment, credit |
+| --- | --- | --- | --- | --- |
+| `no_action` | 0 | 0 / 0 | 0 | 0 |
+| `stable` | 1 | 2 / 2 | 0 | 2 |
+| `variable` | 1 | 10 / -8 | 0 | 1 |
+
+The finite model selects `stable` with status `optimal` after complete bounded
+enumeration. The negative `-8` remains a valid modeled increment; it is not a
+missing value or a learning reward. `optimal` concerns only these supplied plans
+and weights. No plan is executed, no external state changes and no empirical
+profitability or confidence claim follows.
+
+The host constructs the problem before solving. This example has no event/source
+clock and does not pretend its scenarios were historically available forecasts.
+The solver owns no RNG or durable state. It returns a versioned exact result;
+the separately called artifact adapter publishes that content. A solver checkpoint
+contains verified completed evaluations, not invented feedback or an execution
+receipt. A bounded stop preserves its explicit termination and certified incumbent.
+
+### Native CI through the same finite seam
+
+`ci.py` uses the same credit increments, but supplies complete plans consuming
+`0`, `3` and `4 s` under a `5 s` modeled serial-runner capacity. Its model selects
+`stable` and then passes **3 seconds**, not 2 credits, into the existing fixed-time
+CI budget.
+
+| Edge | Producer → consumer | Units/time/state |
+| --- | --- | --- |
+| Model → finite solve | Owned fixture → `select_allocation` | Credits and modeled seconds; assumed scenario weights, no historical availability claim |
+| Chosen plan → native configuration | Example host → RunSpec/RunnerExtension | A fixed `3 s` budget; exact problem/result/adapter bindings retained |
+| Native input → ranking | Constructed Parquet → native Greedy/RNFail agent | BuildId 1; test names, durations `1 s` and `2 s`, verdicts 0 and 1; first-build seeded shuffle retained |
+| Ranking → scheduling/evaluation | Agent → native metric bandit | Complete ranking, then actual budget-constrained scheduled test set; both tests fit regardless of warmup order |
+| Evaluation → learning | Native metric → RNFail/RewardAgent | Native ranking-aligned learning credits; no redefinition as generic observed full-vector labels |
+| Actual native observation → records | Monitor → existing sinks | Native metrics/rows plus a separate modeled expected-payoff DomainRecord; publication availability is sampled after the solve and reused on identical record retries |
+| Committed records → recovery | Native environment → existing checkpoint machinery when enabled | Native frontier, agent/bandit and output reconciliation; legacy trust/concurrency limits preserved |
+
+The example checks that the native available time is 3 seconds and the executed
+set is exactly `unit-test` and `integration-test`. It expects one separate modeled
+record with expected net payoff 2 credits. Native NAPFD/APFDc and RNFail keep their
+existing meanings. Its native fixture is offline constructed evidence, not a
+prospective speedup study. The one-build slice verifies wiring and accounting;
+multi-build learning and interrupted stochastic continuation need their own
+qualification tests.
+
+The v5 extraction must keep this native behavior through the qualified CI adapter
+and add a runtime-free solver path using the same core contracts. The later
+synthetic portfolio reference adds independent virtual books, holdings/cash,
+turnover/fees, state transitions and later feedback. It must also show supplied
+signals → learner → constrained solve → independently checked executed accounting,
+and compare matched component ablations. The finite baseline above does not
+already implement that system.
+
+## Interaction, interruption and recovery
+
+The following is the proposed optional durable interaction. A caller may omit the
+session/storage participants and perform direct calls with caller-owned delivery
+responsibility.
+
+```mermaid
+sequenceDiagram
+    participant Host
+    participant Session as Optional session
+    participant Adapter as Problem adapter
+    participant Method as Learner or solver
+    participant Executor
+    participant Store as Optional store
+    Host->>Session: Frozen request and logical decision ID
+    Session->>Adapter: Select eligible inputs at cutoff
+    Adapter->>Method: Typed mathematical inputs and capabilities
+    Method-->>Adapter: Proposal and declared state transition
+    Adapter-->>Session: Validated proposal and execution mapping
+    Session->>Store: Durable intent and required pre-effect state
+    Session->>Executor: Execute or reconcile declared effect
+    Executor-->>Session: Executed action and effect status
+    Session->>Store: Commit receipt and coherent frontier
+    Note over Session,Executor: Later feedback may mature or arrive out of order
+    Executor->>Session: Feedback with decision ID and lineage
+    Session->>Session: Validate availability, identity and duplication
+    Session->>Method: Accepted compatible update
+    Session->>Store: Commit updated algorithm state and applied event
+    Session-->>Host: Committed result or explicit unresolved status
+```
+
+A committed frontier binds the compatible algorithm/RNG state, accepted/applied
+events, domain/executor state, result inventory and any durable outbox/receipt
+required by its effect class. A local backend must qualify its publication and
+recovery protocol; a collection of unrelated successful writes is not an atomic
+commit. Incomplete attempts are not marked complete because an output directory
+or partial result exists.
+
+```mermaid
+flowchart TD
+    Start[Open frozen logical execution] --> Check{Compatible committed frontier?}
+    Check -->|No committed work| Fresh[Start with declared initial state]
+    Check -->|Yes| Restore[Restore algorithm RNG domain and event state]
+    Check -->|Unknown version or mismatch| Reject[Reject continuation; keep original evidence]
+    Fresh --> Intent[Persist intent before classified effects]
+    Restore --> Intent
+    Intent --> Effect[Execute or reconcile]
+    Effect --> Known{Effect outcome known?}
+    Known -->|Yes| Commit[Publish coherent result and frontier]
+    Known -->|No| Unresolved[Unresolved effect; require adapter reconciliation]
+    Commit --> Next[Accept next decision or feedback]
+    Next --> Intent
+    Crash[Interruption at any stage] --> Check
+    Unresolved --> Reconcile[Query host effect receipt or operator resolution]
+    Reconcile --> Known
+```
+
+Replayable pure/offline computation is the default executor class. An external job,
+purchase or trade needs an adapter-declared idempotency/reconciliation contract;
+a local event ID does not prove exactly-once physical effects. A crash after a
+remote effect but before its receipt can leave an unresolved effect. Such work
+must not be blindly retried or reported completed. No live broker, credential,
+trading or arbitrary remote-command execution is introduced by this architecture.
+
+The runtime serializes ownership or uses an explicitly qualified compare-and-swap/
+reservation protocol for a logical execution. Independent worker/attempt IDs do
+not by themselves provide concurrency safety. Native process-global policy RNG
+requires its existing isolated-worker wrapper; it is not a thread-safe generic
+session. Existing artifact atomic publication, native output reconciliation and
+checkpoint limits are reused with their documented scope, rather than relabeled
+as universal transactional storage.
+
+Corrections preserve earlier live decisions and their available information.
+Retrospective recomputation creates a declared new lineage restored before the
+correction and replays its dependent states. It cannot mix a corrected outcome
+with unchanged downstream state and claim an equivalent historical run.
+
+## Delivery boundaries and qualification
+
+The required v5.0 foundation comprises the typed contracts, explicit units and
+objectives, native policy audit, lightweight import/package boundary, causal
+replay, owned state, registry lifecycle and frozen evaluation protocol. Qualified
+simple methods, generic durable execution, the CI migration boundary, constrained
+allocation, real chosen-action and subset/acquisition capabilities, the synthetic
+portfolio reference and independent/null benchmarks follow their prerequisites.
+Human documentation, operational/security evidence and final installed/migration
+checks complete release qualification.
+
+Advanced tracking/rates, contextual and pooled learning, preference inference,
+off-policy estimation, stateful control and ecosystem interoperability have
+separate research entry gates. The continuing application program tracks all 18
+literature families, beginning with forecasting, solver choice, HPO and model
+routing. Historical data admission, portfolio replay and execution-aware intraday
+research are separate continuing tasks. None automatically expands the mandatory
+v5.0 implementation scope.
+
+Every qualified capability needs independent arithmetic/reference evidence,
+versioned fixtures, its stated numerical tolerances and action/feedback rejection
+cases. Stateful paths additionally need real interruption/resumption, duplication,
+conflict/concurrency and RNG equivalence checks. Independent direct-use examples
+and complete CI/non-CI flows run through a noneditable installed wheel outside
+the repository. New core import checks cover CLI/MCP/CI/storage absence. Agreement
+with a reference proves specified mechanics; scientific benefit needs matched,
+frozen evaluation with appropriate independent units and conservative fallback.
+
+The [release integration route](v5-release-integration.md) uses `release/v5` with
+issue branches targeting it. Stable v4 maintenance remains on `main`. Intermediate
+merges publish neither stable releases nor automatic prereleases. Alpha/beta/RC
+version selection is rehearsed locally in isolated repositories; any later
+prerelease publication needs its own explicit qualification decision. One final
+stable v5 publication is a distinct release gate after integration into `main`.
+Routing must be dry-run before downstream breaking merges. The architecture
+delivery changes release configuration, documentation and
+verification only; it does not extract algorithms or silently bump installed
+package metadata to claim a completed v5.
+
+For existing implementation detail, continue with
+[versioned measurements](domain-results.md),
+[point-in-time observations](point-in-time-observations.md),
+[finite coverage](finite-coverage.md),
+[scenario allocation](scenario-payoffs.md),
+[durable experiments](durable-experiments.md) and the
+[shared application API](application-api.md). The
+[public v5 roadmap](https://github.com/jacksonpradolima/coleman/issues/353) records
+implementation dependencies and acceptance evidence. Continuous constrained
+allocation is a separate capability from finite enumeration; its financial
+interpretation must retain objective, cost and execution assumptions, as in
+[Boyd et al., *Multi-Period Trading via Convex Optimization*](https://web.stanford.edu/~boyd/papers/cvx_portfolio.html).
+
+
+
+### FILE: docs/v5-compatibility.md
+
+# Moving existing experiments to v5
+
+The v5 architecture keeps CI/TCPCI as a supported application while making the
+decision components independently usable. An existing test-ranking experiment
+does not become a generic bandit experiment merely by changing its package
+version. Its action, observed feedback, reward and recorded units retain their
+original meanings.
+
+This inventory was checked against **4.20.0**, source revision
+`1edbee874129aa85e26e592d9649826e85e1ac6b`. It records the compatibility contract
+for the v5 work, rather than announcing that its adapters, migration tools or
+lightweight core have shipped. The architecture change itself moves no public
+Python modules and rewrites no retained data. See the
+[architecture specification](v5-architecture.md) for the component boundaries.
+
+## Choose an execution route
+
+Use a **pinned v4 environment** to continue an existing executable experiment or
+workspace with its original producer, dependency and runtime identities. Retain
+the original wheel, lock, data, configuration and trusted checkpoint directory.
+Use a separate **v5 environment** for the qualified TCPCI adapter or a new generic
+decision contract. Do not install the two versions into the same environment or
+point both at one mutable workspace.
+
+The v5 release must provide an installed-package TCPCI example that accepts the
+unchanged supported native configuration and preserves its qualified behavior.
+That is a migration acceptance requirement, not permission to load any old
+pickle under a new runtime. An unsupported legacy policy, plugin or checkpoint
+must produce an explicit incompatibility explanation and the pinned-v4 route;
+it must not be silently replaced by a similarly named algorithm.
+
+Implementation branches target `release/v5`. That integration branch does not
+publish releases; the final qualified merge to `main` produces the single stable
+v5 release. Prerelease version selection is exercised in isolated dry runs. See
+[release integration](v5-release-integration.md) for the workflow and maintenance
+routes. The current package version stays 4.20.0 during this architecture change.
+
+The installation source remains this repository's verified **GitHub release
+wheel**. The bare PyPI name `coleman` belongs to another project. Follow the
+[installation guide](getting-started.md#1-install-in-a-virtual-environment) for
+wheel verification and the [release history](release-history.md) to select an
+existing version. A planned v5 release is not an installable release asset.
+
+## How to read the inventory
+
+Each row below has one primary disposition:
+
+| Disposition | Meaning for the v5 delivery |
+| --- | --- |
+| **Retained** | Preserve the documented contract and existing import or serialized namespace. Moving its implementation behind that boundary requires conformance evidence. |
+| **Shimmed/deprecated** | Preserve a bounded legacy facade inside v5, with explicit mapping into the TCPCI application. New generic code uses the new capabilities. A shim must not conceal a semantic correction. No removal date or runtime deprecation warning is introduced by this architecture document. |
+| **Intentionally breaking** | A new contract cannot impersonate the v4 contract. Use an explicit new namespace/generation and a reviewed conversion, or retain the original execution in pinned v4. |
+| **Readable-only** | Retain a validated inspection/import route for evidence. Reading does not authorize execution, resume, provenance upgrades or new scientific claims. |
+
+These are required delivery dispositions. Where qualification or conversion is
+still pending, **pinned v4 is the executable route available today**. Each v5
+reader, shim and migration route must acquire its own release evidence before it
+is advertised as supported. Existing v4 readers remain usable in their pinned
+environment throughout that work.
+
+The bounded public surface consists of the documented API modules and package
+exports linked below, their documented configuration and transport commands, and
+the published data contracts they consume. A row covering a package includes its
+explicit public exports and documented source-extension classes. Underscore
+helpers, private database tables, ambient module globals and incidental internal
+imports are not additional stable extension APIs. Source-extension support does
+not imply automatic binary or pickle compatibility.
+
+## Python, configuration and transport surfaces
+
+| Supported v4 surface | Disposition and v5 route | Original-behavior route and limits |
+| --- | --- | --- |
+| `coleman.api`: `RunResult`, `run`, `run_many`, `run_with_extension`, `sweep`, `load_spec`, `save_resolved` | **Shimmed/deprecated.** Keep the documented native facade and call shapes at the TCPCI boundary. New generic learners and solvers do not accept a RunSpec. | Pinned v4 executes the original engine. `RunResult.metrics` is currently empty; it must not acquire invented aggregate observations. Native files are the result source. See [experiment API](api/experiment-api.md). |
+| `coleman.spec` exports: `RunSpec`; execution, experiment, budget, algorithm, HCS, contextual, results, checkpoint, telemetry and hook models; `SweepAxis`, `SweepSpec`, expansion/name/pack resolution and run ID helpers; documented `coleman.spec.io` functions | **Shimmed/deprecated.** Preserve native validation, defaults, config-pack merge order and grid/zip meaning in the legacy facade. Generic plans use a separately versioned contract. | Pinned v4 accepts the original resolved models/YAML. Most native model sections forbid extra keys; `AlgorithmSpec` and the declared extension options deliberately have different extension behavior. See [configuration](configuration.md). |
+| Native YAML sections, `packs`, top-level `sweep`, seed repetitions, `extensions` and `hooks` | **Shimmed/deprecated.** Interpret these as native TCPCI configuration, never as implicit generic capability registration. Keep ratio, seconds and selected-test-count budget modes distinct. | Keep original files and packs with v4. A changed default/profile requires explicit versioned interpretation, not regeneration of old configurations with new defaults. Seeds repeat algorithm randomness, not independent source observations. |
+| `coleman.runner.RunnerExtension`, `run_experiment`, `run_experiment_with_extension`, documented Scalene/parallelism helper and source extension points | **Shimmed/deprecated.** Retain the bounded native orchestration boundary. New problem, learner and executor protocols have separate responsibilities. | Exact callbacks, worker ownership and importable source subclasses remain available in pinned v4. A v5 adapter must document callback mappings and test sequential/process execution; no promise covers arbitrary monkey-patching. See [extensions](extensibility.md). |
+| `coleman.hooks`: `HookContext`, `ExecutionResult`, `DatasetResult`, `RunResult`, `RunnerHook`, functional adapters and documented lifecycle dispatch | **Shimmed/deprecated.** Preserve native plugin call shapes, configured deterministic order, coordinator/worker ownership, path-based worker loading and `fail_fast` behavior. Hook payload `duration_seconds` remains seconds; context `budget_value` retains its declared budget mode. | Pinned v4 preserves the original lifecycle and trusted class/function loading. A v5 TCPCI shim must qualify these callbacks in sequential and process modes. New generic executor events use a separate typed contract; the hook `RunResult` is not `coleman.api.RunResult`. See [hook configuration](configuration.md#hook-context-and-payloads). |
+| `coleman.agent`, `coleman.bandit`, `coleman.environment`/`environment_base`, `coleman.scenarios` and loader/virtual classes; action/history/bandit schemas | **Shimmed/deprecated.** Keep these as legacy ranking/application interfaces; do not make them generic algorithm base classes. | Pinned v4 is the route for custom subclasses whose state or constructor depends on the existing runtime. The v5 TCPCI adapter must publish its supported source-extension subset and reject unmapped capabilities. See [native API index](api-reference.md#extend-native-behavior). |
+| `coleman.policy` and its documented subpackage classes/configuration names, including ranking adaptations of EXP3, contextual, combinatorial, dueling and PortfolioUCB policies | **Intentionally breaking** when introducing mathematically corrected generic semantics. A new sampled-action or mixture learner gets explicit capabilities and implementation identity; an old ranking name does not confer that contract. | Exact ranking semantics and policy names remain reproducible in pinned v4. The policy audit and TCPCI migration work must identify every retained legacy mapping, correction and refusal. Never silently turn a deterministic ranking into an action probability or a financial portfolio. See [policies](policies.md). |
+| `coleman.reward`: base `Reward`, RNFail, TimeRank, APFDc, top-k, discounted-failure and reciprocal-rank rewards; `coleman.evaluation` native metric exports | **Shimmed/deprecated.** Preserve native reward/metric meanings at the TCPCI boundary. New loss transforms and objectives require explicit units, bounds and transform identity. | Pinned v4 reproduces the original credit assignment and metric arithmetic. Reward, ranking score, probability and inference remain separate. See [reward API](api/reward.md) and [native evaluation API](api/evaluation.md). |
+| `coleman.budget`, documented native selection resolution and duration/verdict/context input conventions | **Shimmed/deprecated.** Preserve explicitly qualified legacy semantics. Strict new adapters may reject inputs accepted or coerced by the unrestricted legacy loader, and must say so. | Pinned v4 preserves loader behavior, including its documented null-duration handling. Do not relabel zero substituted by a loader as a measured zero. Native `BuildId`, `Name`, `Duration`, `Verdict`, `CalcPrio` and `LastRun` are domain columns, not generic core fields. |
+| `coleman` CLI: `run`, `sweep`, `validate`, `analyze`, `application`, `workflow`; documented `python -m coleman.corpus` source commands | **Shimmed/deprecated.** Keep existing commands at their application/adapter boundary; add generic routes explicitly. No transport-owned algorithm logic. | Pinned v4 supports its exact command grammar, file layouts and error/exit behavior. Generic requests must not be accepted as arbitrary native config or plugin imports. See [CLI API](api/cli.md), [datasets](datasets.md) and [durable workflows](durable-experiments.md). |
+| `coleman.application` exports: `ApplicationService`, registry/configuration and experiment registration, caller, limits/policy, requests, jobs/handles and result bundle; `coleman-application-v1` JSON commands | **Retained.** Keep this bounded ephemeral application namespace and its approved registry semantics separate from generic durable execution. | Pinned v4 retains its seven tools and original limits. Registration is intentionally narrower than unrestricted RunSpec. Restart does not resume session jobs; export/import is portable evidence continuation. See [application API](application-api.md). |
+| `coleman.workflows` exports; documented `WorkflowService`, host registration, planning/lifecycle/inspection/download and evidence import/export contracts; `coleman-workflows-v1` commands | **Retained** as versioned native contracts, not widened in place. Generic plans/executors require their own namespace/generation. Mutable state and old execution use the routes in the next table. | Pinned v4 executes the frozen Random/UCB, RNFail, NAPFD/APFDc and native Parquet workflow. Retaining its reader does not admit other algorithms, rewards, arbitrary paths or imported executable plans. See [workflow contracts](workflow-contracts.md). |
+| `coleman.transports.mcp.create_server`, `coleman-mcp`, original seven tools and opt-in durable workflow tools | **Retained** as optional transport adapters over their versioned services. New generic operations require typed shared services and explicit discovery. | Pinned v4 preserves its supported SDK/protocol combination. The optional `mcp` extra remains unnecessary for direct library/CLI use. A natural-language client does not own execution, caller authority or evidence interpretation. |
+| `coleman.telemetry`: `Telemetry`, `NoOpTelemetry`, `get_telemetry`; native monitor/resource observations, OTLP configuration and local dashboards | **Retained** at the outer integration layer. Keep native metric names/units and attempt scope; version new generic instruments independently. | Pinned v4 preserves existing exporters and dashboards. RSS/CPU/wall-time measurements are process observations, not physical subject-test cost. Core imports must not initialize telemetry. See [observability](observability.md). |
+| `coleman.analysis` and documented statistical/plotting workflows | **Retained** for the native schemas they actually consume. Generic analysis must select the matching result contract explicitly. | Existing native queries/notebooks remain usable with pinned dependencies and data. A legacy `fitness` column is not silently renamed into a generic objective or treated as a calibrated probability. See [analysis playbook](analysis-playbook.md). |
+
+## Results, artifacts, workspaces and resumable state
+
+Persisted evidence and executable state need different routes. A valid content
+digest checks bytes; it does not authenticate a producer, establish independent
+observations or make a checkpoint safe to execute.
+
+| Supported v4 surface | Disposition and v5 route | Preservation and migration rule |
+| --- | --- | --- |
+| Native Parquet rows, Hive partitions and ranking hashes/top-k; embedded DuckDB and ClickHouse `coleman_results` | **Retained.** Keep native columns, units, nullability and metric meaning; use explicit new tables/contracts for generic facts. | Old results remain readable with their native schema. Runtime metadata and shard filenames need not be byte-identical across reruns. No synthetic DomainRecord or missing provenance is generated by reading old rows. See [results and storage](observability.md#choose-result-storage). |
+| `ResultsSink`, `NullSink`, `ParquetSink`, `DuckDBSink`, optional `ClickHouseSink`, catalog views, `ResultsWriter` and monitor collection | **Retained** at the persistence/integration boundary. New core algorithms do not consume sink row dictionaries. | Parquet local recovery has a specific checkpoint-ownership contract. DuckDB/ClickHouse append behavior does not acquire that guarantee. Null sinks discard native rows; both NullSink and ClickHouse explicitly refuse domain-record operations. |
+| `DomainRecord`, `Measurement`, `LearningReward`, `ResultProvenance`, canonical JSON/fingerprint/comparability helpers and local domain sidecars | **Retained.** Keep version 1 readers, explicit units/semantics and logical-key/content-digest distinction. | Sidecars are additive to native facts, not joint transactions with them. Legacy runs without a sidecar remain absent. Unknown versions/corrupt keys reject. Zero, negative permitted values, null, unavailable and not-applicable retain distinct meanings. See [domain results](domain-results.md). |
+| `ArtifactWriter.path_for`, mutable atomic JSON/CSV exports, immutable text/stream publication and `manifest.json` | **Retained.** Preserve the distinct mutable and immutable contracts. | Mutable exports remain single-writer. Immutable identical publication is idempotent; conflicting bytes reject. Complete-last receipts are contract-specific; a run directory or operational manifest is not universal completion evidence. See [artifact API](api/artifacts.md). |
+| `spec.resolved.json`, `provenance.json`, configuration-derived native run directories | **Readable-only** as historical evidence; the corresponding API remains the native shim. | Preserve original bytes and recorded redactions. A resolved spec is not a fingerprint of all input data. Re-execution requires the original dependency/input evidence or a new run identity. Portable redacted provenance remains a declared derivative. |
+| `CheckpointStore`, `LocalCheckpointStore`, `NullCheckpointStore`; `CheckpointPayload`, `.pkl` files and progress markers | **Intentionally breaking** at a generic learner/session state boundary. No automatic unpickle, conversion or adoption into generic state. | Resume trusted native state in the pinned v4 producer/runtime and its original trusted root. A v5 native codec route needs explicit compatibility checks and interruption evidence; absence of that proof means refusal, not reseeding or a fresh run labeled resume. |
+| Native Parquet checkpoint owner/binding metadata and committed-step reconciliation | **Retained** only with its matching native checkpoint codec and ownership rules. | Keep result/checkpoint pairs together. Unowned/ambiguous legacy tails reject unchanged. Concurrent attempts of the same native run remain unsupported; different coordinates do not justify taking over another attempt. See [native recovery source](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman/results/recovery.py). |
+| `WorkflowRandomState`, `WorkflowCheckpointStore` and the `coleman_workflow_rng_v1` native extra-state envelope | **Intentionally breaking** for generic owned streams; retain a separately qualified legacy isolated-worker wrapper where needed. | This envelope binds complete global PCG64 state and native trial/runtime identity. Ordinary Environment checkpoints without it are not workflow checkpoints. Old/stale/mismatched state rejects before RNG restoration; a seed alone cannot replace generator/cache state. |
+| Mutable durable workspace: `workspace.sqlite3`, schema/user version 1, immutable host policy, retained registry/plans/jobs/imports, ownership, attempt state and job-owned checkpoint directories | **Intentionally breaking** for generic executor/workspace evolution. Use a distinct v5 workspace root and versioned storage profile. | Continue existing jobs in pinned v4. No automatic opening, schema change, policy replacement or mutation by a generic v5 service. A future explicit migrator must preserve original evidence, ownership, acknowledged frontiers, quotas and exposure lineage. See [workspace decision](#workspace-evolution). |
+| Native `ExperimentPlan`, frozen defaults/executable snapshots, `WorkflowReport`, file pins, partial summaries, physical attempts and inspection artifacts | **Readable-only** when imported across generations; retained native readers are a v5 qualification target. | Verify declared schemas, file digests and report mathematics. Partial projections stay partial. Read/import does not qualify an executable runtime or upgrade a plan into a new generic plan. Pinned v4 remains the route to execute/resume its original plan. |
+| `EvidenceBundle`, `ImportedEvidence`, portable application result bundles and caller-owned artifact downloads | **Readable-only** across generations, preserving declared producer claims and local import ownership. | Never extract imported checkpoints or execute embedded content. Retain `read_only` and the explicit unverified native execution-binding fields. Importing evidence does not reset a protected holdout's upstream exposure. |
+| `CoverageProblem`, `CoverageResult`, `CoverageCheckpoint`, `solve_coverage`, exact quantities/semantics, limits and publication helpers | **Retained.** Reuse the actual finite-coverage solver and its versioned v1 inputs/results/verified incumbent checkpoint. | Missing/unknown versions, changed scope or incompatible units reject. Exactness remains limited to the documented method, input scope and certificate bounds. This is not a full-ranking or continuous learner. See [finite coverage](finite-coverage.md). |
+| `AllocationProblem`, finite actions/scenarios/resource/risk/utility contracts, `AllocationResult`/checkpoint, forecasts, `select_allocation` and publication helpers | **Retained.** Reuse finite scenario-payoff allocation, exact decimal accounting and conservative evidence/fallback. | A new continuous allocation capability is separate. Scenario weights are declared model inputs, not automatically calibrated probabilities. Cached evaluations must bind the complete original problem; signs, units and choice status remain unchanged. See [scenario allocation](scenario-payoffs.md). |
+| `ObservationHistory`, revisions/snapshots, `SignalRequest`, `DecisionSignal`, providers, quantity-mean training/model and publication helpers | **Retained.** Preserve point-in-time eligibility, receipt/revision lineage and signal provenance while moving lightweight temporal primitives below heavy application imports. | Corrections never rewrite what was available at an earlier decision. Generic replay adds typed causality and ownership; it does not reinterpret old clocks or infer missing ones. See [observations](point-in-time-observations.md). |
+| Protected `TemporalPlan`, freeze/candidates/protocols, observations, audit/access receipts, family reports, bounded paired inference and multiplicity helpers | **Retained.** Preserve existing methods and assumptions; generic prequential execution adds a distinct frozen protocol. | Retain upstream holdout and cumulative access identities. Do not reset exposure on import, alias or migration. Existing bounded-mean and legacy inference remain distinct procedures; a new report cannot silently select whichever result is favorable. See [protected evaluation](protected-evaluation.md) and [bounded comparisons](bounded-paired-evaluation.md). |
+| Corpus manifests/data cards/registry/fixtures, source materialization/cache/receipts, profiles and source admission/completion contracts; source-specific analytical/native Parquet ETL and controlled-capture receipts | **Retained** for their published source-specific versions; historical producer validation may require pinned v4. | Keep source bytes/terms, producer closure, original units, missingness, exclusions and declared projection limits. A readable receipt is not a newly qualified source or a finance dataset. Re-capture under v5 gets a new producer identity. See [dataset index](datasets.md), [materialization](corpus-materialization.md) and [source admission](corpus-admission.md). |
+| Repeated corpus evaluation, baseline matrices, stress cases and independent finite-model benchmark suites/reports/checkpoints | **Retained** as their native bounded experiments. Generic benchmarks add separate cases/protocols. | Frozen policy/input/model scope, independent-unit definitions, raw costs, limits and inconclusive outcomes remain visible. A new implementation identity cannot reuse an old qualification claim merely because mathematical results agree. See [corpus evaluation](corpus-evaluation.md), [baseline matrices](comparable-baselines.md) and [benchmarks](decision-benchmarks.md). |
+| `coleman.resources` exact ledger/events, estimated selection, replay protocols/results/reports and versioned ledger restoration | **Retained** at its existing typed resource-accounting boundary. Generic constraints may wrap this capability without redefining costs. | Reserved, estimated, observed occupancy, queue, setup and elapsed amounts remain separate. Do not promote estimated feasibility to observed physical execution. See [resource replay](resource-replay.md). |
+| `coleman.pilot` manifests/events/replay/adoption reports; `coleman.shadow` frozen protocols, admission/journal/state/checkpoint/report and host-clock/source-status contracts | **Retained** as bounded CI operational evidence and shadow execution contracts. Generic external effects require a separately qualified adapter. | Reuse the documented exact accounting and conservative findings, not an implied broker/order or arbitrary production control API. Shadow state remains bound to its source/protocol and latest acknowledged prefix. See [operational pilot](operational-pilot.md). |
+
+The [dataset index](datasets.md) is the exhaustive entry point for supported
+source-specific routes, including LRTS/stage views, RTPTorrent, LibSSH/HCS,
+Westermo, JUnit and controlled Java/Python/C captures. Their individual schemas
+are not collapsed into a new generic source schema by this decision. Notebook,
+Docker, Grafana, DuckLake/ClickHouse analytical examples and contributor tools
+remain optional outer integrations, with their own pinned environment and source
+requirements. They are not dependencies of a mathematical learner call.
+
+## Architecture decisions that govern migration
+
+### One modular distribution first
+
+Keep one distribution and the `coleman` import root initially. The planned
+`coleman.core` namespace supplies narrow mathematical contracts and learners;
+existing source adapters, artifacts, services and transports remain separate
+modules in that distribution. This does not mean the current wheel is already
+lightweight: its base dependencies include NumPy, Polars, PyArrow, DuckDB, SciPy,
+Pydantic, YAML and statistical tooling. The core extraction must measure cold
+imports, installed dependencies, memory and installation from a noneditable
+wheel outside the repository.
+
+Separate wheels are justified only by demonstrated dependency or support
+isolation that a modular namespace and optional extras cannot provide. Evidence
+must include package ownership/names, namespace/resource behavior, dependency
+resolution, release/version coordination, supported Python/platform matrix and
+installed examples. A different distribution name or split cannot appear first
+as a changed install command. Existing `mcp`, `telemetry`, `clickhouse`, notebook,
+docs and development extras keep their declared roles until explicitly revised.
+
+### Keep the supported Python minimum
+
+The audited metadata requires **Python 3.14 or later**; type checking and the
+supported execution documentation target 3.14. The Ruff syntax target `py313`
+does not establish Python 3.13 runtime support. Retain the actual minimum for
+v5 architecture work. Lowering it requires evidence for interpreter syntax,
+dependency wheels, process behavior, installed imports and all supported runtime
+flows. A hypothetical lightweight wheel is not that evidence. See
+[package metadata](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/pyproject.toml)
+and [contributing](contributing.md).
+
+### Workspace evolution
+
+V4 durable workspaces have a versioned SQLite contract and retained host policy;
+they are not ordinary output folders. The current store rejects unknown/corrupt
+schemas and does not silently migrate. Preserve that refusal behavior. Opening
+or restoring a generic v5 workspace must select its explicit format and trusted
+root before any job ownership, checkpoint load or external work begins.
+
+Use fresh roots for generic execution. A conversion, if implemented, is an
+explicit operation on a consistent stopped/owned snapshot. It validates source
+schema and complete artifact membership, writes a separate target, records a
+versioned mapping and publishes completion last. Failure leaves the source
+usable. It must preserve job/request identity, tombstones, protected-access
+lineage and committed frontiers without turning imported evidence into runnable
+state. Byte-copying a live SQLite database or renaming its directory is not this
+operation. V4 jobs may instead finish under their original environment and
+export their evidence for read-only inspection.
+
+### Separate identity generations
+
+There are several existing identities, and none substitutes for the others:
+
+| Identity | Existing meaning | Rule for v5 |
+| --- | --- | --- |
+| Native run ID | First 12 hex characters of SHA-256 over normalized resolved RunSpec. Default Scalene protection, empty extensions/hooks and specified result options have compatibility normalization. | Preserve that computation for qualified legacy runs. Do not reuse it as a complete dataset/runtime identity or silently change its generation. |
+| Domain logical key and content digest | Namespace/run/execution/decision identify a logical record; a separate digest binds its complete canonical content. | Preserve logical identity versus content distinction, conflict rejection and versioned schema semantics. |
+| Source/producer/runtime identity | Some producers bind all installed package resource bytes and version; workflow runtime also binds its active installed dependency inventory. | Retain original pins for historical validation. Even an unrelated package-byte change can create a different producer. Any narrower closure requires a new reviewed generation. |
+| Generic decision/plan/state identity | New capability, implementation, objective/transform, feasible set, input, seed/stream coordinates and codec identity. | Introduce an explicit generation and canonical payload. Never relabel a legacy ID as proof of these additional bindings. |
+| Operational job, attempt and ownership IDs | Local request deduplication, physical attempt history and exclusive state/result ownership. | Keep distinct from scientific observations and mathematical identities. A new attempt must not reset request history, committed state or protected exposure. |
+
+See [native run identity](api/spec-run-id.md),
+[producer identity source](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman/spec/producer_identity.py),
+[runtime identity source](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman/spec/runtime_identity.py) and
+[architecture and provenance](setup.md#identity-and-reproducibility).
+
+### External effects need an executor contract
+
+Native TCPCI replay consumes recorded outcomes; it does not launch the subject's
+tests. Source capture processes, network collectors, ClickHouse writes and OTLP
+exports already live at explicit outer boundaries. Generic learner calls must
+remain free of these effects. An optional executor must declare idempotency,
+acceptance, cancellation, partial completion, reconciliation and recovery limits
+for the actual effect it performs.
+
+Checkpointing a learner is not an exactly-once guarantee for a remote operation.
+An effect may complete while its acknowledgement is lost. The adapter must
+reconcile an authoritative external identity or mark the outcome unresolved;
+it cannot repeat irreversible work merely because no local result exists.
+Broker execution and live financial orders are not supplied by this architecture
+or by a historical replay adapter. Host-owned registration, credentials and
+authorization stay outside the mathematical core.
+
+## Evidence required before replacing a v4 route
+
+A claimed v5 compatibility route must carry installed-package evidence outside
+the checkout, frozen old fixtures and an explicit result for unsupported/future
+formats. Native qualification must compare inputs, ranking/selection, reward and
+metric semantics independently from wall-clock metadata. Checkpoint support
+additionally requires interrupted/resumed execution with the exact state codec,
+owned RNG streams or qualified legacy wrapper, committed frontier and result
+ownership intact. Read-only imports must demonstrate that they neither execute
+content nor reset access history.
+
+Keep the original evidence when producing a migrated derivative: identify its
+source digests, converter/version, changed semantics, unknown fields and target
+schema. An unavailable fact stays unavailable. A failed or incomplete conversion
+must not publish a completion receipt. Do not overwrite old artifacts, invent
+units, infer missing provenance, or rewrite a negative/inconclusive outcome to
+make a migration appear successful.
+
+The policy audit, TCPCI adapter, package/import qualification and final release
+qualification own these proofs. Until they pass, continue executable historical
+work in its pinned v4 environment and treat the corresponding v5 route as
+planned.
+
+
+
+### FILE: docs/v5-release-integration.md
+
+# Integrate v5 once, publish when qualified
+
+COLEMAN v5 is developed on **`release/v5`**. Each issue has a focused branch and a
+reviewed PR targeting that integration branch. CI verifies each PR and the
+integrated result. It does not create intermediate GitHub releases or publish the
+development documentation over the stable site. A final reviewed PR integrates the
+qualified work into `main`, where the existing release workflow publishes **5.0.0**.
+
+This is a deliberate release-branch strategy for an incompatible change, rather
+than a requirement for every project. It trades a controlled publication boundary
+for the work of synchronizing fixes and reviewing the complete integration diff.
+The [architecture specification](v5-architecture.md) and
+[compatibility inventory](v5-compatibility.md) define what is intended to ship;
+their proposed contracts become supported only after their implementation gates.
+
+## Work from the integration branch
+
+Start with a clean checkout. For example, the contracts issue would use:
+
+```bash
+git fetch origin --prune
+git switch release/v5
+git pull --ff-only origin release/v5
+git switch -c feat/v5-355-decision-contracts
+# Implement, test, review, then commit and push the issue branch.
+gh pr create --base release/v5 --head feat/v5-355-decision-contracts --body-file /tmp/coleman-pr.md
+```
+
+Open each implementation PR only after the complete local review described in
+[Contributing](contributing.md). Use Alibaba OpenCodeReview **1.12.13**, exclusively
+in local delegation mode. Replace the issue branch in this example:
+
+```bash
+npx --yes @alibaba-group/open-code-review@1.12.13 delegate preview \
+  --format json --from release/v5 --to HEAD \
+  -b 'Implement the current v5 issue against its integration base'
+# Also review the complete accumulated v5 diff before every push:
+npx --yes @alibaba-group/open-code-review@1.12.13 delegate preview \
+  --format json --from main --to HEAD \
+  -b 'Review the complete v5 integration against stable main'
+# If there are uncommitted changes, also inspect the workspace:
+npx --yes @alibaba-group/open-code-review@1.12.13 delegate preview --format json
+```
+
+Read the applicable `delegate rule` results for every returned file. Manually
+review excluded files, including tests and Markdown. Record complete changed-file
+review coverage separately from code line coverage. Keep the whole diff from
+`main` before every push as the integration grows, in addition to the focused
+issue diff; before final publication, review `main...release/v5` and run the full
+qualification again. Do not configure an
+external review endpoint.
+
+Use explicit issue and PR links. GitHub closing keywords only take effect for a
+PR targeting the default branch; `Closes #355` in a PR to `release/v5` does not
+close it. When its acceptance criteria are met and its PR is merged, record
+**integrated into `release/v5`; unreleased** with the merge commit and verification
+evidence. Close the issue deliberately only when its own completion contract is
+satisfied; closing an integration task does not claim a published capability.
+The release epic remains open until final publication is verified.
+
+## Keep stable maintenance independent
+
+`main` continues to accept stable v4 fixes until the final v5 merge. A normal
+compatible `fix:` can publish a v4 patch independently of unreleased v5 commits.
+Bring applicable security and correctness fixes into `release/v5` through a
+reviewed synchronization PR. Preserve history on the shared branch; do not rebase
+or force-push it. Recheck compatibility fixtures and the final version calculation
+after each synchronization. Never send partially qualified v5 changes back to
+`main` to resolve drift.
+
+The integration branch should block deletion and force-push, require PRs and
+resolved review threads, and require the always-executed quality checks after
+their exact names are verified on GitHub. Path-filtered security checks cannot be
+required unconditionally without an always-running aggregate. They still must
+pass whenever dependency changes trigger them. Repository settings are verified
+separately from source configuration; this paragraph is the policy, not proof
+that a particular remote rule is installed.
+
+## Publication and CI boundaries
+
+| Event | Tests and review | Release publication | Stable documentation deployment |
+| --- | --- | --- | --- |
+| Issue PR targeting `release/v5` | Tests of the PR merge, lint/docstrings, complexity, strict docs, titles, dependency review and generated docs; advisory audit on relevant paths | None | None |
+| Push to `release/v5` | Tests and strict docs; advisory audit for dependency changes | None | None |
+| Manual dispatch on `release/v5` | Read-only workflows may run | Release job refuses the ref | Docs build may run; upload/deployment refuse the ref |
+| Stable maintenance push to `main` | Existing stable checks | Semantic stable version when warranted | Stable site |
+| Final reviewed v5 merge to `main` | Complete qualification required before merge | One final 5.0.0 release | Qualified v5 documentation |
+
+The release job checks **`github.ref == 'refs/heads/main'`** for both push and
+manual dispatch. A similarly named branch or a tag is not a release target.
+Both Pages artifact upload and deployment enforce the same main-only boundary.
+Because GitHub expression equality ignores case, a shell check also requires the
+exact `refs/heads/main` before publication or Pages upload/deployment. Mixed-case
+refs cannot pass that second check.
+These guards describe the workflows delivered on this integration branch.
+The existing v4 `main` retains its previous workflow files until a reviewed
+backport or final promotion; this change alone does not harden old refs.
+The test workflow covers pushes and PRs; those can produce two observations for a
+local branch PR, with the PR event checking the synthetic merge result. Their
+check names include the event (`push` or `pull_request`), so integration protection
+can require the PR result without accepting a push result under the same name.
+Read-only decision benchmarks can be manually run on the integration branch and
+preserve their observations as workflow artifacts without creating a release.
+
+## Rehearse versions without publishing
+
+Python Semantic Release is pinned to **10.5.3** in the lock. Its `branches` table,
+not the obsolete singular `branch` setting, defines two exact regular-expression
+matches: `^main$` for stable versions and `^release/v5$` for alpha rehearsal.
+The prerelease group does **not** enable a release workflow for that branch.
+Package metadata and the lock remain at the stable version during this first
+configuration delivery; no 5.0 tag is created.
+
+Install the locked tools and run the real-tool regression suite:
+
+```bash
+uv sync --frozen --extra dev --extra release --group build
+uv run --frozen --no-sync python -m pytest tests/test_release_routing.py tests/test_release_notes.py --no-cov
+```
+
+The tests create independent temporary Git repositories with synthetic commits,
+the actual project configuration and a baseline `v4.20.0` tag. They do not share
+refs with the checkout, pass no credentials, disable pushing and VCS publication,
+skip builds, and check that project bytes, refs and worktree remain unchanged.
+The principal release tool is real, not mocked.
+
+| Fixture history / explicit option | Expected candidate |
+| --- | --- |
+| Stable baseline plus `fix:` on `main` | `4.20.1` |
+| Breaking commit on `release/v5` | `5.0.0-alpha.1` |
+| Explicit major prerelease rehearsal using `alpha`, `beta`, `rc` | `5.0.0-alpha.1`, `5.0.0-beta.1`, `5.0.0-rc.1` |
+| Tagged `4.20.1` maintenance synchronized into breaking integration | `5.0.0-alpha.1` |
+| Maintained stable history plus merged breaking integration on `main` | `5.0.0` |
+| `main-preview`, `master`, `release/v50`, `release/v5-fix`, feature branch | Rejected release group |
+
+For a rehearsal in a **throwaway repository**, the command shape is:
+
+```bash
+semantic-release --noop version --print --major --as-prerelease \
+  --prerelease-token rc --no-push --no-vcs-release --skip-build
+```
+
+`--noop` is global and comes before `version`. A forced `--major` alone can select
+a stable version even on a prerelease branch; always use `--as-prerelease` for
+these explicit rehearsals. These simulations exercise version selection, not
+asset signing, remote publication, authentication or a user-installable
+prerelease. Public alpha/beta/RC releases would require an explicit change to the
+agreed single-publication policy.
+
+## The final release remains a separate gate
+
+When all required v5.0 deliveries are qualified, the final release task must:
+
+1. Synchronize applicable stable fixes, freeze the final tree and review the
+   complete diff from the current `main`.
+2. Run all quality, security, compatibility, installed-package and real CI and
+   synthetic allocation gates, retaining their evidence and limitations.
+3. Preserve a truthful breaking-change declaration in the final merge history.
+   If squashing, the final PR title/commit must retain `feat!:` or the equivalent
+   breaking-change footer; earlier feature commits do not survive a squash.
+4. Run the pinned version preview against the **actual proposed main history**,
+   require **exactly `5.0.0`**, and verify that tag does not already exist. A newer
+   maintenance release or any unexpected candidate requires investigation, not
+   an automatic version override.
+5. Commit reviewed en-US `docs/releases/5.0.0.md`, migrations and the final
+   delivered-feature inventory. Describe completed work, not the continuing
+   application roadmap or rejected research.
+6. Merge only with required checks and review findings resolved. Let the stable
+   workflow update metadata and lock together, tag, build, sign and publish.
+7. Verify the rendered notes, wheel/source versions, lock, SBOM and attestations;
+   update the planned draft without leaving a duplicate public release. Then
+   synchronize local `main` and remove integrated branches according to policy.
+
+Do not force a major increment in the general workflow or bump only
+`pyproject.toml` now. The future release gate owns the final publication rehearsal
+and assets; this configuration delivery qualifies branch selection and the
+publication boundary.
+
+## Reference behavior
+
+- [Python Semantic Release multibranch releases](https://python-semantic-release.readthedocs.io/en/latest/concepts/multibranch_releases.html)
+  explains independent branch groups; the regression tests use the pinned 10.5.3
+  implementation rather than assuming the latest documentation is identical.
+- [The pinned configuration implementation](https://github.com/python-semantic-release/python-semantic-release/blob/v10.5.3/src/semantic_release/cli/config.py)
+  and [version command](https://github.com/python-semantic-release/python-semantic-release/blob/v10.5.3/src/semantic_release/cli/commands/version.py)
+  define exact matching and forced prerelease behavior.
+- [GitHub workflow branch filters](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onpull_requestpull_request_targetbranchesbranches-ignore)
+  distinguish PR target filters from push refs.
+- [GitHub issue linking](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue)
+  documents the default-branch requirement for closing keywords.
 
 
 
