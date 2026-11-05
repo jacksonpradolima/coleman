@@ -13189,6 +13189,14 @@ rejects unknown versions and provides no implicit checkpoint migration. Local
 POSIX storage and trusted host registration are required; this is not a hosted
 multi-user execution service.
 
+## Security updates across integrations and tooling
+
+The release also refreshes security fixes for Pillow, certifi, filelock,
+joserfc, Tornado, virtualenv and the coordinated OpenTelemetry packages.
+The dependency audit checks every locked registry package, including optional
+documentation, notebook and telemetry dependencies and other platform variants.
+Its results reflect the advisory database at verification time.
+
 
 
 ### FILE: docs/releases/4.3.0.md
