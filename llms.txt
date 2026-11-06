@@ -25,6 +25,7 @@ parallel execution, and extensibility via hooks and namespaced custom config.
 - docs/api/materialization.md
 - docs/api/native.md
 - docs/api/policy.md
+- docs/api/replay.md
 - docs/api/results.md
 - docs/api/reward.md
 - docs/api/scenarios.md
@@ -39,6 +40,7 @@ parallel execution, and extensibility via hooks and namespaced custom config.
 - docs/benchmark-corpus.md
 - docs/bounded-paired-evaluation.md
 - docs/c-seeded-source-capture.md
+- docs/causal-replay.md
 - docs/ci-stress-laboratory.md
 - docs/code-cost.md
 - docs/comparable-baselines.md
@@ -231,6 +233,7 @@ flowchart TD
 | Understand the framework's resource footprint | [Persisted CPU and memory samples](docs/observability.md#understand-resource-measurements), plus [Scalene and py-spy profiling](docs/code-cost.md) for investigating hotspots |
 | Query results with your analytical tools | [Parquet, embedded DuckDB or optional ClickHouse](#results-and-live-observability), SQL and Polars analysis, with configuration and provenance retained locally |
 | Stress a difficult CI decision | [32 deterministic interaction-covering cases](docs/ci-stress-laboratory.md), explicit truth and feedback clocks, native Parquet and resumable agents |
+| Replay late CI outcomes | [Typed delayed-feedback replay](docs/causal-replay.md), explicit maturity/receipt, immutable live decisions and pending feedback; requires the unreleased v5 source wheel |
 | Audit what a source actually supports | [Source admission](docs/corpus-admission.md): original evidence, explicit units and a 35-axis production-reality matrix |
 | Compare repeated CI experiments | [Raw build/seed records and paired repository-family means](docs/corpus-evaluation.md), explicit missingness and protected access |
 | Compare metrics with known limits | [Conservative bounded paired means](docs/bounded-paired-evaluation.md), full-family uncertainty and practical equivalence under declared independent-unit assumptions |
@@ -1187,6 +1190,99 @@ native evaluation, observations or checkpoints.
 
 
 
+### FILE: docs/api/replay.md
+
+# Replay API
+
+Use [Replay late CI feedback](../causal-replay.md) for the complete input table,
+decision/update timeline and installed example. These APIs belong to the
+unreleased v5 integration source and run with the base installation.
+
+The `coleman.replay` package initializer has no eager exports. Import the
+contracts, engine and codec explicitly. Direct learners can keep using the
+independent [core protocols](core-contracts.md); adopting a replay session is
+optional.
+
+## Choose the boundary you need
+
+| Boundary | Responsibility |
+| --- | --- |
+| `coleman.replay.contracts` | Strict versioned policy, targets, opportunities, feedback/origin bindings, trace records and complete replay state |
+| `coleman.replay.engine` | One host/session owner, eligible selection, explicit processing calls, logical retries and typed continuation |
+| `coleman.replay.codec` | Bounded canonical reading with an explicitly supplied concrete host-state type |
+| `coleman.replay.revisions` | Pure revision-graph, source-visibility and opportunity validation shared by readers and runtime |
+| `coleman.replay.planning.PendingRound` | Inspection of admitted but unapplied logical feedback, with its blocking reason |
+
+`read_replay_state`, `read_replay_feedback` and `read_continuation` accept built-in
+UTF-8 strings/bytes, not filenames. Their default limit is 16 MiB and 64 nested
+containers; callers also bound file/network acquisition before passing bytes.
+The continuation reader requires an explicit concrete `CoreContract` subclass
+for host state. It validates that supplied model but does not restore a host.
+
+The host implements existing `Decider`, `Updater` and `Stateful` protocols. Its
+optional replay updater receives a `ReplayApplication` containing the actual
+application instant; an adapter can then pass the admitted mathematical feedback
+to an independent learner. The complete host snapshot must include statistics,
+pending work and any owned RNG/cache. An implementation or codec name is a
+compatibility declaration, not a dynamic plugin lookup.
+
+## Interpret calls and state correctly
+
+| Call or property | What happens |
+| --- | --- |
+| `admit_history` / `admit_feedback` | Validate and retain bounded append-only facts without updating the host |
+| `eligible_snapshot` / `prepare` | Select and bind the actual eligible input view without calling the host |
+| `emit` | Drain eligible prior feedback, choose once and retain explicit offline identity execution |
+| `advance` | Close an explicit eligibility/processing boundary and apply its selected complete rounds |
+| `state` / `pending` | Inspect retained metadata; this is not verification of the live host snapshot |
+| `export_continuation` | Verify and combine the live host snapshot with the exact replay frontier |
+| `from_continuation` | Restore a matched complete envelope into a fresh compatible host |
+| `fork_from_continuation` | Restore a matched prefix into a new child lineage, preserving parent records |
+
+`eligible_through` and `apply_at` are independent monotonic clocks, with
+eligibility no later than application. A decision's cutoff limits the feedback
+that can affect it even when its actual decision time is later. The
+`closed-drain-v1` schedule is explicit; changing drain boundaries is not a
+promised equivalent execution.
+
+Decision and completed-update counts are separate. Latest source-visible
+revision selection happens before maturity/completeness checks. A visible
+unready successor blocks the root. Under `preserve_live_v1`, a later correction
+does not create another completed update for an accepted target.
+
+Exact retained logical retries avoid a second host call. New work requires
+matching current host state. Host failures invalidate the session without
+claiming rollback of physical mutations. A complete caller-owned continuation
+is separate from a durable acknowledged checkpoint; no native pickle migration
+or exactly-once external effect is implied.
+
+The explicit offline identity-execution policy retains the proposal/executed
+binding for simulation. It is not evidence that a real CI job ran. Source clocks,
+origin declarations and fingerprints establish internal consistency of supplied
+facts, not source authenticity or causal identification.
+
+## Contracts
+
+::: coleman.replay.contracts
+
+## Engine and direct host protocol
+
+::: coleman.replay.engine
+
+## Pending feedback inspection
+
+::: coleman.replay.planning.PendingRound
+
+## Revision and eligibility validation
+
+::: coleman.replay.revisions
+
+## Bounded continuation reader
+
+::: coleman.replay.codec
+
+
+
 ### FILE: docs/api/results.md
 
 # Measurement record API
@@ -1311,6 +1407,7 @@ understand their scope before composing a host-owned learner or solver.
 | Entry point | Purpose | Working guide |
 | --- | --- | --- |
 | [Experiment API](api/experiment-api.md) | `run`, `run_many`, `run_with_extension`, `sweep` | [First experiment](getting-started.md) |
+| [Typed replay](api/replay.md), v5 source | Eligible delayed feedback, explicit clocks and caller-owned continuation | [Replay late CI outcomes](causal-replay.md) |
 | [Specification models](api/spec-models.md) | `RunSpec` and typed configuration sections | [Configuration](configuration.md) |
 | [YAML I/O](api/spec-io.md) | `load_spec`, `load_sweep_spec`, `save_resolved` | [Configuration](configuration.md) |
 | [Packs](api/spec-packs.md) | Resolve composable configuration fragments | [Configuration](configuration.md) |
@@ -2488,6 +2585,319 @@ retain the historical declaration evidence for audit.
 
 Compare this constructed template with [controlled fault observations](controlled-faults.md), then
 retain its separate scope in [source admission](corpus-admission.md).
+
+
+
+### FILE: docs/causal-replay.md
+
+# Replay late CI feedback without learning from the future
+
+A CI result can arrive after the next build has already been ranked. Another
+result may arrive promptly but remain provisional, or be corrected after it was
+used. Replaying the latest exported table would give earlier decisions knowledge
+they did not have.
+
+COLEMAN's optional `coleman.replay` layer separates the information a decision
+could use from the instant an update actually runs. It keeps delayed feedback,
+corrections and pending values explicit. This API belongs to the **unreleased v5
+integration source**. Use its reviewed source wheel and the
+[base installation](core-installation.md); replay needs no native CI backend,
+database, provider SDK, CLI or MCP service.
+
+The example below uses a small, user-owned consumer and synthetic CI losses.
+It qualifies the replay mechanics, not a shipped generic learning method or a
+claim that adapting a test schedule improves CI.
+
+## Start with the information you actually have
+
+Keep the producing decision, exact test version, target horizon, value units and
+source clocks. A chosen suite's result reveals that suite, even if the original
+source has a table of every suite's eventual outcomes.
+
+The example uses `suite-a`, `suite-b` and `suite-c`, all at version `v1`. A supplied
+bounded loss has unit `1`, meaning `synthetic-ci-bounded-loss-v1` and range
+`[0,1]`; lower is better. Its origin is **synthetic**, with an explicit generator
+identity, version and digest. It is neither a calibrated failure probability nor
+a measured duration. A duration would be a separate measurement in seconds.
+Value availability and origin are separate: the fixture supplies an observed
+numeric loss while retaining synthetic origin. Modeled counterfactual values
+likewise retain their model/version/definition binding; their presence never
+turns them into realized outcomes.
+
+All times below use 2026-01-01 UTC. The target intervals of D0 and D1 overlap;
+they do not become independent observations.
+
+| Input | Information cutoff | Decision time | Target interval | Feedback visible to the consumer |
+| --- | --- | --- | --- | --- |
+| D0 | 10:00 | 10:00 | 10:00–10:02 | No prior loss; choose `suite-a` |
+| D1 | 10:01 | 10:01 | 10:01–10:02 | D0 is still pending; choose `suite-a` |
+| F0/root for D0 | Bound to D0 | Not another decision | D0's original target | Chosen `suite-a` loss `1` |
+| D2 | 10:02 | 10:03 | 10:03–10:04 | F0/root becomes usable; choose `suite-b` |
+
+F0 labels the example's `ci-outcome` feedback for D0, revision `root`.
+For F0/root, target completion, event, source availability, maturity and first
+receipt are all 10:02. These five readiness instants coincide in this fixture;
+the contract retains each one separately. The update is accepted at 10:03.
+
+The reference consumer first chooses a member with no observations, breaking
+ties by name. Once every member has observations, it chooses the smallest
+observed mean. An unobserved member is explored, never assigned a fictional loss
+of zero. The consumer only receives the typed request and admitted feedback;
+the complete source history and hidden alternatives stay outside it.
+
+## Run the complete installed example
+
+Install the reviewed source wheel following the
+[component guide](core-installation.md). Copy
+[`ci.py`](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/replay/ci.py)
+into a directory outside the checkout, then run:
+
+```bash
+python ci.py
+```
+
+The script contains the complete typed host implementation, loss schema,
+capability declarations and source/feedback builders. Its small receipt is:
+
+```json
+{
+  "accepted_rounds": 1,
+  "choices": ["suite-a", "suite-a", "suite-b"],
+  "counts": [1, 0, 0],
+  "decisions": 3,
+  "evidence": "authored_synthetic_ci",
+  "execution": "offline_identity_v1",
+  "loss_sums": [1.0, 0.0, 0.0]
+}
+```
+
+With that copied `ci.py` beside your own script, the same cycle makes the library
+calls visible:
+
+```python
+from ci import CODEC, HostConsumer, HostConsumerState, feedback, history, opportunity, policy
+from coleman.replay.engine import CausalReplay
+
+host = HostConsumer()
+replay = CausalReplay(host, policy(), state_type=HostConsumerState, state_codec=CODEC)
+replay.admit_history(history())
+first = replay.emit(replay.prepare(opportunity(0, at=0, end=2)), execution="offline_identity_v1")
+second = replay.emit(replay.prepare(opportunity(1, at=1, end=2)), execution="offline_identity_v1")
+replay.admit_feedback((feedback(first, (1.0, 0.0, 0.5)),))
+third = replay.emit(replay.prepare(opportunity(2, cutoff=2, at=3, end=4)), execution="offline_identity_v1")
+print([record.executed.action.chosen.id for record in (first, second, third)])
+print(replay.state.causal_prefix_fingerprint)
+print(replay.export_continuation().to_json())
+```
+
+The three-value tuple belongs to the example driver. The chosen-only feedback
+builder retains only a's selected value; b's `0` and c's `0.5` never enter the
+host request, feedback or state. Changing those hidden values cannot turn this
+run into a full-information experiment. `offline_identity_v1` explicitly
+simulates unchanged execution of the proposal; it does not launch a test job or
+attest that physical CI execution occurred.
+
+## Follow one decision and its later update
+
+The replay has two monotonic frontiers:
+
+| Frontier | Question it answers |
+| --- | --- |
+| `eligible_through` | Which supplied information is eligible to affect this state? |
+| `apply_at` | When is the selected update actually accepted? |
+
+The information frontier cannot exceed the application frontier. A decision
+uses its information cutoff for eligibility and its decision time for actual
+acceptance. For example, cutoff 10:08/decision 10:10 followed by cutoff
+10:09/decision 10:11 is valid. Receiving something by 10:10 does not make it
+eligible for a decision whose cutoff is 10:08.
+
+Before a new decision, eligible feedback for already registered producers is
+processed. Selection is ordered by its eligibility instant, then the stable
+producer/feedback coordinates for ties. A producer registered at the same
+instant can receive feedback only in the later phase. Original observation
+queries remain inclusive at their cutoff.
+
+```mermaid
+flowchart LR
+    H[Bounded source and feedback histories] --> G[Validate identities and revision graph]
+    G --> V[Latest source-visible revision]
+    V --> E{Eligible by cutoff?}
+    E -->|No| P[Pending with an explicit reason]
+    E -->|Yes| C[Check maturity coverage and consumer capability]
+    C --> U[Apply at the actual acceptance instant]
+    U --> D[Emit the next decision from eligible state]
+    U --> T[Retain update revision clocks and state digests]
+```
+
+An explicit drain closes that part of the processing schedule, even when no
+update is ready. The `closed-drain-v1` profile records those boundaries. It does
+not claim that inserting or removing drain calls reproduces continuous
+processing, or that arbitrary batching schedules produce the same state.
+Permuting equivalent declarations within the same declared schedule is a
+different question from changing that schedule.
+
+Admit complete bounded revision graphs before closing the relevant drain.
+Exact duplicates are harmless; changed content at the same revision key, missing
+parents, forks, cycles and mismatched producing versions reject. Rows supplied
+out of order in a complete valid graph use predecessor ancestry rather than
+lexical revision names. A repeated delivery retains its original first receipt.
+
+Source-history replacement is append-only: every retained revision keeps its
+exact canonical content. Newly backfilled information that would change a closed
+eligible prefix rejects. The same-instant post-producer feedback phase is explicit; the
+engine does not invent a later timestamp to make a backfill look new.
+
+## Read the timeline and the output together
+
+Decision count **D** counts successful emitted opportunities. Update count **U**
+counts completed, accepted logical feedback rounds.
+
+| Step | Action or update | D | U | Observed counts for a, b, c |
+| --- | --- | ---: | ---: | --- |
+| Emit D0 | Choose `suite-a` | 1 | 0 | `(0,0,0)` |
+| Emit D1 | Choose `suite-a`; F0 remains pending | 2 | 0 | `(0,0,0)` |
+| Accept F0/root at 10:03 | Observe a's loss `1` | 2 | 1 | `(1,0,0)` |
+| Emit D2 | Choose `suite-b` | 3 | 1 | `(1,0,0)` |
+
+Immediately before F0 acceptance there have been two decisions. Its producer
+has zero-based index zero, so the additional decision delay is
+`2 - 0 - 1 = 1`. This is a count of intervening opportunities, not two minutes of
+elapsed time. The batch declares this delay, and the consumer must support it.
+An ordinary synchronous method does not acquire asynchronous support by being
+placed behind a queue.
+
+Retain the exact executed decision, selected feedback revision, target/horizon,
+origin evidence and actual application time alongside the output. The complete
+trace distinguishes:
+
+- the whole admitted history/state fingerprint, which can change when future
+  evidence is added;
+- the selected eligible input view and causal-prefix fingerprints, which exclude
+  later knowledge;
+- the host-state fingerprints before and after the actual calls;
+- decision and completed-update counters, pending facts and their reasons.
+
+A digest checks the consistency of the supplied content. It does not
+authenticate a source, prove complete collection or show that an arbitrary
+host derived its features honestly. In the example, the host has no source
+history or alternative-outcome channel to inspect.
+
+## Keep incomplete and corrected results visible
+
+Unknown receipt remains pending. Maturity alone cannot supply receipt, and a
+null value cannot become an observed zero. Observed zero is valid and counts
+when all required facts are eligible. Unavailable and not-applicable values
+retain their separate meanings.
+
+Correction selection first chooses the latest **source-visible** revision using
+source availability, first receipt and the explicit predecessor chain. It then
+checks maturity and required values. A visible null, unavailable, immature or
+partial successor blocks a previously ready predecessor; replay never revives
+the older value merely because it is easier to use.
+
+The `preserve_live_v1` correction policy applies at most one completed feedback
+round to each producing execution and target. Before first acceptance, an
+eligible successor can be selected. After acceptance, later corrections remain
+audit evidence and may inform future eligible input snapshots. They do not
+rewrite past decisions or add another loss round for the same target.
+
+| Feedback contract | What permits an update |
+| --- | --- |
+| Chosen-only | Eligible required values for the actual chosen member |
+| Full panel | Eligible required values for every exact declared member/version |
+| Selected components | An explicit complete revision covering the selected members |
+| Partial components or absence | No completed update; retain the pending/absent fact |
+
+Several metrics for one chosen suite do not reveal other suites. Partial
+component revisions are not silently assembled into a complete panel. An
+aggregate result is not distributed into invented component outcomes.
+
+The example's other declared profiles illustrate that difference:
+
+| Profile and supplied feedback | Accepted observation counts | Next action |
+| --- | --- | --- |
+| Chosen a loss `1` | `(1,0,0)` | b, an unobserved member |
+| Complete panel a=`1`, b=`0`, c=`0.5` | `(1,1,1)` | b, the smallest observed mean |
+| Selected a/b, partial a=`0.5` | `(0,0,0)`; no completed update | Pending |
+| Explicit complete successor a=`0.5`, b=`0` | `(1,1,0)` | Subset b/c, including unobserved c |
+
+These are different declared inputs, not alternative interpretations of the
+chosen-only run. An explicit active-member/specialist declaration is also
+required where that support is used; a changing universe does not confer it.
+
+Raw outcomes, loss transformations and scale choices remain distinct. Late
+feedback retains the semantic context and frozen scale chosen for its producing
+decision; later data does not refit that scale. See
+[outcomes and objectives](objectives.md) for the dimensional and clipping rules.
+
+## Retain and restore the complete state deliberately
+
+The optional session owns its current replay state and checks the host's
+declared implementation, codec and complete snapshot before calls. Stale
+preparation, changed host state and conflicting logical retries reject. An exact
+decision retry returns its retained result without another call or RNG draw.
+
+Use one owner per host/session. Reentrant or concurrent use of that session is
+refused; independent sessions need independent hosts. A host call or subsequent
+snapshot failure can leave physical mutations behind. The session fails closed
+and cannot be reused as though the transition succeeded; no rollback is implied.
+Snapshot export is host code and must itself be side-effect-free; a fingerprint
+cannot enforce that property.
+
+A continuation combines the typed replay state with a concrete, versioned host
+snapshot, including its pending work and any owned RNG/cache. The reader requires
+the explicit host state type and compatible codec/implementation; it never
+imports a class from supplied data or loads a native pickle. An explicit new
+lineage requires a matched complete continuation, or a genuinely fresh origin.
+Original lineage evidence remains intact.
+
+`export_continuation()` verifies the actual host before producing that envelope.
+`read_continuation(..., state_type=HostConsumerState)` decodes it without restoring
+anything. `CausalReplay.from_continuation(...)` restores the matched state into
+a fresh independently owned host. To continue from that same prefix under a new
+lineage, use `fork_from_continuation(...)` with a new explicit lineage reference.
+The child retains parent causal records and original source clocks; it cannot
+backdate a later correction or attest that a real action was rolled back.
+The complete ordered root-to-parent lineage ancestry is retained, including
+ancestors that emitted no decisions; a child cannot reuse any ancestor identity.
+
+Bounded readers accept complete UTF-8 JSON, not paths, with a default 16 MiB
+limit and at most 64 nested containers. Typed collections have their own limits;
+the example host is deliberately limited to 16 opportunities. Exceeding a
+limit is not permission to discard pending or previously applied identities.
+
+The caller may publish one complete continuation envelope with the existing
+[immutable artifact writer](api/artifacts.md). That local publication does not
+create a generic durable acknowledgement, a multi-store transaction or
+exactly-once external effects. The durable session and composed checkpoint
+foundation remain separate work.
+
+## Preserve existing histories and scientific limits
+
+[Observation histories](point-in-time-observations.md), signals, objective
+receipts and core v1 records retain their existing readers and meanings. Replay
+adds its own explicit versioned records. Missing/unknown/future versions and
+conflicting canonical content reject. Signed zero remains significant in exact
+content identity. There is no automatic upgrade of native results into a
+generic feedback trace, nor an invented historical receipt or maturity time.
+Read the [migration policy](v5-compatibility.md) before continuing an older run.
+
+Here, causal means respecting the declared information boundary. It does not
+establish causal identification, independent observations, calibrated risk or
+an effective policy. Overlapping horizons and dependence groups remain part of
+the evidence; replay does not make them independent for
+[protected comparisons](protected-evaluation.md).
+
+[Joulani, György and Szepesvári, *Online Learning under Delayed Feedback*
+(ICML 2013)](https://proceedings.mlr.press/v28/joulani13.html) motivates distinct
+decision/update clocks and delayed-feedback compatibility. Its BOLD/QPM-D
+guarantees do not transfer to this generic replay layer or its user-owned
+consumer. No learner or distributed stream engine is introduced by this API.
+
+Continue with the [replay API](api/replay.md), the
+[decision contract walkthrough](decision-contracts.md) and
+[point-in-time observations](point-in-time-observations.md).
 
 
 
@@ -6292,6 +6702,12 @@ envelope; retries do not create new opportunities. `deduplicate_decisions` and
 They are pure in-memory helpers, not durable exactly-once delivery or idempotent
 learner updates. Crash recovery and durable state frontiers need the separately
 qualified session.
+
+For an explicit processing schedule, use the v5 source's
+[delayed CI replay](causal-replay.md). It joins feedback to producing decisions,
+keeps immature or unreceived values pending, and distinguishes the information
+cutoff from the actual update instant. Its caller-owned continuation does not
+replace the later durable commit foundation.
 
 Shared legacy primitives retain reexports through their original result,
 selection and temporal namespaces. Existing artifacts, run IDs and older numeric
@@ -12349,6 +12765,12 @@ flowchart LR
 
 ## Continue the workflow
 
+An observation history selects the information visible at a cutoff. The v5
+source's [delayed-feedback replay](causal-replay.md) additionally schedules
+eligible updates, preserves live decisions after corrections and keeps decision
+and completed-update counts separate. It reuses these histories without
+changing their readers or inventing missing receipt/maturity facts.
+
 Use these availability boundaries in [protected evaluation](protected-evaluation.md) or [shadow
 evaluation](prospective-shadow.md). The [glossary](glossary.md) distinguishes source availability
 from first receipt.
@@ -16992,13 +17414,16 @@ now implements [generic decision contracts and direct-use protocols](decision-co
 in a lightweight core, together with [explicit objective and loss mappings](objectives.md).
 It also provides [source-pinned native ranking semantics and explicit decision capture](native-policy-semantics.md)
 without changing the legacy policy mechanisms or automatically enriching runner output.
+The optional [causal replay layer](causal-replay.md) adds bounded delayed-feedback
+processing, explicit information/application frontiers and caller-owned typed
+continuation. It does not supply a learner or a durable commit engine.
 Generic learners, adapters and durable sessions below
 remain planned until individually qualified. The original implementation baseline
 is COLEMAN **4.20.0**, commit
 `1edbee874129aa85e26e592d9649826e85e1ac6b`. Examples explicitly identified as
 existing use that source. Proposed namespaces and call sequences below are design
 contracts to qualify in subsequent work, except for the explicitly linked
-implemented contract, objective and native-evidence layers. No v5 release wheel has been published.
+implemented contract, objective, native-evidence and replay layers. No v5 release wheel has been published.
 
 Read the [compatibility and migration policy](v5-compatibility.md) alongside this
 specification. Use the [current getting-started guide](getting-started.md) for the
@@ -17051,7 +17476,8 @@ introduced.
 | Learner adapter | Supported decision/update capabilities, algorithm statistics, RNG and state codec | Workspace construction, durable delivery deduplication or external effects |
 | Solver | Declared finite/continuous optimization, limits and result certificates/status | Learning, executing the proposal or manufacturing missing inputs |
 | Execution adapter | Work or effects, proposed-to-executed action mapping, outcome receipts and reconciliation limits | A regret guarantee, universal retry safety or automatically observed counterfactuals |
-| Optional session | Accepted event identity, ordering, applied-event deduplication and a committed frontier | Changing past decisions after a correction without a new replay lineage |
+| Optional bounded replay | Eligible event selection, revision/decision binding, declared processing order and typed continuation | Durable acknowledgement, implicit continuous processing or changing earlier live decisions |
+| Durable session, planned | Persisted acceptance, applied-event deduplication and a coherent committed frontier | Exactly-once physical effects without an executor-specific contract |
 | Optional storage adapter | Atomic publication, reads, durability and conflict detection under its documented backend assumptions | Authenticating a source or proving an external effect occurred once |
 | Application service | Frozen plans, registered trusted implementations, attempts, cancellation and orchestration | Mandatory dependencies for direct mathematical calls |
 | Transport | CLI/MCP input validation and calls into the shared service | Its own learner, solver or orchestration rules |
@@ -17070,6 +17496,10 @@ flowchart TD
     Host[User application or notebook] --> DirectLearner[Planned direct learner and MAB capabilities]
     Host --> DirectSolver[Existing finite solvers; broader solver boundary planned]
     Host --> Problem[Planned typed problem adapters including CI]
+    Host --> Replay[Optional bounded causal replay]
+    Replay --> Contracts
+    Replay --> Objectives
+    Replay --> Continuation[Caller-owned typed continuation]
     Problem --> Contracts[Implemented generic contracts and capability validation]
     Problem --> Objectives[Explicit objective definitions and pure loss mappings]
     Objectives --> Contracts
@@ -17080,7 +17510,7 @@ flowchart TD
     Service --> DirectLearner
     Service --> DirectSolver
     Service --> Execution[Planned executor capabilities]
-    Service --> Session[Planned optional generic session]
+    Service --> Session[Planned optional durable generic session]
     Session --> State
     Session --> Storage[Existing artifact and checkpoint infrastructure]
     Evidence[Existing protected evaluation with planned generic protocol] --> Storage
@@ -17219,6 +17649,13 @@ are separate quantities. Unknown historical receipt is not replaced by a downloa
 time and presented as a historical fact. Pending, not-yet-mature and unavailable
 feedback must not become an observed zero.
 
+The implemented replay profile keeps `eligible_through` and actual `apply_at`
+independent and monotonic. Before a decision, only feedback eligible by its
+information cutoff can affect the host; the acceptance time is the actual
+decision/update instant. The declared `closed-drain-v1` schedule is part of the
+trace. Adding drain calls does not acquire a continuous-processing or arbitrary
+batching-invariance guarantee. See the [worked CI timeline](causal-replay.md).
+
 `0`, a permitted finite negative value, unknown/null, unavailable and not applicable
 retain their distinct contracts and explicit units. Nonfinite input and
 bool-as-number reject in the new contracts. Seconds do not silently become
@@ -17282,13 +17719,19 @@ runtime orchestration imports capabilities, never the reverse.
 flowchart TD
     CLI[CLI and MCP transports] --> Application[Application orchestration]
     Application --> Domain[CI and other problem or execution adapters]
-    Application --> Session[Optional session and replay]
+    Application --> Session[Planned durable session]
+    Session --> Replay[Bounded causal replay]
     Application --> Storage[Storage and telemetry adapters]
     Application --> Evaluation[Evaluation and evidence]
     Domain --> Learners[Core learners]
     Domain --> Solvers[Finite and continuous solvers]
     Session --> Learners
     Session --> Contracts[Core contracts]
+    Replay --> Contracts
+    Replay --> Observations[Point-in-time observations]
+    Replay --> Objectives[Objective and loss contracts]
+    Observations --> Contracts
+    Objectives --> Contracts
     Storage --> Contracts
     Evaluation --> Contracts
     Learners --> Contracts
@@ -17411,6 +17854,12 @@ already implement that system.
 
 ## Interaction, interruption and recovery
 
+The implemented [bounded replay](causal-replay.md) has one linear host/session
+owner, exact logical retries and a complete caller-owned continuation envelope.
+It refuses stale host state and fails closed after a host-call failure. A host
+may already have mutated, so a failed call is not a successful frontier or an
+automatic rollback. Independent sessions need independent hosts.
+
 The following is the proposed optional durable interaction. A caller may omit the
 session/storage participants and perform direct calls with caller-owned delivery
 responsibility.
@@ -17482,9 +17931,13 @@ checkpoint limits are reused with their documented scope, rather than relabeled
 as universal transactional storage.
 
 Corrections preserve earlier live decisions and their available information.
-Retrospective recomputation creates a declared new lineage restored before the
-correction and replays its dependent states. It cannot mix a corrected outcome
-with unchanged downstream state and claim an equivalent historical run.
+The implemented `preserve_live_v1` profile selects the latest source-visible
+revision before first acceptance; an unready successor blocks an obsolete ready
+predecessor. After acceptance, corrections remain audit evidence and do not add
+another completed loss round. A new lineage requires a matched complete
+continuation or fresh origin; it cannot mix a corrected outcome with unchanged
+dependent state and claim an equivalent historical run. Broader retrospective
+correction policies require their own explicit qualification.
 
 ## Delivery boundaries and qualification
 
@@ -17568,6 +18021,11 @@ The integration source also provides a [complete native semantics catalog and ex
 This additive evidence route preserves the original algorithms, names and raw
 result readers. It does not automatically wrap `Environment`, backfill old rows,
 turn rankings into sampled actions or qualify every policy's checkpoint state.
+
+The [bounded replay API](causal-replay.md) adds separately versioned policies,
+acceptance records and caller-owned continuation. Existing observations and core
+feedback retain their wire meanings. This route does not turn a legacy native
+checkpoint into generic state or provide a durable acknowledgement protocol.
 
 ## Choose an execution route
 
@@ -17665,6 +18123,7 @@ observations or make a checkpoint safe to execute.
 | `CoverageProblem`, `CoverageResult`, `CoverageCheckpoint`, `solve_coverage`, exact quantities/semantics, limits and publication helpers | **Retained.** Reuse the actual finite-coverage solver and its versioned v1 inputs/results/verified incumbent checkpoint. | Missing/unknown versions, changed scope or incompatible units reject. Exactness remains limited to the documented method, input scope and certificate bounds. This is not a full-ranking or continuous learner. See [finite coverage](finite-coverage.md). |
 | `AllocationProblem`, finite actions/scenarios/resource/risk/utility contracts, `AllocationResult`/checkpoint, forecasts, `select_allocation` and publication helpers | **Retained.** Reuse finite scenario-payoff allocation, exact decimal accounting and conservative evidence/fallback. | A new continuous allocation capability is separate. Scenario weights are declared model inputs, not automatically calibrated probabilities. Cached evaluations must bind the complete original problem; signs, units and choice status remain unchanged. See [scenario allocation](scenario-payoffs.md). |
 | `ObservationHistory`, revisions/snapshots, `SignalRequest`, `DecisionSignal`, providers, quantity-mean training/model and publication helpers | **Retained.** Preserve point-in-time eligibility, receipt/revision lineage and signal provenance while moving lightweight temporal primitives below heavy application imports. | Corrections never rewrite what was available at an earlier decision. Generic replay adds typed causality and ownership; it does not reinterpret old clocks or infer missing ones. See [observations](point-in-time-observations.md). |
+| Additive `coleman.replay` contracts, explicit processing schedule and concrete host continuation | **New versioned boundary.** Preserve original core/observation/objective v1 content inside the replay records. | Unknown receipt remains pending; no legacy clock, hidden alternative or propensity is invented. Restore requires the exact concrete host type, codec, implementation and complete matching state. New lineage is explicit; no native pickle or mutable-workspace adoption. See [delayed CI replay](causal-replay.md). |
 | Protected `TemporalPlan`, freeze/candidates/protocols, observations, audit/access receipts, family reports, bounded paired inference and multiplicity helpers | **Retained.** Preserve existing methods and assumptions; generic prequential execution adds a distinct frozen protocol. | Retain upstream holdout and cumulative access identities. Do not reset exposure on import, alias or migration. Existing bounded-mean and legacy inference remain distinct procedures; a new report cannot silently select whichever result is favorable. See [protected evaluation](protected-evaluation.md) and [bounded comparisons](bounded-paired-evaluation.md). |
 | Corpus manifests/data cards/registry/fixtures, source materialization/cache/receipts, profiles and source admission/completion contracts; source-specific analytical/native Parquet ETL and controlled-capture receipts | **Retained** for their published source-specific versions; historical producer validation may require pinned v4. | Keep source bytes/terms, producer closure, original units, missingness, exclusions and declared projection limits. A readable receipt is not a newly qualified source or a finance dataset. Re-capture under v5 gets a new producer identity. See [dataset index](datasets.md), [materialization](corpus-materialization.md) and [source admission](corpus-admission.md). |
 | Repeated corpus evaluation, baseline matrices, stress cases and independent finite-model benchmark suites/reports/checkpoints | **Retained** as their native bounded experiments. Generic benchmarks add separate cases/protocols. | Frozen policy/input/model scope, independent-unit definitions, raw costs, limits and inconclusive outcomes remain visible. A new implementation identity cannot reuse an old qualification claim merely because mathematical results agree. See [corpus evaluation](corpus-evaluation.md), [baseline matrices](comparable-baselines.md) and [benchmarks](decision-benchmarks.md). |
