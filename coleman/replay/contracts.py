@@ -918,12 +918,14 @@ def _drain_clock(drain: ReplayDrain, clock: Timestamp | None) -> None:
 
 
 def _decision_boundary(record: ReplayDecisionRecord, drain: ReplayDrain | None, has_pending: bool) -> None:
-    """Bind decision state to its completed pre-decision information drain."""
+    """Bind decision state to its completed pre-decision clocks and counters."""
     timing = record.opportunity.request.timing
     if has_pending or drain is None or timing is None:
         raise ValueError("Every decision requires its explicit completed pre-decision drain")
     if drain.eligible_through != timing.information_cutoff or drain.apply_at != record.accepted_at:
         raise ValueError("Decision state frontier differs from its information/processing boundary")
+    if drain.decision_count != record.decision_index or drain.update_count_after != record.update_count_before:
+        raise ValueError("Decision state frontier differs from its completed decision/update-count boundary")
 
 
 def _closed_drain(state: ReplayState, drain: ReplayDrain, updates: list[ReplayUpdateRecord]) -> None:
