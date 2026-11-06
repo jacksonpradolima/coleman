@@ -15,28 +15,62 @@ ROOT = Path(__file__).parents[2]
 
 
 def test_installed_native_repetitions_and_checkpoint_continuation_outside_checkout(tmp_path):
+    uv = shutil.which("uv")
+    assert uv is not None
+    env = {key: value for key, value in os.environ.items() if key not in {"PYTHONPATH", "PYTHONHOME"}}
+    env.update(UV_OFFLINE="1", UV_NO_INDEX="1", UV_NO_PROGRESS="1", UV_LINK_MODE="copy")
+
+    def command(arguments, *, cwd=tmp_path, extra_environment=None):
+        result = subprocess.run(
+            arguments,
+            cwd=cwd,
+            env={**env, **(extra_environment or {})},
+            capture_output=True,
+            text=True,
+            timeout=180,
+            check=False,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        return result
+
     wheel_dir = tmp_path / "wheels"
-    subprocess.run(
-        ["uv", "build", "--offline", "--no-build-isolation", "--wheel", "--out-dir", str(wheel_dir)],
+    command(
+        [uv, "build", "--offline", "--no-build-isolation", "--wheel", "--out-dir", str(wheel_dir)],
         cwd=ROOT,
-        check=True,
-        capture_output=True,
     )
     wheel = next(wheel_dir.glob("*.whl"))
     environment = tmp_path / "installed"
-    subprocess.run(["uv", "venv", str(environment), "--python", sys.executable], check=True, capture_output=True)
+    command([uv, "venv", str(environment), "--python", sys.executable])
     python = environment / "bin" / "python"
-    subprocess.run(
-        ["uv", "pip", "install", "--offline", "--python", str(python), str(wheel) + "[ci,analytics]"],
-        check=True,
-        capture_output=True,
+    # CI's frozen sync caches pinned wheel URLs, not registry metadata. Require
+    # the real offline profile to work with indexes forbidden, even on a warm
+    # developer cache, before installing the noneditable wheel without resolving.
+    command(
+        [
+            uv,
+            "sync",
+            "--frozen",
+            "--offline",
+            "--no-index",
+            "--no-default-groups",
+            "--no-dev",
+            "--no-install-project",
+            "--extra",
+            "ci",
+            "--extra",
+            "analytics",
+            "--python",
+            str(python),
+        ],
+        cwd=ROOT,
+        extra_environment={"UV_PROJECT_ENVIRONMENT": str(environment)},
     )
+    command([uv, "pip", "install", "--offline", "--no-index", "--no-deps", "--python", str(python), str(wheel)])
+    command([uv, "pip", "check", "--python", str(python)])
     external = tmp_path / "external"
     external.mkdir()
     script = external / "ci.py"
     shutil.copy(ROOT / "examples/corpus-evaluation/ci.py", script)
-    env = os.environ.copy()
-    env.pop("PYTHONPATH", None)
     output = external / "output"
 
     def execute():

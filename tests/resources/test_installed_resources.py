@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from coleman.resources import ResourceReplayReport
+from tests.installed_support import seed_locked_dependencies
 
 ROOT = Path(__file__).parents[2]
 
@@ -23,12 +24,21 @@ def test_installed_native_resource_replay_and_retry(tmp_path):
     env = {key: value for key, value in os.environ.items() if key not in {"PYTHONPATH", "PYTHONHOME"}}
     env.update({"UV_LINK_MODE": "copy", "UV_NO_PROGRESS": "1"})
     distributions = tmp_path / "dist"
-    command([uv, "build", "--out-dir", str(distributions)], ROOT, env)
+    command(
+        [uv, "build", "--offline", "--no-build-isolation", "--python", sys.executable, "--out-dir", str(distributions)],
+        ROOT,
+        env,
+    )
     virtual = tmp_path / "installed"
     command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
     python = virtual / "bin/python"
     wheel = next(distributions.glob("*.whl"))
-    command([uv, "pip", "install", "--offline", "--python", str(python), str(wheel) + "[ci]"], tmp_path, env)
+    seed_locked_dependencies(uv, virtual, env, extras=("ci",))
+    command(
+        [uv, "pip", "install", "--offline", "--no-index", "--no-deps", "--python", str(python), str(wheel) + "[ci]"],
+        tmp_path,
+        env,
+    )
     outside = tmp_path / "outside"
     outside.mkdir()
     example = outside / "run.py"

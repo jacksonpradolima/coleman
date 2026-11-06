@@ -13,6 +13,7 @@ from tests.corpus.test_hcs_archive_trace import owned_archive
 from tests.corpus.test_hcs_trace import OWNED
 from tests.corpus.test_hcs_trace_artifacts import owned_log_spec
 from tests.corpus.test_installed_controlled import ROOT, command
+from tests.installed_support import seed_locked_dependencies
 
 
 def test_installed_hcs_sources_native_recovery_and_domain_import_boundary(tmp_path):
@@ -21,12 +22,37 @@ def test_installed_hcs_sources_native_recovery_and_domain_import_boundary(tmp_pa
     env = {k: v for k, v in os.environ.items() if k not in {"PYTHONPATH", "PYTHONHOME"}}
     env.update(UV_LINK_MODE="copy", UV_NO_PROGRESS="1")
     dist = tmp_path / "dist"
-    command([uv, "build", "--wheel", "--out-dir", str(dist)], ROOT, env)
+    command(
+        [
+            uv,
+            "build",
+            "--offline",
+            "--no-build-isolation",
+            "--python",
+            sys.executable,
+            "--wheel",
+            "--out-dir",
+            str(dist),
+        ],
+        ROOT,
+        env,
+    )
     virtual = tmp_path / "installed"
     command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
     python = virtual / "bin/python"
+    seed_locked_dependencies(uv, virtual, env, extras=("ci",))
     command(
-        [uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl"))) + "[ci]"],
+        [
+            uv,
+            "pip",
+            "install",
+            "--offline",
+            "--no-index",
+            "--no-deps",
+            "--python",
+            str(python),
+            str(next(dist.glob("*.whl"))) + "[ci]",
+        ],
         tmp_path,
         env,
     )

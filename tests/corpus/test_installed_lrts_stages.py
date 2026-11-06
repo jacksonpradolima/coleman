@@ -8,6 +8,7 @@ import sys
 from tests.corpus.test_installed_controlled import ROOT, command
 from tests.corpus.test_lrts_etl import owned_recipe
 from tests.corpus.test_lrts_stage_etl import stage_recipe
+from tests.installed_support import seed_locked_dependencies
 
 
 def test_installed_stage_sources_parquet_native_checkpoints_and_legacy_compatibility(tmp_path):
@@ -16,12 +17,37 @@ def test_installed_stage_sources_parquet_native_checkpoints_and_legacy_compatibi
     env = {k: v for k, v in os.environ.items() if k not in {"PYTHONPATH", "PYTHONHOME"}}
     env.update(UV_LINK_MODE="copy", UV_NO_PROGRESS="1")
     dist = tmp_path / "dist"
-    command([uv, "build", "--wheel", "--out-dir", str(dist)], ROOT, env)
+    command(
+        [
+            uv,
+            "build",
+            "--offline",
+            "--no-build-isolation",
+            "--python",
+            sys.executable,
+            "--wheel",
+            "--out-dir",
+            str(dist),
+        ],
+        ROOT,
+        env,
+    )
     virtual = tmp_path / "installed"
     command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
     python = virtual / "bin/python"
+    seed_locked_dependencies(uv, virtual, env, extras=("ci",))
     command(
-        [uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl"))) + "[ci]"],
+        [
+            uv,
+            "pip",
+            "install",
+            "--offline",
+            "--no-index",
+            "--no-deps",
+            "--python",
+            str(python),
+            str(next(dist.glob("*.whl"))) + "[ci]",
+        ],
         tmp_path,
         env,
     )
