@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from coleman.core.primitives import canonical_json
 from coleman.objectives.bindings import DefinitionBinding
+from coleman.replay.planning import _feedback_frontier, _history_update
 from coleman.replay.retained_contracts import RetainedContinuation, RetainedReplayState
 from coleman.state.components import ComponentValue, PreparedCollection
 from coleman.state.storage_contracts import AcknowledgedHead, CommitKind, semantic_frontiers_fingerprint
@@ -218,6 +219,10 @@ def _feedback_extension(old: RetainedReplayState, new: RetainedReplayState) -> N
     actual = {(item.logical_key, item.batch.revision_id): _wire(item) for item in new.feedback}
     if any(actual.get((item.logical_key, item.batch.revision_id)) != _wire(item) for item in old.feedback):
         raise ValueError("State transition changes or deletes an admitted feedback revision")
+    previous = {(item.logical_key, item.batch.revision_id) for item in old.feedback}
+    for item in new.feedback:
+        if (item.logical_key, item.batch.revision_id) not in previous:
+            _feedback_frontier(old, item, producers=new)
 
 
 def _history_extension(old: RetainedReplayState, new: RetainedReplayState) -> None:
@@ -234,6 +239,7 @@ def _history_extension(old: RetainedReplayState, new: RetainedReplayState) -> No
         for item in old.history.revisions
     ):
         raise ValueError("State transition changes or deletes an admitted source revision")
+    _history_update(old, new.history)
 
 
 def _monotone_frontiers(old: RetainedReplayState, new: RetainedReplayState) -> None:

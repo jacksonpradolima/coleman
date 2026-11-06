@@ -98,6 +98,43 @@ def _visible(feedback: ReplayFeedback, cutoff: datetime) -> bool:
     )
 
 
+def _feedback_frontier(state: ReplayState, feedback: ReplayFeedback, *, producers: ReplayState | None = None) -> None:
+    """Reject a new revision that rewrites an already closed producer cohort.
+
+    Parameters
+    ----------
+    state : ReplayState
+        Actual prior information cutoff and last closed processing phase.
+    feedback : ReplayFeedback
+        Newly admitted revision, whose source and first-receipt clocks determine
+        visibility independently of numeric readiness or eventual application.
+    producers : ReplayState or None, optional
+        Complete candidate inventory for resolving newly appended producers.
+        Defaults to state for live admission; its clocks never replace state's
+        acknowledged boundary during a checkpoint successor comparison.
+
+    Raises
+    ------
+    ValueError
+        Source-visible revision belongs to a closed producer cohort, or no
+        matching producer exists in the supplied validated inventory.
+
+    Notes
+    -----
+    A producer after the last drain may supply feedback at the same instant in
+    a later causal phase. Unknown receipt or future visibility remains pending.
+    This pure check changes no owner, replay clock, file or random state.
+    """
+    cutoff = state.eligible_through
+    if cutoff is None or not _visible(feedback, cutoff):
+        return
+    producer = _producer(state if producers is None else producers, feedback)
+    last = state._last_drain()
+    if last is not None and producer.sequence > last.sequence:
+        return
+    raise ValueError("Source-visible feedback backfills an already closed producer cohort")
+
+
 def _latest_visible(chain: tuple[ReplayFeedback, ...], cutoff: datetime) -> ReplayFeedback | None:
     """Follow explicit ancestry, never lexical revisions or ready-row fallback."""
     return next((feedback for feedback in reversed(chain) if _visible(feedback, cutoff)), None)

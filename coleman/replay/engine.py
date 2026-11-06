@@ -34,13 +34,12 @@ from coleman.replay.planning import (
     PendingRound,
     _applications,
     _capacity,
+    _feedback_frontier,
     _frontiers,
     _history_update,
     _instant,
     _opportunity,
     _pending,
-    _producer,
-    _visible,
 )
 from coleman.replay.revisions import validate_feedback_graph
 
@@ -529,14 +528,7 @@ class CausalReplay[S: CoreContract]:
 
     def _admission_frontier(self, feedback: ReplayFeedback) -> None:
         """Distinguish a closed-cohort backfill from a later producer phase."""
-        cutoff = self._state.eligible_through
-        if cutoff is None or not _visible(feedback, cutoff):
-            return
-        producer = _producer(self._state, feedback)
-        last = self._state._last_drain()
-        if last is not None and producer.sequence > last.sequence:
-            return
-        raise ValueError("Source-visible feedback backfills an already closed producer cohort")
+        _feedback_frontier(self._state, feedback)
 
     def _same_drain(self, cutoff: Timestamp, processing: Timestamp) -> bool:
         """Recognize an exact closed-drain retry without another host call."""

@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Hashable
+from dataclasses import dataclass, fields, is_dataclass
+from datetime import datetime, time
+from decimal import Decimal
+from math import isfinite
 from typing import Any, cast
+
+from pydantic import BaseModel
 
 from coleman.core.base import CoreContract
 from coleman.core.identity import Reference
@@ -15,6 +20,85 @@ from coleman.core.reading import bounded_json_bytes
 from coleman.replay.retained_contracts import RetainedContinuation
 from coleman.state.contracts import StateBinding
 from coleman.state.storage_contracts import ChildFrontier, CollectionManifest
+
+
+def _scalar_signature(value: Any) -> Hashable:
+    """Retain exact finite scalar representation during codec admission.
+
+    Parameters
+    ----------
+    value : object
+        Declared scalar field, after model validation and selected-reader parsing.
+
+    Returns
+    -------
+    collections.abc.Hashable
+        Type-tagged value; binary64 signed zero and Decimal quantum survive.
+
+    Raises
+    ------
+    ValueError, TypeError
+        Nonfinite numeric state or an opaque unhashable scalar representation.
+
+    Notes
+    -----
+    Comparison metadata stays in memory. It captures no private model caches,
+    executes no owner and is never substituted for a serialized fingerprint.
+    """
+    if isinstance(value, float):
+        if not isfinite(value):
+            raise ValueError("Component state requires finite float values")
+        return type(value), value.hex()
+    if isinstance(value, Decimal):
+        if not value.is_finite():
+            raise ValueError("Component state requires finite Decimal values")
+        return type(value), value.as_tuple()
+    if isinstance(value, complex):
+        if not isfinite(value.real) or not isfinite(value.imag):
+            raise ValueError("Component state requires finite complex values")
+        return type(value), value.real.hex(), value.imag.hex()
+    if isinstance(value, (datetime, time)):
+        return type(value), value.isoformat(), value.fold, getattr(value.tzinfo, "key", None)
+    if not isinstance(value, Hashable):
+        raise TypeError("Component state requires explicit portable scalar fields")
+    return type(value), value
+
+
+def _state_signature(value: Any) -> Hashable:
+    """Compare declared typed fields without invoking model equality overrides.
+
+    Parameters
+    ----------
+    value : object
+        Complete concrete model, nested dataclass/container or scalar field.
+
+    Returns
+    -------
+    collections.abc.Hashable
+        In-memory structural value retaining types, array order and mapping keys.
+
+    Raises
+    ------
+    ValueError, TypeError
+        A scalar cannot satisfy the portable finite-state comparison profile.
+
+    Notes
+    -----
+    Reads only declared fields; private implementation caches are not captured.
+    The host still owns snapshot completeness. Validators and serializers must
+    remain pure and deterministic; this is not an arbitrary-Python sandbox.
+    """
+    if isinstance(value, BaseModel):
+        return type(value), tuple((name, _state_signature(getattr(value, name))) for name in type(value).model_fields)
+    if is_dataclass(value) and not isinstance(value, type):
+        return type(value), tuple((item.name, _state_signature(getattr(value, item.name))) for item in fields(value))
+    if isinstance(value, (tuple, list)):
+        return type(value), tuple(_state_signature(item) for item in value)
+    if isinstance(value, dict):
+        return type(value), frozenset((_state_signature(key), _state_signature(item)) for key, item in value.items())
+    if isinstance(value, (set, frozenset)):
+        return type(value), frozenset(_state_signature(item) for item in value)
+    return _scalar_signature(value)
 
 
 @dataclass(frozen=True)
@@ -126,7 +210,7 @@ class ComponentCodec[S: CoreContract]:
         if type(payload) is not bytes:  # pylint: disable=unidiomatic-typecheck
             raise TypeError("Component decode requires immutable bytes")
         value = self.state_type.from_json(bounded_json_bytes(payload, 16 * 1024**2))
-        if self.encode(value).content != payload:
+        if self._canonical_state(value)[0] != payload:
             raise ValueError("Component bytes must use the exact canonical codec representation")
         return value
 
@@ -137,6 +221,8 @@ class ComponentCodec[S: CoreContract]:
         ----------
         state : S
             Exact declared model instance, including all owner state.
+            The complete canonical envelope must fit within 16 MiB and 64 nested
+            JSON containers, matching this codec's decoder.
 
         Returns
         -------
@@ -146,7 +232,49 @@ class ComponentCodec[S: CoreContract]:
         Raises
         ------
         TypeError, ValueError
-            Wrong concrete type, invalid fields or incompatible embedded binding.
+            Wrong concrete type, invalid fields, incompatible embedded binding,
+            an encoded snapshot exceeding the decoder's byte/depth limits, or a
+            serializer that the selected reader cannot reverse exactly.
+
+        Notes
+        -----
+        Bounds apply before creating StateBytes or publishing an artifact. A
+        structurally valid model can still exceed this fixed wire profile; it
+        must reject before the optional store can acknowledge unreadable state.
+        The actual selected model reader must recover the same declared typed
+        fields, including nested values. Private implementation caches are not
+        inferred; every value needed for continuation belongs in declared state.
+        """
+        content, signature = self._canonical_state(state)
+        restored = self.decode(content)
+        if signature != _state_signature(restored):
+            raise ValueError("Component codec must recover the exact complete declared state")
+        return StateBytes(self.binding, content)
+
+    def _canonical_state(self, state: S) -> tuple[bytes, Hashable]:
+        """Validate concrete binding and bounded canonical bytes without recursion.
+
+        Parameters
+        ----------
+        state : S
+            Exact concrete model selected by this codec.
+
+        Returns
+        -------
+        tuple
+            Bounded canonical UTF-8 bytes and declared-state comparison
+            signature. The byte profile allows16MiB/depth64.
+
+        Raises
+        ------
+        ValueError, TypeError
+            Invalid model/type/binding, nonfinite or changing declared values,
+            unsupported scalar state or encoded reader-profile overflow.
+
+        Notes
+        -----
+        Calls trusted pure validators/serialization only. It never calls encode,
+        decode, an owner or storage; both public methods share this primitive.
         """
         if type(state) is not self.state_type:  # pylint: disable=unidiomatic-typecheck
             raise TypeError("Component value must have its exact declared concrete type")
@@ -154,7 +282,11 @@ class ComponentCodec[S: CoreContract]:
         embedded = getattr(checked, "binding", None)
         if embedded is not None and embedded != self.binding:
             raise ValueError("Component embedded binding differs from its declared codec")
-        return StateBytes(self.binding, checked.to_json().encode("utf-8"))
+        content = bounded_json_bytes(checked.to_json(), 16 * 1024**2)
+        signature = _state_signature(checked)
+        if checked is not state and signature != _state_signature(state):
+            raise ValueError("Component validation must preserve the exact complete declared state")
+        return content, signature
 
 
 @dataclass(frozen=True)

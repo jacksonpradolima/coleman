@@ -108,14 +108,16 @@ an artifact's string.
 
 ```mermaid
 flowchart TD
-    Input[Complete typed component snapshots] --> Init[Explicit initialize at generation 0]
+    Input[Complete typed component snapshots] --> Admission[Validate bounded canonical snapshots]
+    Admission --> Init[Explicit initialize at generation 0]
     Init --> Head[Read actual acknowledged head]
     Head --> Gate[Validate compatibility intent predecessor and capacity]
     Gate --> Decode[Decode every required component]
     Decode --> Stage[Restore and verify fresh distinct owners]
     Stage --> Work[Apply one declared local transition]
-    Work --> Verify[Validate every successor and complete owner inventory]
-    Verify --> Blobs[Publish immutable component blobs and manifest]
+    Work --> Verify[Validate bounded canonical bytes and complete owner inventory]
+    Verify --> Causal[Preserve acknowledged causal prefixes and closed views]
+    Causal --> Blobs[Publish immutable component blobs and manifest]
     Blobs --> Commit[SQLite COMMIT acknowledges the whole collection]
     Commit --> Receipt[Return accepted head and current head]
     Crash[Process interruption] --> Head
@@ -143,6 +145,19 @@ transition. Publication uses content-addressed immutable blobs and one complete
 manifest. SQLite **COMMIT is the sole acknowledgement point**. A complete
 manifest on disk before COMMIT remains an orphan; it is not a completed run.
 The next transition again starts from the acknowledged collection.
+
+Before publishing a replay successor, the store also compares its source history
+with the actual acknowledged predecessor. It preserves every existing source
+revision and every emitted decision view. A newly admitted history must preserve
+the selected source view at the previously closed information cutoff, including
+that exact instant. Restoring an individually valid snapshot cannot bypass the
+same history-admission rules enforced by live replay. New feedback revisions
+also obey the acknowledged producer cohort's visibility boundary, even when a
+correction would leave a previously applied numeric value unchanged. Future
+information remains admissible when those earlier views stay unchanged; a new
+producer after the last drain can still receive feedback in its later causal
+phase at the same clock instant. These checks inspect the callback's exported
+successor before publication; rejection preserves the acknowledged predecessor.
 
 The store serializes these local callbacks. It does not prevent arbitrary
 out-of-band use of caller-owned objects or sandbox custom Python. Codecs,
@@ -346,11 +361,33 @@ freeform v1 trace, a native pickle or an existing workflow workspace.
 | Children / components | At most 32 / 128 |
 | Declared implementation/mapping code identities | At most 256, separate from the component count |
 | Component / full collection / manifest | 16 MiB / 64 MiB / 2 MiB |
+| Component JSON lexical depth | At most 64 nested containers, including the complete envelope |
 | Retained commit receipts | 8 by default, at most 64 |
 | Root / entries | 1 GiB / 4,096 by default; at most 8 GiB / 16,384 |
 | Orphan bytes / entries | 128 MiB / 512 by default |
 | Ownership acquisition | 5 s by default; finite monotonic deadline |
 | Full retained replay continuation | 16 MiB, including source anchor and host state |
+
+A model can pass field validation while exceeding the encoded byte or depth
+limit, or use a serializer its reader cannot reverse. `ComponentCodec.encode`
+checks the complete canonical envelope through its actual decoder and requires
+the same declared field values and types before publication. This also preserves
+signed zero and Decimal precision. Validators and serializers must be pure and
+deterministic; the host still owns snapshot completeness. An invalid initial
+snapshot receives no acknowledgement; an invalid successor leaves the previous
+acknowledged head intact.
+
+Passing `encode` establishes in-process admission; it cannot certify an
+arbitrary host serializer across future processes. In particular, Pydantic
+[serializes sets as JSON arrays](https://docs.pydantic.dev/latest/api/standard_library_types/#sets),
+and Python's [hash randomization](https://docs.python.org/3.14/using/cmdline.html#envvar-PYTHONHASHSEED)
+can change default `set`/`frozenset` iteration order. For custom unordered fields,
+use an explicitly normalized tuple or a reversible serializer with a declared
+stable ordering. For homogeneous string identifiers, a `field_serializer` that
+emits `sorted(value)` can retain the typed frozenset on reading. Qualify the
+selected codec in fresh processes with different hash seeds; retain the order
+of ordinary sequence fields. Changing an already used wire ordering requires
+a new codec version and an explicit migration.
 
 Limits are validated together. A larger receipt window needs a correspondingly
 larger root quota. Capacity counts DB/WAL/SHM, recognized orphan blobs and owned
