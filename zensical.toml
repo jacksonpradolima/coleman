@@ -61,6 +61,7 @@ nav = [
   ] },
   { "Evaluation" = [
     { "From output to evidence" = "evaluation-guide.md" },
+    { "Freeze an evaluation protocol" = "evaluation-protocol.md" },
     { "Comparable baselines" = "comparable-baselines.md" },
     { "Metrics and repeated observations" = "corpus-evaluation.md" },
     { "Protected comparisons" = "protected-evaluation.md" },

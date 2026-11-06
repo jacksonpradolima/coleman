@@ -7,38 +7,16 @@ from typing import Annotated, Literal, Self
 
 from pydantic import Field, model_validator
 
+from coleman.evaluation._repetition import repetition_execution_id
 from coleman.evaluation.protected import FrozenEvaluation, TemporalObservation, TemporalPlan
 from coleman.evaluation.protected.temporal import Timestamp
-from coleman.results.domain import DomainRecord, Fingerprint, Identifier, fingerprint
+from coleman.results.domain import DomainRecord, Fingerprint, Identifier
 from coleman.results.versioned import VersionedContract
 from coleman.selection.contracts import Immutable, Quantity, UnitSemantics
 
 Seed = Annotated[int, Field(strict=True, ge=0, le=2**64 - 1)]
 MEAN_SUFFIX = ":equal-build-seed-mean-binary64-v1"
 BUDGET_RATIO = UnitSemantics(unit="1", meaning="fraction-of-full-suite-native-work-v1")
-
-
-def repetition_execution_id(candidate_id: str, seed: int) -> str:
-    """Return the stable v1 candidate/seed execution identity for raw projection records.
-
-    A nonempty, trimmed identifier without newlines and an unsigned 64-bit integer
-    seed are required; booleans and invalid inputs raise ValueError. The record's
-    separate decision_id must equal its logical corpus member_id. Together these
-    immutable key fields bind a raw result to one cell, without depending on its
-    metric value, completion state, assembly time or worker. No RNG, I/O or global
-    state is used. This is a projection identity, never a rewrite of a legacy key.
-    """
-    if (
-        not isinstance(candidate_id, str)
-        or not candidate_id
-        or candidate_id.strip() != candidate_id
-        or "\n" in candidate_id
-        or "\r" in candidate_id
-    ):
-        raise ValueError("Repetition candidate requires a nonempty trimmed identifier without newlines")
-    if type(seed) is not int or not 0 <= seed <= 2**64 - 1:
-        raise ValueError("Repetition seed requires an unsigned 64-bit integer")
-    return fingerprint(["coleman.corpus.repetition-execution.v1", candidate_id, seed])
 
 
 class CorpusBuild(Immutable):

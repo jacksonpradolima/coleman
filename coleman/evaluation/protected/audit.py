@@ -95,7 +95,7 @@ class EvaluationAudit:
         if any(character not in "0123456789abcdef" for character in digest[7:]):
             raise ValueError("Invalid SHA-256 digest")
         path = self.root / "evaluation-contracts" / f"{digest[7:]}.json"
-        frozen = FrozenEvaluation.from_json(path.read_bytes())
+        frozen = FrozenEvaluation.from_json(self._freeze_bytes(path))
         if frozen.fingerprint != digest:
             raise ValueError("Frozen evaluation fingerprint mismatch")
         return frozen
@@ -103,6 +103,31 @@ class EvaluationAudit:
     def _scope_root(self, holdout_id: str) -> Path:
         """Hash explicit holdout identity so arbitrary names never become paths."""
         return self.root / "evaluation-access" / fingerprint([holdout_id]).removeprefix("sha256:")
+
+    def _history_paths(self, holdout_id: str) -> list[Path]:
+        """Acquire ordered receipt paths using the established legacy behavior.
+
+        Optional bounded views override this acquisition boundary rather than
+        scanning first and then falling back to an unbounded parent read. This
+        default retains v1 glob ordering and its handling of temporary files.
+        """
+        return sorted(self._scope_root(holdout_id).glob("*.json"))
+
+    def _receipt_bytes(self, path: Path) -> bytes:
+        """Acquire one receipt with the unchanged legacy byte-reading behavior.
+
+        Bounded views replace this operation with a finite read before parsing.
+        Filesystem errors propagate; this default imposes no new v1 size limit.
+        """
+        return path.read_bytes()
+
+    def _freeze_bytes(self, path: Path) -> bytes:
+        """Acquire a frozen contract without changing the existing v1 reader.
+
+        A bounded view can guard bytes, nested counts and configuration strings
+        before legacy model validation. This default preserves prior semantics.
+        """
+        return path.read_bytes()
 
     def history(self, holdout_id: str) -> tuple[AccessReceipt, ...]:
         """Read and validate the complete immutable scope chain, ignoring .tmp files.
@@ -114,8 +139,8 @@ class EvaluationAudit:
         receipts = []
         previous = None
         test_accesses = 0
-        for sequence, path in enumerate(sorted(self._scope_root(holdout_id).glob("*.json")), start=1):
-            receipt = AccessReceipt.from_json(path.read_bytes())
+        for sequence, path in enumerate(self._history_paths(holdout_id), start=1):
+            receipt = AccessReceipt.from_json(self._receipt_bytes(path))
             if (
                 path.name != f"{sequence:012d}.json"
                 or receipt.sequence != sequence
