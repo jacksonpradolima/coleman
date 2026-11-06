@@ -207,11 +207,36 @@ class HostConsumerState(CoreContract):
 
     @model_validator(mode="after")
     def _facts(self):
+        """Validate complete state in ingress order without applying any update."""
         declared = capability(self.profile)
         if self.capability_fingerprint != declared.fingerprint:
             raise ValueError("Host snapshot capability/profile mismatch")
         if self.decision_count != len(self.executions) or self.update_count != len(self.applications):
             raise ValueError("Host decision/update counts contradict retained facts")
+        by_fingerprint = self._execution_facts(declared)
+        used = self._application_facts(declared, by_fingerprint)
+        self._summary_facts(used)
+        return self
+
+    def _execution_facts(self, declared: Capability) -> dict[Fingerprint, ExecutedDecision]:
+        """Check unique sequential simulations before inspecting applications.
+
+        Parameters
+        ----------
+        declared : Capability
+            Already selected fixed host profile, including its exact loss schema.
+
+        Returns
+        -------
+        dict
+            Local execution-digest lookup, never retained or exposed as state.
+
+        Raises
+        ------
+        ValueError
+            Duplicate opportunity, invalid core decision or changed round,
+            universe, action or explicit offline mapping. No state is changed.
+        """
         identities = [execution.proposal.logical_identity for execution in self.executions]
         by_fingerprint = {execution.fingerprint: execution for execution in self.executions}
         if len(set(identities)) != len(identities):
@@ -225,6 +250,31 @@ class HostConsumerState(CoreContract):
                 or execution.action.fingerprint != execution.proposal.action.fingerprint
             ):
                 raise ValueError("Host snapshot requires its exact sequential offline simulations")
+        return by_fingerprint
+
+    def _application_facts(
+        self, declared: Capability, by_fingerprint: dict[Fingerprint, ExecutedDecision]
+    ) -> set[Fingerprint]:
+        """Validate each original execution's single accepted complete round.
+
+        Parameters
+        ----------
+        declared : Capability
+            Fixed coverage, loss units and timing requirements.
+        by_fingerprint : dict
+            Checked exact executions from this snapshot, keyed by their digests.
+
+        Returns
+        -------
+        set
+            Consumed execution digests for the pending-summary check.
+
+        Raises
+        ------
+        ValueError
+            Unknown/repeated execution, invalid feedback or inconsistent D/U.
+            Validation performs no learner call, state assignment or I/O.
+        """
         used = set()
         for index, application in enumerate(self.applications):
             execution = by_fingerprint.get(application.executed.fingerprint)
@@ -236,6 +286,23 @@ class HostConsumerState(CoreContract):
             ):
                 raise ValueError("Host accepted application counters contradict retained history")
             used.add(execution.fingerprint)
+        return used
+
+    def _summary_facts(self, used: set[Fingerprint]) -> None:
+        """Recompute pending, counts and dimensionless loss sums without mutation.
+
+        Parameters
+        ----------
+        used : set
+            Checked consumed execution digests; never modified by this method.
+
+        Raises
+        ------
+        ValueError
+            Pending order, observed counts or loss sums disagree with retained
+            applications. Canonical float comparison also preserves signed-zero
+            distinctions; unknown losses are never filled with zero.
+        """
         expected_pending = tuple(
             execution.fingerprint for execution in self.executions if execution.fingerprint not in used
         )
@@ -246,7 +313,6 @@ class HostConsumerState(CoreContract):
             or canonical_json(list(self.loss_sums)) != canonical_json(list(totals))
         ):
             raise ValueError("Host pending/statistical summaries contradict retained applications")
-        return self
 
 
 def _state(

@@ -285,7 +285,8 @@ def test_future_history_append_correction_and_perturbation_preserve_earlier_full
         old_inventory = replay.state.fingerprint
         replay.admit_history(appended)
         assert replay.state.fingerprint != old_inventory
-        assert (host.export_state().to_json(), first.to_json(), replay.state.causal_prefix_fingerprint) == early
+        actual_prefix = host.export_state().to_json(), first.to_json(), replay.state.causal_prefix_fingerprint
+        assert actual_prefix == early
         record = replay.emit(
             replay.prepare(example.opportunity(1, at=2, end=3, source=appended)), execution="offline_identity_v1"
         )
