@@ -32,6 +32,11 @@ and its negotiated MCP protocol; the independent COLEMAN application contract is
 Contributor `make install` includes the optional SDK to exercise its tests and
 type annotations; installing the base release wheel still excludes it.
 
+For the unreleased v5 source wheel, select `ci` for native operations and
+`ci,mcp` for the local MCP route. Normal-model statistical inference additionally
+requires `analytics`; the durable bounded-mean workflow remains a `ci` route. See [component installation](core-installation.md); the pinned v4
+commands above retain their original dependency contract.
+
 ## Architecture and ownership
 
 ```mermaid
@@ -320,7 +325,7 @@ valid tool invocations return the versioned COLEMAN success/error envelope.
 
 The no-model tests use the actual optional SDK client both in process and over
 stdio, then repeat the stdio lifecycle from an installed noneditable wheel outside
-the checkout. They also verify base installation without MCP, real two-build
+the checkout. They also verify native CI installation without MCP, real two-build
 native execution, CLI/library/tool mathematics, caller isolation, races, immutable
 publication, golden fixtures, portability, expiry, malicious inputs and saturation.
 

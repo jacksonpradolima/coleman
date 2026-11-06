@@ -168,6 +168,11 @@ and verifies its SHA-256 before installation:
 python -m pip install "https://github.com/jacksonpradolima/coleman/releases/download/v4.19.1/coleman-4.19.1-py3-none-any.whl#sha256=ca470ba2be14ca755952f0bb3bc92615d76b90f95ebdd41dc1cdc9847713cc93"
 ```
 
+The unreleased v5 integration source also supports a lightweight mathematical
+installation and explicit `ci`/`analytics` extras. Follow [component installation](docs/core-installation.md)
+for source-wheel commands and independent-use examples; the published v4 command
+above keeps its original dependency contract.
+
 ### Library API
 
 Save the following as `first_run.py` in an empty directory. It creates a tiny

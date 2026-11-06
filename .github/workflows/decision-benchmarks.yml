@@ -35,7 +35,7 @@ jobs:
           enable-cache: true
       - name: Build and install the locked wheel
         run: |
-          uv sync --frozen --group build --no-build --no-install-project
+          uv sync --frozen --no-default-groups --group build --no-build --no-install-project
           uv build --no-build-isolation
           python - <<'PY'
           from pathlib import Path

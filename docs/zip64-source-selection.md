@@ -203,7 +203,7 @@ reverify the real source cache without network:
 
 ```bash
 COLEMAN_RTPTORRENT_ZIP64_REAL_CACHE=/tmp/coleman-rtptorrent-source-cache \
-  uv run pytest tests/corpus/test_installed_zip64.py --no-cov -q
+  uv run --extra ci --extra dev pytest tests/corpus/test_installed_zip64.py --no-cov -q
 ```
 
 ## Continue the workflow

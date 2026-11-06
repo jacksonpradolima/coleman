@@ -1,14 +1,14 @@
-"""Actual base-wheel native TCPCI pilot from outside the checkout, including retry."""
+"""Actual CI-capability wheel native TCPCI pilot from outside the checkout, including retry."""
 
 import json
 import os
 import re
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 from coleman.pilot import PilotReport
+from tests.installed_support import build_install_offline_wheel
 
 ROOT = Path(__file__).parents[2]
 
@@ -23,12 +23,9 @@ def test_installed_native_ci_pilot_and_retry(tmp_path):
     env = {key: value for key, value in os.environ.items() if key not in {"PYTHONPATH", "PYTHONHOME"}}
     env.update({"UV_LINK_MODE": "copy", "UV_NO_PROGRESS": "1"})
     distributions = tmp_path / "dist"
-    command([uv, "build", "--out-dir", str(distributions)], ROOT, env)
     virtual = tmp_path / "installed"
-    command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
+    build_install_offline_wheel(uv, distributions, virtual, env, extras=("ci",))
     python = virtual / "bin/python"
-    wheel = next(distributions.glob("*.whl"))
-    command([uv, "pip", "install", "--offline", "--python", str(python), str(wheel)], tmp_path, env)
     outside = tmp_path / "outside"
     outside.mkdir()
     example = outside / "run.py"

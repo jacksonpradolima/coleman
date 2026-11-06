@@ -56,9 +56,7 @@ From a contributor checkout with its locked build tools installed:
 ```bash
 uv build --wheel --no-build-isolation
 uv venv /tmp/coleman-objectives-demo --python 3.14
-UV_PROJECT_ENVIRONMENT=/tmp/coleman-objectives-demo \
-  uv sync --frozen --no-default-groups --no-dev --no-install-project
-uv pip install --no-deps --python /tmp/coleman-objectives-demo/bin/python \
+uv pip install --python /tmp/coleman-objectives-demo/bin/python \
   dist/coleman-4.20.0-py3-none-any.whl
 cp examples/objectives/ci.py /tmp/coleman-objectives-demo/ci.py
 cp examples/objectives/allocation.py /tmp/coleman-objectives-demo/allocation.py
@@ -69,7 +67,9 @@ bin/python -I allocation.py
 
 The integration wheel retains the package version until the final release gate.
 Use the wheel built from this source, rather than another wheel carrying the
-same version or the unrelated bare PyPI project name. These examples use public,
+same version or the unrelated bare PyPI project name. The base wheel supplies
+these pure operations; native execution and analytical dependencies are selected
+separately as described in [component installation](core-installation.md). These examples use public,
 authored synthetic inputs and the actual operations; they make no effectiveness
 claim about a production system.
 

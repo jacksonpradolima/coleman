@@ -501,7 +501,7 @@ def test_real_tcpci_checkpoint_resume_and_replay_ahead_of_checkpoint(tmp_path):
     assert checkpoint.step == 3
 
 
-def test_installed_wheel_outside_repository_base_dependencies(tmp_path):
+def test_installed_wheel_outside_repository_ci_capability(tmp_path):
     """Exercise complete examples through an isolated, non-editable base install."""
     import shutil
 
@@ -511,7 +511,7 @@ def test_installed_wheel_outside_repository_base_dependencies(tmp_path):
     env_dir = tmp_path / "installed"
     subprocess.run(["uv", "venv", str(env_dir), "--python", sys.executable], check=True)
     python = env_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-    subprocess.run(["uv", "pip", "install", "--python", str(python), str(wheel)], check=True)
+    subprocess.run(["uv", "pip", "install", "--python", str(python), str(wheel) + "[ci]"], check=True)
     external = tmp_path / "external"
     external.mkdir()
     environment = os.environ.copy()

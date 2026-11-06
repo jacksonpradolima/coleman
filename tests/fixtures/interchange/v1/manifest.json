@@ -1,0 +1,61 @@
+{
+  "fixtures": {
+    "coverage-request.json": {
+      "canonical_fingerprint": "sha256:f970a95017f933e0ae7217a515208bdd33c604b13eec40a80fe9720e48fa1924",
+      "model": "InterchangeRequest",
+      "wire_fingerprint": "sha256:9e22b57450ffcdca3fd044d9821ae3e3a9c186bb10c78efc1d1f32fd78032144"
+    },
+    "coverage-response.json": {
+      "canonical_fingerprint": "sha256:5d8bd301afc170c3192fde02228a71fc58054bb0d74a91097c6c4513ff096fdd",
+      "model": "InterchangeResponse",
+      "wire_fingerprint": "sha256:ba7684979e25aa6059a1680d8d3fd617af92726bd836f59ba352831fc4873b47"
+    },
+    "feedback-request.json": {
+      "canonical_fingerprint": "sha256:40a3e59bc307fdfeb57beac18ff446099725fbf1321b011601402aa0baff25ff",
+      "model": "InterchangeRequest",
+      "wire_fingerprint": "sha256:cc4cf7a9be8d1634337913cf532b3c162219b1e316dcc71ada63fa75b836cd93"
+    },
+    "feedback-response.json": {
+      "canonical_fingerprint": "sha256:d519f0074b53233c059b3b2f1f1047de8ee936a758ec0ceea9a60289fc5a0caf",
+      "model": "InterchangeResponse",
+      "wire_fingerprint": "sha256:8770bd93fa8c3b2fbabc0087c636636d97dfcb67852599d62f45b4ae5de7de2c"
+    },
+    "full-panel-feedback-request.json": {
+      "canonical_fingerprint": "sha256:58956cd488a53302d5628dfa88e70418e321d37c820c28b316b64f8c1d496610",
+      "model": "InterchangeRequest",
+      "wire_fingerprint": "sha256:e99bf8d03b3d38490a0bfea3b7d08c3a165eee16bf16444db029dcdf7f5bd1d1"
+    },
+    "full-panel-feedback-response.json": {
+      "canonical_fingerprint": "sha256:4edd3142838cea6e2178516dd88258d317aae285027286b1e23a8f41ba46b987",
+      "model": "InterchangeResponse",
+      "wire_fingerprint": "sha256:7498683f2d72708c2b10252f08823f0d24a5b744727f6c07c9d9e0c89949b0b5"
+    },
+    "learning_only-request.json": {
+      "canonical_fingerprint": "sha256:a145052a4620d560873bd9e0ff6963d8fabefc4e310f880836890fd21ff9ce70",
+      "model": "InterchangeRequest",
+      "wire_fingerprint": "sha256:1b0be0321018894ad0719a9ce8ba2873b4ce63ee5a42e72a640d538e945ae48f"
+    },
+    "learning_only-response.json": {
+      "canonical_fingerprint": "sha256:bdd9613de396233778cfce0bb1a0f18e6a84b5b8126d52e61ed5835bd93b4d6c",
+      "model": "InterchangeResponse",
+      "wire_fingerprint": "sha256:07ae033a2f70524472cd23a9fcf8c296edd0763811f98566d240bc54dad798ac"
+    },
+    "mab_only-request.json": {
+      "canonical_fingerprint": "sha256:4f5d74e798bcf0b4c0f9046b4389420457732a80cac81cd0ce836852a8979081",
+      "model": "InterchangeRequest",
+      "wire_fingerprint": "sha256:c1d3c77487bf49e2836dd115c0eb645313f82937ff6327593fe87e29766a69d4"
+    },
+    "mab_only-response.json": {
+      "canonical_fingerprint": "sha256:508d6d7eb9e670ddda7a61eb6f96723b896233b1f09ef7099e0bb40d3808e051",
+      "model": "InterchangeResponse",
+      "wire_fingerprint": "sha256:23ad7ee1537031bd6b5bc6c04ba541c49a49c43e8d9f12d7abbbe61a7e1b48dc"
+    },
+    "unavailable-response.json": {
+      "canonical_fingerprint": "sha256:eecc93c8ed7df40fe4e5f7bdffc347fdd1109ab3e6c4bc103557343ce3c2f88b",
+      "model": "InterchangeResponse",
+      "wire_fingerprint": "sha256:0b7f8f6748a8a01caeb7850355cd2bc865c111c0877a6481b98f4e2abceb0faa"
+    }
+  },
+  "profile": "coleman-local-json-v1",
+  "schema_version": 1
+}

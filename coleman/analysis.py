@@ -6,9 +6,12 @@ import csv
 import io
 import re
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import duckdb
+from coleman.capabilities import require_capability
+
+if TYPE_CHECKING:
+    import duckdb
 
 _REPORT_QUERIES: dict[str, str] = {
     "quality": """
@@ -85,6 +88,10 @@ def run_report(report_name: str, input_path: str | Path) -> tuple[list[str], lis
         msg = f"Unsupported report {report_name!r}."
         raise ValueError(msg)
 
+    require_capability("analytics")
+
+    import duckdb
+
     with duckdb.connect(":memory:") as con:
         _register_experiment_results(con, input_path)
         result = con.execute(query)
@@ -108,6 +115,10 @@ def format_rows(columns: list[str], rows: list[tuple[Any, ...]], output_format: 
 
 def _run_pareto(input_path: str | Path) -> tuple[list[str], list[tuple[Any, ...]]]:
     """Compute non-dominated policy/reward pairs for quality-vs-cost trade-offs."""
+    require_capability("analytics")
+
+    import duckdb
+
     with duckdb.connect(":memory:") as con:
         _register_experiment_results(con, input_path)
         rows = con.execute(

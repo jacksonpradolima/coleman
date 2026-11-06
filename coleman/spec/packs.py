@@ -15,7 +15,7 @@ import copy
 from pathlib import Path
 from typing import Any
 
-import yaml
+from coleman.capabilities import require_capability
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -93,6 +93,9 @@ def resolve_packs(
             raise ValueError(msg)
         pack_refs.append(ref)
 
+    if pack_refs:
+        require_capability("ci")
+
     merged: dict[str, Any] = {}
     for ref in pack_refs:
         pack_path = packs_dir / f"{ref}.yaml"
@@ -100,6 +103,8 @@ def resolve_packs(
             msg = f"Pack file not found: {pack_path}"
             raise FileNotFoundError(msg)
         with open(pack_path, encoding="utf-8") as fh:
+            import yaml
+
             pack_data = yaml.safe_load(fh) or {}
         merged = _deep_merge(merged, pack_data)
 

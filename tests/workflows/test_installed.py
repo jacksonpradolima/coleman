@@ -1,4 +1,4 @@
-"""Noneditable base wheel and actual optional stdio workflows outside the checkout."""
+"""Noneditable CI-capability wheel and actual optional stdio workflows outside the checkout."""
 
 import os
 import shutil
@@ -58,8 +58,8 @@ def test_installed_wheel_without_model_and_optional_sdk(tmp_path):
             {"UV_PROJECT_ENVIRONMENT": str(virtual)},
         )
 
-    dependencies()
-    command([uv, "pip", "install", "--no-deps", "--python", str(python), str(wheel)])
+    dependencies("--extra", "ci")
+    command([uv, "pip", "install", "--no-deps", "--python", str(python), str(wheel) + "[ci]"])
     program = tmp_path / "qualified.py"
     program.write_text("""
 import asyncio,importlib.util,json,sys,time
@@ -136,5 +136,5 @@ else:
 print("INSTALLED WORKFLOW VERIFIED",sys.argv[1])
 """)
     assert "INSTALLED WORKFLOW VERIFIED base" in command([str(python), str(program), "base"]).stdout
-    dependencies("--extra", "mcp")
+    dependencies("--extra", "ci", "--extra", "mcp")
     assert "INSTALLED WORKFLOW VERIFIED mcp" in command([str(python), str(program), "mcp"]).stdout

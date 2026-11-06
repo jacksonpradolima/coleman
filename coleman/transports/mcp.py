@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from coleman.application import ApplicationService, Caller, Submit, default_registry
 from coleman.application.commands import ApplicationCommands
+from coleman.capabilities import require_capability
 from coleman.results.domain import canonical_json
 
 if TYPE_CHECKING:
@@ -51,7 +52,9 @@ def create_server(
     """
     try:
         from mcp.server import MCPServer
-    except ImportError as exc:
+    except ModuleNotFoundError as exc:
+        if exc.name != "mcp":
+            raise
         raise ImportError(
             "Install the reviewed COLEMAN wheel with its [mcp] extra; see docs/application-api.md"
         ) from exc
@@ -110,6 +113,8 @@ def main() -> None:
         "--workspace", type=Path, help="Trusted persistent workflow workspace; initialize using coleman workflow"
     )
     args = parser.parse_args()
+    require_capability("mcp")
+    require_capability("ci")
     workflows = None
     if args.workspace is not None:
         from coleman.application.workflows import WorkflowService

@@ -221,10 +221,12 @@ their meanings with `binary64-projection-v1`. It neither replaces native `cost`
 fabricated. Supply actual zoned availability after calculation and retain that
 timestamp on retries; null incumbent quantities become unavailable measurements.
 
-The standalone installed-package examples need only base dependencies:
+Direct solver calls use the [base installation](core-installation.md). The complete
+native CI examples below also require `ci`; first install that extra against the
+same source wheel as described in the
+[component guide](core-installation.md#add-ci-or-analytical-capabilities):
 
 ```bash
-pip install path/to/coleman.whl
 python ci.py ./ci-output
 python resources.py ./resource-output
 ```

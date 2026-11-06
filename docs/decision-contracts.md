@@ -11,6 +11,10 @@ these distinctions. This is an implemented contract layer on `release/v5`,
 Build this source's wheel to try the examples. Existing TCPCI runs and their
 [measurement artifacts](domain-results.md) retain their own contracts.
 
+The [component installation guide](core-installation.md) explains the base wheel,
+independent `ci`/`analytics` extras and the supported runtime envelope. Direct
+contracts and host-owned consumers below require only the base installation.
+
 ## Start from your inputs and observations
 
 The host supplies this declaration for a synthetic CI suite-selection example:

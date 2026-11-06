@@ -10,7 +10,7 @@ from coleman.evaluation.protected import TemporalPlan
 from coleman.results.domain import canonical_json, fingerprint
 from coleman.selection.contracts import Quantity, UnitSemantics
 from coleman.spec import RunSpec
-from coleman.spec.runtime_identity import InstalledRuntime
+from coleman.spec.selected_runtime import RuntimeIdentity
 from coleman.spec.sweep import SweepAxis, SweepSpec, expand_sweep
 from coleman.workflows.contracts import (
     MAX_WORKFLOW_ARTIFACT_ENTRIES,
@@ -271,7 +271,7 @@ def resolve_trials(request: PlanningRequest, dataset: DatasetManifest) -> tuple[
 
 
 def make_plan(
-    request: PlanningRequest, dataset: DatasetManifest, runtime: InstalledRuntime, *, native_threads: int = 1
+    request: PlanningRequest, dataset: DatasetManifest, runtime: RuntimeIdentity, *, native_threads: int = 1
 ) -> ExperimentPlan:
     """Freeze resolved inputs, runtime and exact bounded trial coordinates without I/O.
 
@@ -281,8 +281,9 @@ def make_plan(
         Client-selected approved dimensions and discovered defaults.
     dataset : DatasetManifest
         Host-registered exact input/evidence snapshot.
-    runtime : InstalledRuntime
-        Existing conservative producer/base-runtime identity captured by the host.
+    runtime : InstalledRuntime or SelectedInstalledRuntime
+        Explicit historical base-only or selected-extra identity captured by the
+        host. Reading a v1 plan does not qualify it for native v5 execution.
     native_threads : int
         Explicit Polars pool size for execution/continuation compatibility. Defaults
         to a one-thread hypothetical plan; the application captures actual host size.

@@ -1,10 +1,11 @@
-"""Installed base-wheel matrix outside checkout, no MCP, and transport-free domain import boundary."""
+"""Installed CI-capability wheel matrix outside checkout, no MCP, and transport-free domain import boundary."""
 
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
+
+from tests.installed_support import build_install_offline_wheel
 
 ROOT = Path(__file__).parents[2]
 
@@ -12,20 +13,9 @@ ROOT = Path(__file__).parents[2]
 def test_installed_comparable_matrix_outside_checkout(tmp_path):
     """Build/install offline, execute every candidate through real workers, then verify exact idempotent retry."""
     wheels = tmp_path / "wheels"
-    subprocess.run(
-        ["uv", "build", "--offline", "--no-build-isolation", "--wheel", "--out-dir", str(wheels)],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-    )
     environment = tmp_path / "installed"
-    subprocess.run(["uv", "venv", str(environment), "--python", sys.executable], check=True, capture_output=True)
+    build_install_offline_wheel("uv", wheels, environment, os.environ, extras=("ci",))
     python = environment / "bin/python"
-    subprocess.run(
-        ["uv", "pip", "install", "--offline", "--python", str(python), str(next(wheels.glob("*.whl")))],
-        check=True,
-        capture_output=True,
-    )
     outside = tmp_path / "outside"
     outside.mkdir()
     script = outside / "ci.py"

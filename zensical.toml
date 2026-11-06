@@ -117,6 +117,7 @@ nav = [
     { "Release preparation" = "releases.md" },
     { "v5 development" = [
       { "Architecture and composition" = "v5-architecture.md" },
+      { "Install the components you need" = "core-installation.md" },
       { "Describe a decision" = "decision-contracts.md" },
       { "Outcomes, objectives and tradeoffs" = "objectives.md" },
       { "Decision contract API" = "api/core-contracts.md" },

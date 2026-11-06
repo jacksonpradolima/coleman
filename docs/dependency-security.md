@@ -1,6 +1,6 @@
 # Dependency security maintenance
 
-COLEMAN audits the complete committed `uv.lock`, including development,
+COLEMAN audits the complete committed `uv.lock`, including CI, analytical, development,
 documentation, notebook, release, telemetry, ClickHouse and MCP extras, plus packages
 that only install on another operating system. The base installation remains
 independent of optional tools.

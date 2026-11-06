@@ -41,6 +41,8 @@ def test_noneditable_contracts_and_real_tcpci_outside_checkout(tmp_path):
             "--no-default-groups",
             "--no-dev",
             "--no-install-project",
+            "--extra",
+            "ci",
             "--inexact",
             "--python",
             str(python),
@@ -48,7 +50,9 @@ def test_noneditable_contracts_and_real_tcpci_outside_checkout(tmp_path):
         cwd=ROOT,
         extra={"UV_PROJECT_ENVIRONMENT": str(virtual)},
     )
-    command([uv, "pip", "install", "--offline", "--no-index", "--no-deps", "--python", str(python), str(wheel)])
+    command(
+        [uv, "pip", "install", "--offline", "--no-index", "--no-deps", "--python", str(python), str(wheel) + "[ci]"]
+    )
     outside = tmp_path / "outside"
     outside.mkdir()
     shutil.copytree(ROOT / "tests/fixtures/core/v1", outside / "golden")

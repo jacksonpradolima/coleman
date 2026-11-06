@@ -32,14 +32,36 @@ _OPERATIONAL = frozenset(
 )
 
 
-def read_baseline_artifact[Contract: VersionedContract](path: Path, contract: type[Contract]) -> Contract:
-    """Read at most 16 MiB of a strict versioned local artifact; do not execute/repair/migrate it."""
+def read_baseline_payload(path: Path) -> bytes:
+    """Read bounded trusted local artifact bytes without interpreting an executable object.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        Local artifact location, checked for unsafe source storage before opening.
+
+    Returns
+    -------
+    bytes
+        At most 16 MiB of original content. The caller selects the explicit
+        versioned reader; no migration, repair or pickle decoding occurs.
+
+    Raises
+    ------
+    ValueError, OSError
+        Unsafe location, unreadable content or artifact exceeding 16 MiB.
+    """
     validate_source_storage(path)
     with path.open("rb") as stream:
         payload = stream.read(16 * 1024**2 + 1)
     if len(payload) > 16 * 1024**2:
         raise ValueError("Baseline JSON artifact exceeds 16 MiB")
-    return contract.from_json(payload)
+    return payload
+
+
+def read_baseline_artifact[Contract: VersionedContract](path: Path, contract: type[Contract]) -> Contract:
+    """Read at most 16 MiB of a strict versioned local artifact; do not execute/repair/migrate it."""
+    return contract.from_json(read_baseline_payload(path))
 
 
 def _same(actual: float | None, expected: float | None) -> bool:

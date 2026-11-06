@@ -9,6 +9,7 @@ from typing import Self
 
 from pydantic import model_validator
 
+from coleman.capabilities import require_capability
 from coleman.evaluation.protected.audit import AccessReceipt, EvaluationAudit
 from coleman.evaluation.protected.bounded_inference import BoundedMeanProtocol
 from coleman.evaluation.protected.contracts import ComparisonHypothesis, EvaluationContract, FrozenEvaluation
@@ -311,6 +312,8 @@ def evaluate(
     frozen = FrozenEvaluation.model_validate(frozen)
     if not _supports_protocol(frozen.protocol):
         raise NotImplementedError("Paired t inference requires independent units and declared normal differences")
+    if not isinstance(frozen.protocol, BoundedMeanProtocol):
+        require_capability("analytics")
     receipt = audit.access(frozen, partition="test", purpose="confirmatory", actor=actor)
     observations = _validate_observations(frozen, load_observations())
     updated = _compute_results(frozen, observations, receipt)

@@ -6,9 +6,7 @@ import math
 from fractions import Fraction
 from typing import Any, cast
 
-import numpy as np
-from scipy import stats
-
+from coleman.capabilities import require_capability
 from coleman.evaluation.protected.audit import AccessReceipt
 from coleman.evaluation.protected.bounded_inference import (
     BoundedMeanProtocol,
@@ -148,6 +146,11 @@ def _summarize(
         return _Statistics(reason="incomplete_outcomes")
     if not differences:
         return _Statistics()
+    require_capability("analytics")
+
+    import numpy as np
+    from scipy import stats
+
     scale = max(abs(value) for value in differences) or 1.0
     normalized = np.asarray(differences, dtype=float) / scale
     mean = float(np.mean(normalized)) * scale

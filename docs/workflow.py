@@ -237,10 +237,14 @@ def _(checks_df, mi_df, mi_error, mi_result, mo):
     elif error_text:
         message = f"Unable to compute maintainability index.\n\n```text\n{error_text}\n```"
         if missing_dependency:
-            message += "\n\nRun `uv sync --extra dev` to install Radon."
+            message += (
+                "\n\nRun `uv sync --frozen --extra ci --extra analytics --extra notebook --extra dev` to install Radon."
+            )
         mi_content = mo.md(message)
     else:
-        mi_content = mo.md("Run `uv sync --extra dev` to install Radon.")
+        mi_content = mo.md(
+            "Run `uv sync --frozen --extra ci --extra analytics --extra notebook --extra dev` to install Radon."
+        )
 
     mo.vstack(
         [
@@ -410,7 +414,7 @@ def _(mo, pd, summary_df):
             std_apfdc=("avg_apfdc", "std"),
             n=("execution_id", "count"),
         )
-        .sort_values(["avg_napfd", "avg_apfdc"], ascending=[False, True])
+        .sort_values(["avg_napfd", "avg_apfdc"], ascending=[False, False])
     )
 
     stability_df["cv_napfd"] = stability_df["std_napfd"] / stability_df["avg_napfd"].replace(0, pd.NA)
@@ -489,9 +493,9 @@ def _(mo, plt, sns, summary_df):
 
 @app.cell
 def _(mo, plt, sns, stability_df):
-    """Plot Pareto-like trade-off between quality and cost."""
+    """Compare two fault-detection quality metrics, both larger-is-better."""
     if stability_df.empty:
-        mo.md("## Quality vs Cost Frontier\nNo data available for Pareto visualization yet.")
+        mo.md("## Detection Quality\nRun an experiment first to compare NAPFD and APFDc.")
         return
 
     fig, ax = plt.subplots(figsize=(8, 5))
@@ -504,9 +508,9 @@ def _(mo, plt, sns, stability_df):
         s=90,
         ax=ax,
     )
-    ax.set_title("Quality vs Cost (higher NAPFD, lower APFDc)")
-    ax.set_xlabel("Average APFDc")
-    ax.set_ylabel("Average NAPFD")
+    ax.set_title("Detection quality (higher NAPFD and APFDc)")
+    ax.set_xlabel("Average APFDc (higher is better)")
+    ax.set_ylabel("Average NAPFD (higher is better)")
     plt.tight_layout()
     return fig
 

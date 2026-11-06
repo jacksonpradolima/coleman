@@ -8,7 +8,7 @@ Usage
 -----
 .. code-block:: bash
 
-    uv run python scripts/measure_energy.py
+    uv run --extra ci --extra dev python scripts/measure_energy.py
 """
 
 from pathlib import Path

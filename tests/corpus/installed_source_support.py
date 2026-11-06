@@ -4,23 +4,21 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 
 from tests.corpus.test_installed_controlled import ROOT, command
+from tests.installed_support import build_install_offline_wheel
 
 
-def installed_source_environment(tmp_path):
-    """Build the current wheel and install it offline in a fresh base environment outside the checkout."""
+def installed_source_environment(tmp_path, *, extras=()):
+    """Build and install the selected wheel capabilities offline outside the checkout."""
     uv = shutil.which("uv")
     assert uv is not None
     env = {key: value for key, value in os.environ.items() if key not in {"PYTHONPATH", "PYTHONHOME"}}
     env.update(UV_LINK_MODE="copy", UV_NO_PROGRESS="1")
     dist = tmp_path / "dist"
-    command([uv, "build", "--wheel", "--out-dir", str(dist)], ROOT, env)
     virtual = tmp_path / "installed"
-    command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
+    build_install_offline_wheel(uv, dist, virtual, env, extras=extras)
     python = virtual / "bin/python"
-    command([uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl")))], tmp_path, env)
     outside = tmp_path / "outside"
     outside.mkdir()
     return python, outside, env

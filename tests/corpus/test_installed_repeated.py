@@ -5,36 +5,29 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 from coleman.corpus.repeated import RepeatedCorpusReport
 from coleman.evaluation.protected import FamilyReport
+from tests.installed_support import build_install_offline_wheel
 
 ROOT = Path(__file__).parents[2]
 
 
 def test_installed_native_repetitions_and_checkpoint_continuation_outside_checkout(tmp_path):
+    uv = shutil.which("uv")
+    assert uv is not None
+    env = {key: value for key, value in os.environ.items() if key not in {"PYTHONPATH", "PYTHONHOME"}}
+    env.update(UV_OFFLINE="1", UV_NO_INDEX="1", UV_NO_PROGRESS="1", UV_LINK_MODE="copy")
+
     wheel_dir = tmp_path / "wheels"
-    subprocess.run(
-        ["uv", "build", "--offline", "--no-build-isolation", "--wheel", "--out-dir", str(wheel_dir)],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-    )
-    wheel = next(wheel_dir.glob("*.whl"))
     environment = tmp_path / "installed"
-    subprocess.run(["uv", "venv", str(environment), "--python", sys.executable], check=True, capture_output=True)
+    build_install_offline_wheel(uv, wheel_dir, environment, env, extras=("ci", "analytics"))
     python = environment / "bin" / "python"
-    subprocess.run(
-        ["uv", "pip", "install", "--offline", "--python", str(python), str(wheel)], check=True, capture_output=True
-    )
     external = tmp_path / "external"
     external.mkdir()
     script = external / "ci.py"
     shutil.copy(ROOT / "examples/corpus-evaluation/ci.py", script)
-    env = os.environ.copy()
-    env.pop("PYTHONPATH", None)
     output = external / "output"
 
     def execute():

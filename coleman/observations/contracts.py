@@ -12,10 +12,13 @@ from typing import Annotated, Literal, Self
 
 from pydantic import Field, model_validator
 
-from coleman.evaluation.protected.temporal import TemporalObservation, Timestamp
+from coleman.core.base import Immutable
+from coleman.core.quantities import Quantity
+from coleman.core.splits import TemporalObservation
+from coleman.core.temporal import Timestamp
+from coleman.core.units import UnitSemantics
 from coleman.results.domain import DomainRecord, Fingerprint, Identifier, Measurement, ResultProvenance, fingerprint
 from coleman.results.versioned import VersionedContract
-from coleman.selection.contracts import Immutable, Quantity, UnitSemantics
 
 MAXIMUM_REVISIONS = 4096
 EVENT_AGE_SECONDS = UnitSemantics(unit="s", meaning="source-event-age-at-decision-v1")

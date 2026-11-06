@@ -86,7 +86,11 @@ explicitly. Read [the artifact API](api/artifacts.md) before choosing a helper.
 ### Default run (no Docker required)
 
 Follow [the verified-wheel installation](getting-started.md#1-install-in-a-virtual-environment).
-The base package includes the library, CLI and local analytical dependencies.
+That published v4 package includes the library, CLI and local analytical dependencies.
+The unreleased v5 source selects capabilities explicitly: a base wheel for pure
+contracts/objectives/finite solving, `ci` for native execution and `analytics`
+for analytical operations. Follow [component installation](core-installation.md)
+when building current source; keep the v4 wheel command and its digest unchanged.
 
 ### Optional integrations
 

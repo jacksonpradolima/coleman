@@ -45,6 +45,7 @@ parallel execution, and extensibility via hooks and namespaced custom config.
 - docs/configuration.md
 - docs/contributing.md
 - docs/controlled-faults.md
+- docs/core-installation.md
 - docs/corpus-admission.md
 - docs/corpus-evaluation.md
 - docs/corpus-materialization.md
@@ -297,6 +298,11 @@ and verifies its SHA-256 before installation:
 python -m pip install "https://github.com/jacksonpradolima/coleman/releases/download/v4.19.1/coleman-4.19.1-py3-none-any.whl#sha256=ca470ba2be14ca755952f0bb3bc92615d76b90f95ebdd41dc1cdc9847713cc93"
 ```
 
+The unreleased v5 integration source also supports a lightweight mathematical
+installation and explicit `ci`/`analytics` extras. Follow [component installation](docs/core-installation.md)
+for source-wheel commands and independent-use examples; the published v4 command
+above keeps its original dependency contract.
+
 ### Library API
 
 Save the following as `first_run.py` in an empty directory. It creates a tiny
@@ -522,12 +528,13 @@ Use Python 3.14+, uv and Git. From the cloned repository:
 ```bash
 git clone https://github.com/jacksonpradolima/coleman.git
 cd coleman
-uv sync --frozen --extra dev --extra docs --extra telemetry --extra mcp --extra release --group build
+uv sync --frozen --extra ci --extra analytics --extra dev --extra docs --extra telemetry --extra mcp --extra release --group build
 uv run --frozen --no-sync pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push
 ```
 
-This installs the locked development and documentation tools plus the extras used
-by integration tests. Notebook, ClickHouse and controlled-capture work may need
+This selects native CI, analytical evaluation and the locked development/documentation
+tools used by integration tests. A base installation intentionally omits those
+optional runtime capabilities; see [component installation](docs/core-installation.md). Notebook, ClickHouse and controlled-capture work may need
 additional extras or the exact runtime in that guide. `make install` provisions
 the broader development environment; the DevContainer is an optional route with
 its own monitoring services. Read its scripts before choosing that setup.
@@ -1308,6 +1315,11 @@ and its negotiated MCP protocol; the independent COLEMAN application contract is
 Contributor `make install` includes the optional SDK to exercise its tests and
 type annotations; installing the base release wheel still excludes it.
 
+For the unreleased v5 source wheel, select `ci` for native operations and
+`ci,mcp` for the local MCP route. Normal-model statistical inference additionally
+requires `analytics`; the durable bounded-mean workflow remains a `ci` route. See [component installation](core-installation.md); the pinned v4
+commands above retain their original dependency contract.
+
 ## Architecture and ownership
 
 ```mermaid
@@ -1596,7 +1608,7 @@ valid tool invocations return the versioned COLEMAN success/error envelope.
 
 The no-model tests use the actual optional SDK client both in process and over
 stdio, then repeat the stdio lifecycle from an installed noneditable wheel outside
-the checkout. They also verify base installation without MCP, real two-build
+the checkout. They also verify native CI installation without MCP, real two-build
 native execution, CLI/library/tool mathematics, caller isolation, races, immutable
 publication, golden fixtures, portability, expiry, malicious inputs and saturation.
 
@@ -2689,7 +2701,7 @@ Install all cost evaluation tools together with the rest of the dev
 dependencies:
 
 ```bash
-uv sync --extra dev
+uv sync --frozen --extra ci --extra dev
 ```
 
 ---
@@ -2884,14 +2896,14 @@ memory allocation, and copy volume line-by-line:
 ```bash
 make cost-profile-scalene
 # or
-uv run scalene run coleman/cli.py --- --help
+uv run --extra ci --extra dev scalene run coleman/cli.py --- --help
 ```
 
 Replace `--help` with a real workload for meaningful results.  For
 example, profile an actual experiment run:
 
 ```bash
-uv run scalene run coleman/cli.py --- run --config run.yaml
+uv run --extra ci --extra dev scalene run coleman/cli.py --- run --config run.yaml
 ```
 
 !!! note
@@ -2917,9 +2929,9 @@ attaches to a running process with minimal overhead:
 ```bash
 make cost-profile-pyspy
 # or
-uv python install 3.13
-uv venv .venv-pyspy --python 3.13
-uv pip install --python .venv-pyspy/bin/python duckdb numpy polars pyarrow scipy scikit-posthocs "pydantic>=2.12.5" "pyyaml>=6.0.3"
+uv python install 3.14
+uv venv .venv-pyspy --python 3.14
+uv pip install --python .venv-pyspy/bin/python ".[ci]"
 PYTHONPATH=. .venv/bin/py-spy record --rate 20 --subprocesses -o profile.svg -- .venv-pyspy/bin/python -m coleman.cli run --config run.yaml
 ```
 
@@ -2927,8 +2939,11 @@ PYTHONPATH=. .venv/bin/py-spy record --rate 20 --subprocesses -o profile.svg -- 
     `py-spy` may require elevated privileges (`sudo`) on some systems.
     With Python 3.14 standalone runtimes, `py-spy` may fail with
     "Failed to find python version from target process".
-    The workflow above uses a dedicated Python 3.13 profiling venv,
-    while your main project environment can remain on Python 3.14.
+    The target environment above also uses Python 3.14, the supported package
+    minimum. A profiler failing to recognize that runtime does not authorize
+    running current COLEMAN source on an unsupported older interpreter. Use a
+    compatible profiler/runtime build, or report the profiling result as unavailable.
+    These commands select the target installation; they do not certify profiler support.
     For this workload, `--rate 20` avoids severe sampler lag and
     `--subprocesses` captures worker processes spawned by the experiment runner.
     Some `py-spy` runs may still report a teardown error after writing
@@ -2956,7 +2971,7 @@ emissions of compute workloads.  A minimal example lives at
 ```bash
 make cost-energy
 # or
-uv run python scripts/measure_energy.py
+uv run --extra ci --extra dev python scripts/measure_energy.py
 ```
 
 **Example output:**
@@ -3064,7 +3079,7 @@ For more realistic profiling, replace `--help` with an actual experiment
 configuration:
 
 ```bash
-uv run scalene run coleman/cli.py --- run --config run.yaml
+uv run --extra ci --extra dev scalene run coleman/cli.py --- run --config run.yaml
 ```
 
 ---
@@ -3222,6 +3237,14 @@ The runtime includes complete SDK resource identity, Python/platform and active
 base-dependency versions. It excludes unrelated host packages and optional tools;
 it does not attest hardware, every native binary or upstream honesty. A runtime
 change creates a new scope, preventing accidental cross-runtime checkpoint reuse.
+
+That base-only inventory describes the pinned v4.17 route above. Matrices
+created from the unreleased v5 source instead record runtime version 2 with an
+explicit `ci` dependency closure. Historical runtime-1 matrices remain readable;
+v5 does not adopt their executable checkpoints automatically. See
+[native runtime identities](core-installation.md#keep-native-runtime-identities-explicit)
+for the original pinned-v4 continuation route and the independent schema versions.
+
 Each raw observation carries `attempt_id` separately from data provenance.
 `record.provenance.source_revision` identifies the original frozen source
 content; `spec_fingerprint` hashes the typed native binding stored in the resolved
@@ -4003,7 +4026,9 @@ released 4.5 wheel predates this adapter. From the checkout:
 wheel_dir=$(mktemp -d /tmp/coleman-controlled-wheel.XXXXXX)
 uv build --wheel --out-dir "$wheel_dir"
 uv venv /tmp/coleman-controlled-installed --python 3.14
-uv pip install --python /tmp/coleman-controlled-installed/bin/python "$wheel_dir"/*.whl
+for coleman_controlled_wheel in "$wheel_dir"/coleman-*.whl; do
+  uv pip install --python /tmp/coleman-controlled-installed/bin/python "${coleman_controlled_wheel}[ci]"
+done
 mkdir -p /tmp/coleman-controlled-workspace
 cp examples/controlled_faults/ci.py /tmp/coleman-controlled-workspace/ci.py
 cd /tmp/coleman-controlled-workspace
@@ -4145,6 +4170,360 @@ introduced into this domain. Its elapsed ns never become native CI Duration.
 
 Collect an actual [Java matrix](java-fault-matrix.md) or [Python pair](python-source-capture.md),
 then assess the retained scope with [source admission](corpus-admission.md).
+
+
+
+### FILE: docs/core-installation.md
+
+# Install the components you need
+
+Use COLEMAN's mathematical contracts, objective mappings and finite solvers in
+an application without installing its CI execution or analytical stack. Add the
+capabilities needed by the workflow you actually run.
+
+This page describes the **unreleased v5 integration source**. Published v4 wheels
+keep their original dependencies and installation instructions. The package
+version remains `4.20.0` during integration; build the reviewed source below
+rather than selecting an older wheel with the same filename. The bare PyPI name
+`coleman` belongs to another project.
+
+## Choose an installation
+
+One distribution owns the `coleman` namespace. Extras select dependencies; they
+do not install a second overlapping package or start a service.
+
+| You want to use | Select | Direct dependencies added |
+| --- | --- | --- |
+| Core contracts, objectives, host-owned learners, finite solving and JSON codecs | Base wheel | Pydantic and packaging |
+| Native TCPCI execution, source/Parquet workflows and DuckDB results | `ci` | DuckDB, NumPy, Polars, PyArrow and PyYAML |
+| Analytical Parquet/DuckDB operations and normal-model statistical evaluation | `analytics` | DuckDB, NumPy, Polars, PyArrow, SciPy and scikit-posthocs |
+| A native CI experiment followed by normal-model comparison | `ci,analytics` | Union of the two profiles |
+| Local MCP tools over native CI | `ci,mcp` | CI dependencies and the MCP SDK |
+| Durable CI workflows with bounded protected comparison through MCP | `ci,mcp` | CI dependencies and the MCP SDK |
+| Native CI with normal-model inference through MCP | `ci,analytics,mcp` | CI, analytical dependencies and the MCP SDK |
+| Native execution with telemetry or a ClickHouse sink | `ci,telemetry` or `ci,clickhouse` | CI dependencies and the selected SDK/driver |
+
+`ci` and `analytics` work independently. Their shared Parquet and DuckDB
+dependencies are declared in both profiles. `analytics` alone does not select
+the YAML-backed native runner. A pure finite solve or host-owned learning call
+needs neither profile. The existing bounded-mean protected method uses its
+explicit bounded mathematical contract without SciPy; the native durable workflow
+uses that route with `ci`. The normal-model paired method requires `analytics`.
+
+The existing `mcp`, `telemetry` and `clickhouse` extras install their respective
+SDKs/drivers. `notebook`, `docs`, `dev` and `release` select tools; they do not
+implicitly enable CI or analytical operations. For the complete supplied
+notebooks, select `ci,analytics,notebook`. Contributor setup selects the runtime
+capabilities exercised by its tests explicitly.
+
+```mermaid
+flowchart TD
+    Base[Base wheel: Pydantic and packaging] --> Math[Contracts, objectives and finite solving]
+    Base --> Exchange[Typed local JSON interchange]
+    CI[ci extra] --> Native[Native TCPCI, Parquet and DuckDB workflows]
+    Analytics[analytics extra] --> Inference[Analytical storage and normal-model comparison]
+    MCP[mcp extra] --> Transport[Optional MCP transport]
+    Native --> Math
+    Inference --> Math
+    Transport --> Native
+```
+
+An arrow points toward a component used. The extra packages enable the selected
+outer operations; direct mathematics has no dependency on those operations.
+
+Python packaging tools expand the selected extras into dependency requirements;
+those requirements are visible in the wheel's `Requires-Dist` metadata. See the
+[Python packaging specification](https://packaging.python.org/en/latest/specifications/pyproject-toml/#optional-dependencies)
+for that mechanism.
+
+### Observed base installation footprint
+
+The source-wheel qualification on November 6, 2026 used fresh external virtual
+environments, normal dependency resolution and `uv pip check` on **macOS arm64
+(Darwin 25.6.0), CPython 3.14.6 and uv 0.9.3**:
+
+| Installation | Installed distributions | Regular site-package files | Logical bytes in site-packages |
+| --- | ---: | ---: | ---: |
+| Earlier source wheel with the scientific stack in its base requirements | 32 | 9,339 | 564,702,594 B |
+| Component wheel with no extra selected | 7 | 587 | 11,095,607 B |
+
+This observation is a **98.04% reduction in logical installed file bytes**. Both
+wheels contain the complete maintained SDK; the newer wheel has 394 package
+resources, compared with 385 before extraction. The difference comes from the
+installed dependency closure. The measured component wheel's SHA-256 is
+`c7a32229743b54722bf7848c331cc9702f55e52836d93916acfa7b2a9c2adde0`.
+
+The byte count sums regular files' `st_size` beneath the fresh environment's
+site-packages, excluding symlinks and directories, before bytecode generation.
+It is a disk-footprint observation, not download size, allocated filesystem
+blocks, process RSS or evidence of faster execution. Installed versions, platform
+wheels and future source changes can change it; repeat the consumer installation
+when qualifying another environment.
+
+## Build and install a base wheel
+
+Use CPython 3.14 and uv. From the reviewed contributor checkout, create separate
+build and consumer environments so the consumer cannot inherit development
+packages:
+
+```bash
+UV_PROJECT_ENVIRONMENT=/tmp/coleman-v5-build \
+  uv sync --frozen --only-group build --no-install-project
+uv build --wheel --no-build-isolation \
+  --python /tmp/coleman-v5-build/bin/python --out-dir /tmp/coleman-v5-dist
+uv venv /tmp/coleman-v5-base --python 3.14
+uv pip install --python /tmp/coleman-v5-base/bin/python \
+  /tmp/coleman-v5-dist/coleman-4.20.0-py3-none-any.whl
+uv pip check --python /tmp/coleman-v5-base/bin/python
+```
+
+Use fresh temporary paths for a new qualification. A reused environment can
+contain unrelated packages left by earlier work. Normal dependency resolution
+is part of this example: `--no-deps` alone would not prove that the base
+installation has an independent dependency closure.
+
+Save this complete example as `/tmp/coleman-v5-base/elapsed.py`:
+
+```python
+from coleman.core.identity import Reference
+from coleman.core.numeric import Scalar, ScalarSpec
+from coleman.core.units import UnitSemantics
+
+elapsed = Scalar(
+    spec=ScalarSpec(
+        dimension=Reference(id="suite-elapsed", version="v1"),
+        semantics=UnitSemantics(unit="s", meaning="observed-suite-duration-v1"),
+        role="resource",
+        minimum=0.0,
+    ),
+    value=0.0,
+    status="observed",
+)
+print(elapsed.value, elapsed.spec.semantics.unit, elapsed.status)
+```
+
+Run it outside the checkout using the installed interpreter:
+
+```bash
+cd /tmp/coleman-v5-base
+bin/python -I -B elapsed.py
+```
+
+Expected output:
+
+```text
+0.0 s observed
+```
+
+The input is a known zero-duration observation. Construction checks its explicit
+schema and units; it does not execute a suite or infer missing information. A
+null observation needs its declared missing state. See [decision contracts](decision-contracts.md)
+for the full decision/feedback cycle and [objectives](objectives.md) for complete
+conversion, loss and feasibility examples.
+
+## Use a learner, MAB or solver independently
+
+The three standalone examples use the base wheel. Copy them from the same
+reviewed checkout into the consumer environment before changing directory:
+
+```bash
+cp examples/composition/learning_only.py /tmp/coleman-v5-base/learning_only.py
+cp examples/composition/mab_only.py /tmp/coleman-v5-base/mab_only.py
+cp examples/composition/solver_only.py /tmp/coleman-v5-base/solver_only.py
+cd /tmp/coleman-v5-base
+bin/python -I -B learning_only.py
+bin/python -I -B mab_only.py
+bin/python -I -B solver_only.py
+```
+
+If you already changed directory for the scalar example, return to the reviewed
+checkout before the copy commands.
+
+| Example and complete source | Input | One cycle | Inspectable output |
+| --- | --- | --- | --- |
+| [Learning only](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/composition/learning_only.py) | Two synthetic CI recipes and two complete, dimensionless loss panels: `(1, 0)` then `(0, 1)` | Request a choice, deliver the complete panel, update the host's cumulative losses, export/restore state | Choices `recipe-a`, then `recipe-b`; two accepted panels |
+| [MAB only](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/composition/mab_only.py) | The same two recipes, a declared four-bin selection mechanism and eight synthetic chosen-feedback opportunities | Draw an actual action, expose only its feedback, update the chosen recipe and export/restore the full owned RNG state | Eight choices, their actual mechanism masses (`0.75` or `0.25`) and eight delivered rows |
+| [Solver only](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/composition/solver_only.py) | Three indivisible suites with explicit overlapping coverage, modeled seconds and a three-second budget | Call the existing bounded `branch_bound_v1` solver and compare this tiny fixture with a separate exhaustive calculation | Suites `A` and `C`, cost `3` seconds and covered credit `1.0` |
+
+The learning and MAB classes belong to the copied user application. They exercise
+the public structural protocols and conformance harness, including restored
+continuation, without claiming a shipped generic algorithm. Their JSON output
+marks the built-in learner/MAB work as pending. The solver calls the existing
+production finite solver; its exact-scope result concerns this bounded fixture.
+These synthetic examples establish composition and state behavior, without
+establishing performance on operational CI data or independent observations.
+
+The MAB example retains all 624 MT words and their index, rather than replacing
+restoration with reseeding. Its sampling masses describe the declared selection
+mechanism; they are not calibrated outcome probabilities. Direct raw updates are
+not durable or automatically idempotent. A host that needs delivery deduplication,
+concurrent workers or checkpoint publication must compose the corresponding
+outer services explicitly.
+
+## Add CI or analytical capabilities
+
+Install extras against the **same reviewed wheel**. From any directory:
+
+```bash
+uv venv /tmp/coleman-v5-ci --python 3.14
+uv pip install --python /tmp/coleman-v5-ci/bin/python \
+  '/tmp/coleman-v5-dist/coleman-4.20.0-py3-none-any.whl[ci]'
+uv pip check --python /tmp/coleman-v5-ci/bin/python
+
+uv venv /tmp/coleman-v5-analytics --python 3.14
+uv pip install --python /tmp/coleman-v5-analytics/bin/python \
+  '/tmp/coleman-v5-dist/coleman-4.20.0-py3-none-any.whl[analytics]'
+uv pip check --python /tmp/coleman-v5-analytics/bin/python
+```
+
+For a combined environment, use the same form with `[ci,analytics]` or
+`[ci,analytics,mcp]`. Quote the entire wheel requirement so the shell preserves
+the brackets. For a published wheel, retain its reviewed URL and SHA-256 fragment
+when selecting extras; keep v4 requirements associated with their original v4
+wheel instead of adding v5-only extras to an older distribution.
+
+Continue with [native CI examples](getting-started.md), [analytical evaluation](evaluation-guide.md)
+or [durable experiments](durable-experiments.md). When following a guide that pins
+a published v4 wheel, use that guide's original environment. When using current
+source, select the capabilities required by the shown operations.
+
+## Inspect optional availability before starting work
+
+At the application boundary, inspect installation declarations or explicitly
+check a chosen capability:
+
+```python
+from coleman.capabilities import installation_capabilities, require_capability
+
+print([item.name for item in installation_capabilities()])
+require_capability("ci")
+```
+
+In the CI environment above, the check completes without loading the numerical,
+storage or transport backends. In the base environment it raises
+`CapabilityUnavailableError`, naming missing distributions and the wheel-extra
+installation route. An unknown capability raises `ValueError`. These calls do
+not install dependencies, discover plugins, create a workspace or start a
+service. Presence checks are separate from resolver version checks and from
+runtime provenance; they do not certify behavior or authenticate a source.
+
+Direct mathematical calls never require this capability table or a global
+registry. Missing optional packages do not become invented algorithm results.
+
+## Keep native runtime identities explicit
+
+Durable native workflow plans and baseline matrices record their producing SDK,
+interpreter/platform and actual dependency versions. Separating optional profiles
+changes which dependencies an experiment consumes, so new native plans use an
+explicitly different runtime record:
+
+| Runtime record | Retained meaning | Native execution in this source |
+| --- | --- | --- |
+| `InstalledRuntime`, schema version 1 | The producing wheel's active **base-only** dependency closure; historical readers and canonical bytes remain unchanged | Historical saved plans/matrices remain readable evidence; this record does not authorize v5 continuation |
+| `SelectedInstalledRuntime`, schema version 2 | The producing wheel's active base plus **explicitly selected extras**, including their transitive requirements | New durable workflow plans and baseline matrices require the fixed `("ci",)` selection and a matching actual installed identity |
+
+Version 2 does not mean every package that happens to be installed. Unrelated
+analytical, transport and contributor tools stay outside a native CI inventory.
+The complete SDK resource fingerprint is still retained; changing SDK bytes can
+invalidate execution compatibility even when the selected dependency names agree.
+Installed names/versions do not attest every native binary or the hardware.
+
+An old runtime-1 plan or completed matrix can be inspected through its retained
+reader. There is no automatic resume, runtime migration, checkpoint conversion or
+relabeling as runtime 2. Continue the original executable work using its original
+pinned v4 wheel, dependencies, data and trusted workspace. For new work, freeze a
+new workflow plan or start a distinct baseline-matrix runtime scope in the v5
+environment. The outer native workflow contract remains
+version 1, its SQLite store remains version 1 and its existing PCG64 state codec
+remains version 1. Those independent versions are not runtime-inventory versions.
+
+This runtime generation applies to the durable native workflow and baseline
+matrix routes; it does not silently replace every raw API's identity contract.
+See [durable recovery](durable-experiments.md) and
+[compatibility and migration](v5-compatibility.md) before reopening historical
+executable state.
+
+## Keep consumer compatibility separate from a research lock
+
+The wheel currently declares exact direct dependency pins. The development and
+research `uv.lock` additionally freezes transitive versions. A normal consumer
+installation resolves those transitive requirements in its own environment;
+it does not automatically inherit the contributor lock.
+
+Retain the wheel hash, actual installed distribution versions and input/state
+identities for reproducibility. An embedding application's incompatible package
+constraints should produce a resolver error; bypassing dependency checks does
+not qualify compatibility. Use separate environments and the versioned local
+JSON interchange route when the host cannot import this supported runtime.
+That route exchanges declarations, inputs and bound outputs; it does not lower
+the package's Python minimum or exchange executable pickle state.
+
+## Exchange data with an isolated runtime
+
+`coleman.interchange.contracts` provides schema-version-1 request and response
+envelopes for a decision call, feedback call or the existing finite coverage
+call. `coleman.interchange.codec` reads their bounded JSON. A request retains the
+logical task and exchange ID, physical attempt ID, implementation/version,
+explicit nullable state-codec binding and explicit nullable clocks. A response
+retains the complete producing request and checked input/reply fingerprints.
+
+The host still makes the actual algorithm call. Decoding does not invoke a
+learner, execute an action, restore state or import a callable named in JSON.
+`FeedbackReply(disposition="applied")` records a producer's assertion; it does
+not prove a durable update or exactly-once delivery. State bindings carry a
+codec reference and digest, without executable state bytes.
+
+| Producer/consumer boundary | Required acceptance |
+| --- | --- |
+| Source schema version 1 to this source's version-1 SDK reader | Typed nested input/output, operation, implementation and canonical digests must agree |
+| Missing, future or unknown schema version; unknown fields | Reject; there is no inferred migration |
+| Timed exchange | Explicit UTC clocks; the caller supplies the actual receipt to `accept_response(request, response, received_at=...)` and rejects late or mismatched output |
+| Untimed exchange | Request creation/deadline, production and supplied receipt are explicitly null; no wall-clock freshness claim |
+| Older host runtime or another language | It must separately implement and qualify these JSON contracts; this page does not declare an untested producer compatible |
+
+The supplied [stdlib-only consumer](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/composition/foreign_consumer.py)
+demonstrates one narrower route for the public synthetic finite coverage example.
+It requires separately retained request/response wire pins, request/input semantic
+pins and an explicit receipt. It checks the producing request, units and declared
+result without importing the SDK. It is not a general SDK reader or an independent
+validator of the solver's certificate. The
+[versioned fixtures](https://github.com/jacksonpradolima/coleman/blob/release/v5/tests/fixtures/interchange/v1/README.md)
+provide the complete public examples and explain their independently checked
+arithmetic. The producing SDK, copied host learner and foreign consumer remain
+separate roles.
+
+Call `accept_response` against the actual retained request even after successful
+decoding. An optional `expected_wire_fingerprint` pins exact received bytes;
+canonical typed identity is separate from whitespace-dependent wire identity.
+Neither digest authenticates a producer. Codecs accept built-in UTF-8 strings or
+bytes up to 8 MiB, with JSON nesting bounded at 64, and reject duplicate keys.
+
+For explicit local files, `coleman.interchange.publication` reuses an existing
+caller-created `ArtifactWriter`. It publishes immutable request/reply files under
+the hashed logical-attempt identity. Same bytes are idempotent; different content
+for the same attempt conflicts. A request without a complete response remains
+incomplete. Publication follows that writer's trusted-local-parent, filesystem
+and platform guarantees; it does not create a transport or a distributed
+transaction. Keep using direct mathematical calls when no isolated boundary is
+needed.
+
+## Runtime and platform limits
+
+| Boundary | Supported envelope and evidence |
+| --- | --- |
+| Package interpreter | CPython 3.14 minimum; an older syntax/lint target is not runtime support |
+| Core and pure mathematical calls | Noneditable wheel checks outside the checkout, including isolated imports; optional backends may be absent |
+| Current automated execution | Linux with Python 3.14; contributor installed-package qualification also runs on macOS arm64 |
+| Native local durable workflows | Their documented Linux/macOS process, locking and filesystem assumptions; other platforms do not inherit those guarantees |
+| Windows or a lower Python version | No general v5 execution/compatibility promise; qualify a specific route before declaring support |
+| External host | Declarative JSON compatibility is independent of whether that host can import COLEMAN |
+
+A `py3-none-any` wheel contains portable Python package files; its selected
+third-party dependencies and execution adapters still have their own platform
+requirements. Profiler and controlled-source toolchain availability are separate
+from package import support. See [compatibility and migration](v5-compatibility.md)
+for old artifact/checkpoint routes and [contributing](contributing.md) for the
+full developer environment.
 
 
 
@@ -5604,6 +5983,10 @@ these distinctions. This is an implemented contract layer on `release/v5`,
 Build this source's wheel to try the examples. Existing TCPCI runs and their
 [measurement artifacts](domain-results.md) retain their own contracts.
 
+The [component installation guide](core-installation.md) explains the base wheel,
+independent `ci`/`analytics` extras and the supported runtime envelope. Direct
+contracts and host-owned consumers below require only the base installation.
+
 ## Start from your inputs and observations
 
 The host supplies this declaration for a synthetic CI suite-selection example:
@@ -5978,7 +6361,7 @@ prioritization and evaluation.
 
 # Dependency security maintenance
 
-COLEMAN audits the complete committed `uv.lock`, including development,
+COLEMAN audits the complete committed `uv.lock`, including CI, analytical, development,
 documentation, notebook, release, telemetry, ClickHouse and MCP extras, plus packages
 that only install on another operating system. The base installation remains
 independent of optional tools.
@@ -6170,7 +6553,9 @@ explicit meaning. Both outputs can coexist; the legacy table is never overwritte
 
 ## Complete installed-package example
 
-Install the package from the reviewed wheel (`pip install path/to/coleman.whl`).
+Install the reviewed source wheel with `analytics` using the
+[component installation guide](core-installation.md#add-ci-or-analytical-capabilities).
+The example uses DuckDB persistence; pure result records require only the base installation.
 The following can run from any directory. Its credits are synthetic CI runner
 accounting units, with no claim of operational savings.
 
@@ -6387,15 +6772,18 @@ coleman_workflow_dist="$(mktemp -d)"
 uv build --wheel --out-dir "$coleman_workflow_dist"
 python3.14 -m venv /tmp/coleman-workflows-env
 for coleman_workflow_wheel in "$coleman_workflow_dist"/coleman-*.whl; do
-  /tmp/coleman-workflows-env/bin/python -m pip install "${coleman_workflow_wheel}[mcp]"
+  /tmp/coleman-workflows-env/bin/python -m pip install "${coleman_workflow_wheel}[ci,mcp]"
 done
 /tmp/coleman-workflows-env/bin/coleman workflow \
   --workspace /tmp/coleman-workspace init-fixture
 ```
 
 Use the actual wheel produced by the build; the temporary directory contains
-that build alone. The `[mcp]` extra is optional: library and
-CLI workflows run without it. No model, API key, Docker or network collector is
+that build alone. `ci` supplies native execution and this workflow's bounded
+protected comparison; its bounded-mean method does not require `analytics`.
+Normal-model paired inference is a separate analytical capability. The `mcp`
+extra is optional: library and CLI workflows run without that SDK. See
+[component installation](core-installation.md). No model, API key, Docker or network collector is
 needed after package installation and source preparation.
 
 The workspace belongs to the host. Keep it outside Git. It contains private
@@ -6725,6 +7113,14 @@ Ordinary older native checkpoints lack this workflow context and cannot be
 silently adopted or reseeded. The existing native pickle/progress formats and
 non-workflow checkpoint behavior are unchanged. The saved plan also records its
 actual Polars thread pool; restart with that same host setting.
+
+For the unreleased v5 source, new plans additionally bind the explicit
+runtime-version-2 CI dependency selection. Runtime-version-1 historical plans
+remain readable evidence and require their original pinned v4 environment for
+execution/continuation. The outer workflow, SQLite store and existing PCG64
+codec versions remain unchanged. See
+[native runtime identities](core-installation.md#keep-native-runtime-identities-explicit)
+for the exact boundary; installing extras does not migrate an old checkpoint.
 
 ## Keep tuning separate from protected evaluation
 
@@ -7757,10 +8153,12 @@ their meanings with `binary64-projection-v1`. It neither replaces native `cost`
 fabricated. Supply actual zoned availability after calculation and retain that
 timestamp on retries; null incumbent quantities become unavailable measurements.
 
-The standalone installed-package examples need only base dependencies:
+Direct solver calls use the [base installation](core-installation.md). The complete
+native CI examples below also require `ci`; first install that extra against the
+same source wheel as described in the
+[component guide](core-installation.md#add-ci-or-analytical-capabilities):
 
 ```bash
-pip install path/to/coleman.whl
 python ci.py ./ci-output
 python resources.py ./resource-output
 ```
@@ -7847,6 +8245,11 @@ python3.14 -m venv .venv
 source .venv/bin/activate
 python -m pip install "https://github.com/jacksonpradolima/coleman/releases/download/v4.19.0/coleman-4.19.0-py3-none-any.whl#sha256=070e21c19fb7e3f2e392bd68706c354ed5ab7f76b86db80f5f1bdc5721b767bd"
 ```
+
+For the unreleased v5 source, install the reviewed wheel with `ci` using the
+[component guide](core-installation.md). The pinned v4 command above retains its
+original dependencies. Native durable workflows have their own Linux/macOS
+process and filesystem requirements.
 
 On Windows, activate the environment with `.venv\Scripts\Activate.ps1` in
 PowerShell. The experiment itself uses Python paths and works independently of
@@ -8354,7 +8757,7 @@ qualification and its independent reference:
 
 ```bash
 COLEMAN_HCS_REAL_CACHE=/tmp/coleman-hcs-cache \
-  uv run --extra dev python -m pytest tests/corpus/test_installed_hcs.py --no-cov
+  uv run --extra ci --extra dev python -m pytest tests/corpus/test_installed_hcs.py --no-cov
 ```
 
 The committed `tests/corpus/hcs_raw_reference.py` streams the original CSV and
@@ -9298,7 +9701,7 @@ native CI/checkpoint workflow:
 
 ```bash
 COLEMAN_JUNIT_REAL_CACHE=/tmp/coleman-java-source-cache \
-  uv run pytest tests/corpus/test_installed_junit_matrix.py --no-cov
+  uv run --extra ci --extra dev pytest tests/corpus/test_installed_junit_matrix.py --no-cov
 ```
 
 The native CI fixture has its own exact-answer costs and outcomes; Java harness
@@ -9510,7 +9913,7 @@ the source cache with the command above and prepare the pinned image, then run:
 
 ```bash
 COLEMAN_JUNIT_REAL_CACHE=/tmp/coleman-junit-cache \
-  uv run pytest tests/corpus/test_installed_junit.py --no-cov -q
+  uv run --extra ci --extra dev pytest tests/corpus/test_installed_junit.py --no-cov -q
 ```
 
 This explicit source reproduction checks all 190 observations and the observed
@@ -9748,7 +10151,7 @@ first populate the explicit cache above, then run from the source checkout:
 
 ```bash
 COLEMAN_LRTS_ETL_REAL_CACHE=/tmp/coleman-lrts-source-cache \
-  uv run pytest tests/corpus/test_installed_lrts_etl.py --no-cov -q
+  uv run --extra ci --extra dev pytest tests/corpus/test_installed_lrts_etl.py --no-cov -q
 ```
 
 This installs a wheel outside the checkout, verifies core import boundaries,
@@ -10476,9 +10879,7 @@ From a contributor checkout with its locked build tools installed:
 ```bash
 uv build --wheel --no-build-isolation
 uv venv /tmp/coleman-objectives-demo --python 3.14
-UV_PROJECT_ENVIRONMENT=/tmp/coleman-objectives-demo \
-  uv sync --frozen --no-default-groups --no-dev --no-install-project
-uv pip install --no-deps --python /tmp/coleman-objectives-demo/bin/python \
+uv pip install --python /tmp/coleman-objectives-demo/bin/python \
   dist/coleman-4.20.0-py3-none-any.whl
 cp examples/objectives/ci.py /tmp/coleman-objectives-demo/ci.py
 cp examples/objectives/allocation.py /tmp/coleman-objectives-demo/allocation.py
@@ -10489,7 +10890,9 @@ bin/python -I allocation.py
 
 The integration wheel retains the package version until the final release gate.
 Use the wheel built from this source, rather than another wheel carrying the
-same version or the unrelated bare PyPI project name. These examples use public,
+same version or the unrelated bare PyPI project name. The base wheel supplies
+these pure operations; native execution and analytical dependencies are selected
+separately as described in [component installation](core-installation.md). These examples use public,
 authored synthetic inputs and the actual operations; they make no effectiveness
 claim about a production system.
 
@@ -12127,12 +12530,12 @@ retains statistical conclusions and access context that a scalar alone cannot co
 
 ## Runnable installed-package workflow
 
-Install the reviewed wheel, then copy and run
+Install `ci,analytics` against the reviewed source wheel following the
+[component guide](core-installation.md#add-ci-or-analytical-capabilities), then copy and run
 [ci.py](https://github.com/jacksonpradolima/coleman/blob/main/examples/protected-evaluation/ci.py)
 from a directory outside the repository:
 
 ```bash
-pip install path/to/coleman.whl
 python ci.py ./protected-ci-output
 ```
 
@@ -15331,11 +15734,11 @@ That example preserves eight constructed records, projects four, accounts for
 outside/not-run/unknown/unavailable exclusions, and resumes two native rounds with
 four result rows. The test suite compares the two-job native NAPFD/APFDc results
 with the existing independent exact tiny oracle under the explicit serial model.
-The fresh base-wheel regression also exercises the actual real cache when enabled:
+The fresh installed-wheel regression with `ci` also exercises the actual real cache when enabled:
 
 ```bash
 COLEMAN_RTPTORRENT_ETL_REAL_CACHE=/tmp/coleman-rtptorrent-source-cache \
-  uv run pytest tests/corpus/test_installed_rtptorrent_etl.py --no-cov -q
+  uv run --extra ci --extra dev pytest tests/corpus/test_installed_rtptorrent_etl.py --no-cov -q
 ```
 
 Source pins and data terms are documented in the
@@ -15870,8 +16273,11 @@ retain it on retries. Native `cost`/APFDc and rewards are not reinterpreted.
 
 ## Installed native CI examples
 
+Install `ci` against the reviewed source wheel following the
+[component guide](core-installation.md#add-ci-or-analytical-capabilities).
+Direct allocation solving itself requires only the base installation.
+
 ```bash
-pip install path/to/coleman.whl
 python ci.py ./ci-output
 python resources.py ./resource-output
 ```
@@ -16022,7 +16428,11 @@ explicitly. Read [the artifact API](api/artifacts.md) before choosing a helper.
 ### Default run (no Docker required)
 
 Follow [the verified-wheel installation](getting-started.md#1-install-in-a-virtual-environment).
-The base package includes the library, CLI and local analytical dependencies.
+That published v4 package includes the library, CLI and local analytical dependencies.
+The unreleased v5 source selects capabilities explicitly: a base wheel for pure
+contracts/objectives/finite solving, `ci` for native execution and `analytics`
+for analytical operations. Follow [component installation](core-installation.md)
+when building current source; keep the v4 wheel command and its digest unchanged.
 
 ### Optional integrations
 
@@ -16141,7 +16551,7 @@ explicit acceptance protocol.
 ```mermaid
 flowchart TD
     Host[User application or notebook] --> DirectLearner[Planned direct learner and MAB capabilities]
-    Host --> DirectSolver[Planned solver boundary reusing existing finite solvers]
+    Host --> DirectSolver[Existing finite solvers; broader solver boundary planned]
     Host --> Problem[Planned typed problem adapters including CI]
     Problem --> Contracts[Implemented generic contracts and capability validation]
     Problem --> Objectives[Explicit objective definitions and pure loss mappings]
@@ -16163,9 +16573,11 @@ flowchart TD
 
 Here an arrow means a call or dependency toward the component used. Storage,
 session, evaluation and transport can be absent when the host directly calls a
-learner or solver. Existing finite solver APIs remain independently callable;
-their current package dependency closure is heavier than the planned minimal
-core and must be measured during extraction.
+learner or solver. Existing finite solver APIs are independently callable from
+the base wheel. Select the explicit `ci` or `analytics` extra for the outer
+operations that require those dependencies; see the
+[component installation guide](core-installation.md) for complete isolated
+examples and the supported runtime envelope.
 
 ## Action and feedback capabilities
 
@@ -16321,9 +16733,10 @@ The currently supported Python minimum is **3.14**. Changing it or introducing
 another distribution needs resolver, wheel ownership, import and support-matrix
 evidence. Install examples must identify this repository's built wheel: the bare
 PyPI project name is not a reliable instruction for installing this repository.
-Minimal-core and optional CI/analysis/transport dependencies are qualified during
-extraction; the current mandatory scientific dependency list is not already a
-minimal-core installation.
+The integration metadata now separates the base Pydantic/packaging closure
+from explicit `ci` and `analytics` extras, with independent transport/telemetry
+SDK extras. [Component installation](core-installation.md) describes the exact
+source-wheel routes and their installed-package qualification boundaries.
 
 The target import graph uses arrows from importer to dependency. This is a DAG;
 runtime orchestration imports capabilities, never the reverse.
@@ -16346,7 +16759,9 @@ flowchart TD
     Contracts --> Primitives[Core units clocks identities and canonical codecs]
 ```
 
-The source baseline has several edges that must move or be isolated:
+The original source baseline identified the following extraction seams. Shared
+primitive leaves and lazy compatibility exports now separate their imports;
+native algorithms and generic executor/session delivery remain distinct work:
 
 | Current edge | Staged change and verification |
 | --- | --- |
@@ -16372,10 +16787,11 @@ imports for transitive imports and package initializers. Installed checks run
 outside the checkout with optional integrations absent, no network discovery or
 storage initialization. Cycles and forbidden edges fail the gate; allowlists
 name specific transitional legacy modules rather than exempting the new core.
-The decision-contract implementation qualifies this boundary with AST and
-noneditable-wheel cold-import tests for the new core contracts. This does not
-qualify the future learner graph, a resolver-minimal installation or all optional
-dependency combinations; those remain staged extraction work.
+Decision contracts and packaging use AST plus noneditable-wheel cold-import
+checks, with separate resolver/install checks for base and declared optional
+profiles. Passing a contract/import check does not qualify a future learner, an
+unlisted dependency combination or a lower Python version. See
+[component installation](core-installation.md) for the supported consumption routes.
 
 ## Two executable baseline slices before extraction
 
@@ -16608,7 +17024,8 @@ The integration source now includes [versioned generic decision contracts](decis
 and shared primitive implementations below result/selection/temporal consumers.
 Their old namespaces retain compatible reexports and existing wire semantics.
 This step does not publish v5, migrate executable checkpoints or complete the
-planned TCPCI adapter and minimal-installation qualification.
+planned TCPCI adapter. [Component installation](core-installation.md) describes
+the explicit base, CI and analytical dependency profiles in the integration source.
 
 ## Choose an execution route
 
@@ -16727,11 +17144,21 @@ Keep one distribution and the `coleman` import root initially. The implemented
 `coleman.core` namespace supplies narrow mathematical contracts and protocols;
 generic learners remain planned. The
 existing source adapters, artifacts, services and transports remain separate
-modules in that distribution. This does not mean the current wheel is already
-lightweight: its base dependencies include NumPy, Polars, PyArrow, DuckDB, SciPy,
-Pydantic, YAML and statistical tooling. The core extraction must measure cold
-imports, installed dependencies, memory and installation from a noneditable
-wheel outside the repository.
+modules in that distribution. The integration metadata now keeps Pydantic and
+packaging in the base installation; `ci` and `analytics` select the numerical,
+Parquet, database and statistical capabilities used by those operations. Import
+checks and actual clean dependency resolution qualify separate facts. Installed
+regular-file bytes are disk-footprint observations, not process-memory evidence.
+See [component installation](core-installation.md) for exact commands and limits.
+
+New durable native workflow plans and baseline matrices use
+`SelectedInstalledRuntime` schema version 2 with the fixed `ci` selection.
+Historical `InstalledRuntime` version 1 retains its base-only meaning and reader
+bytes; reading an old plan/matrix does not authorize v5 execution or continuation.
+Use its original pinned v4 environment for that work. The outer workflow,
+SQLite store and existing PCG64 codec stay at their own version 1. See
+[native runtime identities](core-installation.md#keep-native-runtime-identities-explicit)
+for capture, dependency closure and migration limits.
 
 Separate wheels are justified only by demonstrated dependency or support
 isolation that a modular namespace and optional extras cannot provide. Evidence
@@ -17636,7 +18063,7 @@ coleman analyze quality --input ./runs --format markdown --out reports/quality.m
 # Stability (coefficient of variation)
 coleman analyze stability --input ./runs --format csv --out reports/stability.csv
 
-# Pareto frontier (quality vs cost)
+# Pareto frontier (NAPFD and APFDc quality)
 coleman analyze pareto --input ./runs --format table
 ```
 
@@ -17653,8 +18080,9 @@ Use this checklist after generating enough runs:
 
 1. **Policy stability**
     - Compare mean, std, and coefficient of variation of NAPFD per policy.
-2. **Quality vs cost frontier**
-    - Build a Pareto frontier using high NAPFD + low APFDc.
+2. **Fault-detection quality frontier**
+    - Compare high NAPFD + high APFDc. The legacy `cost` column holds APFDc,
+      a quality score; inspect duration and resource measurements separately.
 3. **Budget sensitivity**
     - Compare policies per `scenario` / time-ratio group.
 4. **Execution variance**
@@ -17948,7 +18376,7 @@ reverify the real source cache without network:
 
 ```bash
 COLEMAN_RTPTORRENT_ZIP64_REAL_CACHE=/tmp/coleman-rtptorrent-source-cache \
-  uv run pytest tests/corpus/test_installed_zip64.py --no-cov -q
+  uv run --extra ci --extra dev pytest tests/corpus/test_installed_zip64.py --no-cov -q
 ```
 
 ## Continue the workflow

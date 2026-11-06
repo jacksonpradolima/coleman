@@ -189,7 +189,7 @@ the source cache with the command above and prepare the pinned image, then run:
 
 ```bash
 COLEMAN_JUNIT_REAL_CACHE=/tmp/coleman-junit-cache \
-  uv run pytest tests/corpus/test_installed_junit.py --no-cov -q
+  uv run --extra ci --extra dev pytest tests/corpus/test_installed_junit.py --no-cov -q
 ```
 
 This explicit source reproduction checks all 190 observations and the observed

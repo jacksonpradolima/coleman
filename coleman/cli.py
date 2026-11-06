@@ -16,12 +16,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from coleman.analysis import format_rows, run_report
-from coleman.api import load_spec, run, run_many, save_resolved, sweep
-from coleman.spec.io import load_sweep_spec
-from coleman.spec.run_id import compute_run_id
-from coleman.spec.sweep import SweepAxis, SweepSpec
-
 
 def _parse_kv(raw: str) -> tuple[str, list[Any]]:
     """Parse ``key=v1,v2,v3`` or ``key=range(start,stop)`` into (key, values).
@@ -68,6 +62,8 @@ def _parse_kv(raw: str) -> tuple[str, list[Any]]:
 
 def _cmd_run(args: argparse.Namespace) -> None:
     """Handle ``coleman run``."""
+    from coleman.api import load_spec, run
+
     spec = load_spec(args.config, packs_dir=args.packs_dir)
     result = run(spec)
     print(f"run_id: {result.run_id}")  # noqa: T201
@@ -77,6 +73,11 @@ def _cmd_run(args: argparse.Namespace) -> None:
 
 def _cmd_sweep(args: argparse.Namespace) -> None:
     """Handle ``coleman sweep``."""
+    from coleman.api import load_spec, run_many, sweep
+    from coleman.spec.io import load_sweep_spec
+    from coleman.spec.run_id import compute_run_id
+    from coleman.spec.sweep import SweepAxis, SweepSpec
+
     base = load_spec(args.config, packs_dir=args.packs_dir)
     yaml_sweep = load_sweep_spec(args.config, packs_dir=args.packs_dir)
 
@@ -121,6 +122,9 @@ def _cmd_sweep(args: argparse.Namespace) -> None:
 
 def _cmd_validate(args: argparse.Namespace) -> None:
     """Handle ``coleman validate``."""
+    from coleman.api import load_spec, save_resolved
+    from coleman.spec.run_id import compute_run_id
+
     try:
         spec = load_spec(args.config, packs_dir=args.packs_dir)
     except Exception as exc:  # noqa: BLE001
@@ -135,6 +139,8 @@ def _cmd_validate(args: argparse.Namespace) -> None:
 
 def _cmd_analyze(args: argparse.Namespace) -> None:
     """Handle ``coleman analyze <report>``."""
+    from coleman.analysis import format_rows, run_report
+
     columns, rows = run_report(args.report, args.input)
     rendered = format_rows(columns, rows, args.format)
 
@@ -248,6 +254,9 @@ def main(argv: list[str] | None = None) -> None:
         "application": _cmd_application,
         "workflow": run_command,
     }
+    from coleman.capabilities import require_capability
+
+    require_capability("analytics" if args.command == "analyze" else "ci")
     dispatch[args.command](args)
 
 

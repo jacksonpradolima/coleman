@@ -1,10 +1,9 @@
-"""Fresh base wheel outside checkout: HCS Parquet, actual strategies/checkpoints and import boundary."""
+"""Fresh CI-capability wheel outside checkout: HCS Parquet, actual strategies/checkpoints and import boundary."""
 
 import json
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 from tests.corpus.hcs_raw_reference import verify_libssh_raw_reference
@@ -13,6 +12,7 @@ from tests.corpus.test_hcs_archive_trace import owned_archive
 from tests.corpus.test_hcs_trace import OWNED
 from tests.corpus.test_hcs_trace_artifacts import owned_log_spec
 from tests.corpus.test_installed_controlled import ROOT, command
+from tests.installed_support import build_install_offline_wheel
 
 
 def test_installed_hcs_sources_native_recovery_and_domain_import_boundary(tmp_path):
@@ -21,11 +21,9 @@ def test_installed_hcs_sources_native_recovery_and_domain_import_boundary(tmp_pa
     env = {k: v for k, v in os.environ.items() if k not in {"PYTHONPATH", "PYTHONHOME"}}
     env.update(UV_LINK_MODE="copy", UV_NO_PROGRESS="1")
     dist = tmp_path / "dist"
-    command([uv, "build", "--wheel", "--out-dir", str(dist)], ROOT, env)
     virtual = tmp_path / "installed"
-    command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
+    build_install_offline_wheel(uv, dist, virtual, env, extras=("ci",))
     python = virtual / "bin/python"
-    command([uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl")))], tmp_path, env)
     outside = tmp_path / "outside"
     outside.mkdir()
     recipe, csv_bytes, jobs_bytes = hcs_recipe()

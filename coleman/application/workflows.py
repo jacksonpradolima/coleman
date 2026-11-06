@@ -19,7 +19,7 @@ from coleman.application.workflow_ownership import worker_active
 from coleman.application.workflow_store import JobRecord, WorkflowStore
 from coleman.artifacts import ArtifactWriter
 from coleman.results.domain import Measurement
-from coleman.spec.runtime_identity import InstalledRuntime
+from coleman.spec.selected_runtime import capture_native_runtime, require_native_runtime
 from coleman.workflows.contracts import DatasetManifest, ExperimentPlan, PlanningRequest, WorkflowError, WorkflowId
 from coleman.workflows.lifecycle import (
     TERMINAL,
@@ -230,7 +230,7 @@ class WorkflowService:
             )
         if dataset is None:
             raise KeyError("Dataset is not registered")
-        plan = make_plan(request, dataset, InstalledRuntime.capture(), native_threads=pl.thread_pool_size())
+        plan = make_plan(request, dataset, capture_native_runtime(), native_threads=pl.thread_pool_size())
         with self.store.transaction() as connection:
             existing = connection.execute(
                 "SELECT 1 FROM plans WHERE id=? AND owner=?", (plan.fingerprint[7:], self.owner)
@@ -294,7 +294,8 @@ class WorkflowService:
                 job = existing
             else:
                 plan = self.store.plan(connection, request.plan_id, self.owner)
-                if plan.runtime != InstalledRuntime.capture() or plan.native_threads != pl.thread_pool_size():
+                require_native_runtime(plan.runtime)
+                if plan.native_threads != pl.thread_pool_size():
                     raise WorkflowError("Saved plan producer/runtime is incompatible; create a new plan")
                 self._admission_limits(connection, jobs, plan)
                 now = time.time()
@@ -450,9 +451,8 @@ class WorkflowService:
                 plan = self.store.plan(connection, job.plan_id, self.owner)
                 if job.state == "expired" or worker_active(self.store.root, job_id):
                     raise WorkflowError("Expired work or an active cancelled worker cannot resume")
-                if (
-                    plan.runtime != InstalledRuntime.capture() or plan.native_threads != pl.thread_pool_size()
-                ) or job.invocations >= plan.request.limits.max_attempts:
+                require_native_runtime(plan.runtime)
+                if plan.native_threads != pl.thread_pool_size() or job.invocations >= plan.request.limits.max_attempts:
                     raise WorkflowError("Incompatible runtime or exhausted worker invocation allowance")
                 jobs = self.store.jobs(connection)
                 if (
@@ -552,9 +552,8 @@ class WorkflowService:
                 if job.state != "awaiting_evaluation":
                     raise WorkflowError("Protected evaluation requires a completed tuning prefix")
                 plan = self.store.plan(connection, job.plan_id, self.owner)
-                if (
-                    plan.runtime != InstalledRuntime.capture() or plan.native_threads != pl.thread_pool_size()
-                ) or job.invocations >= plan.request.limits.max_attempts:
+                require_native_runtime(plan.runtime)
+                if plan.native_threads != pl.thread_pool_size() or job.invocations >= plan.request.limits.max_attempts:
                     raise WorkflowError("Incompatible producer/runtime or exhausted invocation allowance")
                 active = sum(item.state in ("queued", "running") for item in self.store.jobs(connection))
                 if active >= self.store.policy.max_running + self.store.policy.max_queued:

@@ -17,8 +17,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-import yaml
-
+from coleman.capabilities import require_capability
 from coleman.spec.models import RunSpec
 from coleman.spec.packs import resolve_packs
 from coleman.spec.redaction import redact_sensitive_data
@@ -33,6 +32,10 @@ def _load_resolved_config(
     packs_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     """Load raw YAML, resolve packs, and return the merged dictionary."""
+    require_capability("ci")
+
+    import yaml
+
     path = Path(path).resolve()
     if packs_dir is None:
         packs_dir = path.parent / "packs"

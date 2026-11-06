@@ -226,11 +226,11 @@ That example preserves eight constructed records, projects four, accounts for
 outside/not-run/unknown/unavailable exclusions, and resumes two native rounds with
 four result rows. The test suite compares the two-job native NAPFD/APFDc results
 with the existing independent exact tiny oracle under the explicit serial model.
-The fresh base-wheel regression also exercises the actual real cache when enabled:
+The fresh installed-wheel regression with `ci` also exercises the actual real cache when enabled:
 
 ```bash
 COLEMAN_RTPTORRENT_ETL_REAL_CACHE=/tmp/coleman-rtptorrent-source-cache \
-  uv run pytest tests/corpus/test_installed_rtptorrent_etl.py --no-cov -q
+  uv run --extra ci --extra dev pytest tests/corpus/test_installed_rtptorrent_etl.py --no-cov -q
 ```
 
 Source pins and data terms are documented in the

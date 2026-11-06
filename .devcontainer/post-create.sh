@@ -19,10 +19,10 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 # 2. Install Python 3.14, create the venv, and install ALL dependencies
-#    (dev + docs + notebook + release + telemetry + clickhouse extras).
+#    (ci + analytics + dev + docs + notebook + release + telemetry + clickhouse + MCP extras).
 #    Release tooling is required for pytest discovery of release-routing tests.
 make setup
-uv sync --frozen --extra dev --extra docs --extra notebook --extra telemetry --extra clickhouse --extra release --group build --no-build --no-install-project
+uv sync --frozen --extra ci --extra analytics --extra dev --extra docs --extra notebook --extra telemetry --extra clickhouse --extra mcp --extra release --group build --no-build --no-install-project
 uv pip install --no-deps --no-build --no-build-isolation --editable .
 
 # 3. Install pre-commit hooks (non-critical)
