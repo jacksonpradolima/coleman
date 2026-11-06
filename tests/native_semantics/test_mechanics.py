@@ -61,7 +61,7 @@ def test_adversarial_internal_denominators_are_not_actual_sampled_first_position
 
 
 @pytest.mark.parametrize("policy_type", [CombinatorialUCBPolicy, CombinatorialThompsonPolicy])
-def test_combinatorial_subset_size_is_a_split_and_rejoin_of_the_same_complete_order(policy_type):
+def test_combinatorial_subset_size_is_a_split_and_rejoin_of_the_same_complete_order(policy_type, monkeypatch):
     generator = copy.deepcopy(policy_base._rng.bit_generator.state)
     orders = []
     states = []
@@ -73,7 +73,7 @@ def test_combinatorial_subset_size_is_a_split_and_rejoin_of_the_same_complete_or
             {"Name": ["A", "B", "C"], "ActionAttempts": [1.0] * 3, "ValueEstimates": [0.9, 0.5, 0.1], "Q": [0.0] * 3}
         )
         agent.t = 1
-        policy_base._rng.bit_generator.state = copy.deepcopy(generator)
+        monkeypatch.setattr(policy_base._rng.bit_generator, "state", copy.deepcopy(generator))
         orders.append(agent.choose())
         states.append(copy.deepcopy(policy_base._rng.bit_generator.state))
     assert all(order == orders[0] for order in orders)
@@ -100,11 +100,11 @@ def test_internal_preferences_are_sorted_without_a_sampling_draw(policy_type):
 
 
 @pytest.mark.parametrize("policy_type", [DuelingUCBPolicy, PairwiseThompsonRankingPolicy])
-def test_pair_updates_follow_their_own_order_despite_opposite_actual_failure_feedback(policy_type):
+def test_pair_updates_follow_their_own_order_despite_opposite_actual_failure_feedback(policy_type, monkeypatch):
     snapshots = []
     generator = copy.deepcopy(policy_base._rng.bit_generator.state)
     for verdicts in ({"A": 1, "B": 0}, {"A": 0, "B": 1}):
-        policy_base._rng.bit_generator.state = copy.deepcopy(generator)
+        monkeypatch.setattr(policy_base._rng.bit_generator, "state", copy.deepcopy(generator))
         policy = policy_type()
         agent = RewardAgent(policy, RNFailReward(), seed=17)
         # Observe both a real warmup and the next actual policy-generated order.
@@ -218,11 +218,12 @@ def test_reset_retains_policy_cache_and_rng_and_retired_actions_can_keep_policy_
     agent = RewardAgent(policy, RNFailReward(), seed=17)
     cycle(agent, {"A": 1, "B": 0})
     own = rng_state(agent)
-    policy_before = copy.deepcopy((policy.alpha, policy.beta, policy._last_value_estimate))
+    expected_policy_state = copy.deepcopy((policy.alpha, policy.beta, policy._last_value_estimate))
     agent.reset()
     assert agent.t == 0
     assert rng_state(agent) == own
-    assert (policy.alpha, policy.beta, policy._last_value_estimate) == policy_before
+    actual_policy_state = (policy.alpha, policy.beta, policy._last_value_estimate)
+    assert actual_policy_state == expected_policy_state
     cycle(agent, {"A": 0, "B": 0})
     projected_delta = 0.5 * (math.tanh(-1.0) + 1)
     assert math.isclose(policy.alpha["A"], 2 + projected_delta, rel_tol=1e-14)
@@ -236,7 +237,7 @@ def test_reset_retains_policy_cache_and_rng_and_retired_actions_can_keep_policy_
     assert frr.history.equals(history)
 
 
-def test_distinct_native_random_policies_share_global_rng_but_agent_warmup_owns_another_rng():
+def test_distinct_native_random_policies_share_global_rng_but_agent_warmup_owns_another_rng(monkeypatch):
     first = RewardAgent(RandomPolicy(), RNFailReward(), seed=17)
     other = RewardAgent(RandomPolicy(), RNFailReward(), seed=17)
     before = copy.deepcopy(policy_base._rng.bit_generator.state)
@@ -246,7 +247,7 @@ def test_distinct_native_random_policies_share_global_rng_but_agent_warmup_owns_
     assert first.policy is not other.policy
     local = rng_state(first)
     isolated = first.choose()
-    policy_base._rng.bit_generator.state = copy.deepcopy(before)
+    monkeypatch.setattr(policy_base._rng.bit_generator, "state", copy.deepcopy(before))
     assert other.choose() == isolated
     assert first.choose() != isolated
     assert rng_state(first) == local

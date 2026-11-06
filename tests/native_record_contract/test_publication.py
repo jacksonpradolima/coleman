@@ -87,8 +87,9 @@ def test_same_logical_key_changed_complete_ranking_conflicts_without_a_second_fi
 
 def test_byte_limit_is_checked_before_any_artifact_side_effect(tmp_path, record):
     destination = tmp_path / "not-created"
+    writer = ArtifactWriter(destination)
     with pytest.raises(ValueError, match="maximum_bytes"):
-        publish_native_decision(record, ArtifactWriter(destination), maximum_bytes=1)
+        publish_native_decision(record, writer, maximum_bytes=1)
     assert not destination.exists()
 
 

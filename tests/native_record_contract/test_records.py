@@ -19,8 +19,10 @@ def test_roundtrip_is_complete_frozen_and_does_not_impute_loss_or_propensity(rec
     assert actual.to_json() == wire
     assert actual.fingerprint == fingerprint(json.loads(wire))
     assert actual.observation_round == 0
-    assert actual.loss.value is None and actual.loss.status == "not_defined"
-    assert actual.sampling.value is None and actual.sampling.status == "not_recorded"
+    assert actual.loss.value is None
+    assert actual.loss.status == "not_defined"
+    assert actual.sampling.value is None
+    assert actual.sampling.status == "not_recorded"
     assert actual.context.binding.reward.semantics.unit == "1"
     assert actual.context.binding.policy.theory_status == "not_claimed"
     with pytest.raises(ValueError, match="frozen"):
@@ -123,8 +125,9 @@ def test_native_record_has_explicit_byte_limit_and_no_generic_4096_member_cap(re
     large = FrozenNativeDecision.model_validate(record.model_copy(update={"candidates": names, "ranking": names[::-1]}))
     wire = large.to_json()
     assert len(read_native_decision(wire).ranking) == 5001
+    maximum_bytes = len(wire.encode("utf-8")) - 1
     with pytest.raises(ValueError, match="maximum_bytes"):
-        read_native_decision(wire, maximum_bytes=len(wire.encode("utf-8")) - 1)
+        read_native_decision(wire, maximum_bytes=maximum_bytes)
 
 
 def test_all_ranking_permutations_change_content_but_preserve_logical_identity(record):
@@ -211,8 +214,9 @@ def test_reader_refuses_paths_and_decodes_utf8_size_before_recursive_validation(
 def test_unchecked_instance_is_revalidated_before_creating_artifact_directory(tmp_path, record):
     invalid = record.model_copy(update={"schema_version": True})
     destination = tmp_path / "not-created"
+    writer = ArtifactWriter(destination)
     with pytest.raises(ValueError):
-        publish_native_decision(invalid, ArtifactWriter(destination))
+        publish_native_decision(invalid, writer)
     assert not destination.exists()
 
 
@@ -243,6 +247,7 @@ def test_publisher_revalidates_nested_fixed_reward_units_before_any_write(record
     invalid_context = record.context.model_copy(update={"binding": invalid_binding})
     invalid_record = record.model_copy(update={"context": invalid_context})
     destination = tmp_path / "must-not-exist"
+    writer = ArtifactWriter(destination)
     with pytest.raises(ValueError):
-        publish_native_decision(invalid_record, ArtifactWriter(destination))
+        publish_native_decision(invalid_record, writer)
     assert not destination.exists()
