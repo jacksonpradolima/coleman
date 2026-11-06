@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.14"
 resolution-markers = [
     "sys_platform == 'win32'",
@@ -356,18 +356,26 @@ name = "coleman"
 version = "4.20.0"
 source = { editable = "." }
 dependencies = [
-    { name = "duckdb" },
-    { name = "numpy" },
     { name = "packaging" },
-    { name = "polars" },
-    { name = "pyarrow" },
     { name = "pydantic" },
-    { name = "pyyaml" },
-    { name = "scikit-posthocs" },
-    { name = "scipy" },
 ]
 
 [package.optional-dependencies]
+analytics = [
+    { name = "duckdb" },
+    { name = "numpy" },
+    { name = "polars" },
+    { name = "pyarrow" },
+    { name = "scikit-posthocs" },
+    { name = "scipy" },
+]
+ci = [
+    { name = "duckdb" },
+    { name = "numpy" },
+    { name = "polars" },
+    { name = "pyarrow" },
+    { name = "pyyaml" },
+]
 clickhouse = [
     { name = "clickhouse-connect" },
 ]
@@ -434,24 +442,28 @@ security = [
 requires-dist = [
     { name = "clickhouse-connect", marker = "extra == 'clickhouse'", specifier = "==0.13.0" },
     { name = "codecarbon", marker = "extra == 'dev'", specifier = "==3.2.6" },
-    { name = "duckdb", specifier = "==1.5.0" },
+    { name = "duckdb", marker = "extra == 'analytics'", specifier = "==1.5.0" },
+    { name = "duckdb", marker = "extra == 'ci'", specifier = "==1.5.0" },
     { name = "interrogate", marker = "extra == 'dev'", specifier = "==1.7.0" },
     { name = "marimo", marker = "extra == 'notebook'", specifier = "==0.25.1" },
     { name = "matplotlib", marker = "extra == 'notebook'", specifier = "==3.10.8" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = "==2.3.0" },
     { name = "mkdocs-jupyter", marker = "extra == 'docs'", specifier = "==0.26.1" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = "==1.0.3" },
-    { name = "numpy", specifier = "==2.4.6" },
+    { name = "numpy", marker = "extra == 'analytics'", specifier = "==2.4.6" },
+    { name = "numpy", marker = "extra == 'ci'", specifier = "==2.4.6" },
     { name = "numpydoc", marker = "extra == 'dev'", specifier = "==1.10.0" },
     { name = "opentelemetry-api", marker = "extra == 'telemetry'", specifier = "==1.45.1" },
     { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'telemetry'", specifier = "==1.45.1" },
     { name = "opentelemetry-sdk", marker = "extra == 'telemetry'", specifier = "==1.45.1" },
     { name = "packaging", specifier = "==26.3" },
     { name = "pandas", marker = "extra == 'notebook'", specifier = "==3.0.3" },
-    { name = "polars", specifier = "==1.39.3" },
+    { name = "polars", marker = "extra == 'analytics'", specifier = "==1.39.3" },
+    { name = "polars", marker = "extra == 'ci'", specifier = "==1.39.3" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = "==4.5.1" },
     { name = "py-spy", marker = "extra == 'dev'", specifier = "==0.4.1" },
-    { name = "pyarrow", specifier = "==23.0.1" },
+    { name = "pyarrow", marker = "extra == 'analytics'", specifier = "==23.0.1" },
+    { name = "pyarrow", marker = "extra == 'ci'", specifier = "==23.0.1" },
     { name = "pydantic", specifier = "==2.12.5" },
     { name = "pyrapl", marker = "extra == 'dev'", specifier = "==0.2.3.1" },
     { name = "pyright", marker = "extra == 'dev'", specifier = "==1.1.408" },
@@ -462,19 +474,19 @@ requires-dist = [
     { name = "pytest-profiling", marker = "extra == 'dev'", specifier = "==1.8.1" },
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = "==3.8.0" },
     { name = "python-semantic-release", marker = "extra == 'release'", specifier = "==10.5.3" },
-    { name = "pyyaml", specifier = "==6.0.3" },
+    { name = "pyyaml", marker = "extra == 'ci'", specifier = "==6.0.3" },
     { name = "radon", marker = "extra == 'dev'", specifier = "==6.0.1" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.15.9" },
     { name = "scalene", marker = "extra == 'dev'", specifier = "==2.2.1" },
-    { name = "scikit-posthocs", specifier = "==0.12.0" },
-    { name = "scipy", specifier = "==1.17.1" },
+    { name = "scikit-posthocs", marker = "extra == 'analytics'", specifier = "==0.12.0" },
+    { name = "scipy", marker = "extra == 'analytics'", specifier = "==1.17.1" },
     { name = "seaborn", marker = "extra == 'notebook'", specifier = "==0.13.2" },
     { name = "ty", marker = "extra == 'dev'", specifier = "==0.0.21" },
     { name = "wily", marker = "extra == 'dev'", specifier = "==1.12.2" },
     { name = "xenon", marker = "extra == 'dev'", specifier = "==0.9.3" },
     { name = "zensical", marker = "extra == 'docs'", specifier = "==0.0.70" },
 ]
-provides-extras = ["mcp", "dev", "docs", "release", "notebook", "telemetry", "clickhouse"]
+provides-extras = ["ci", "analytics", "mcp", "dev", "docs", "release", "notebook", "telemetry", "clickhouse"]
 
 [package.metadata.requires-dev]
 build = [
@@ -938,8 +950,8 @@ name = "httpcore2"
 version = "2.13.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "h11" },
-    { name = "truststore" },
+    { name = "h11", marker = "sys_platform != 'emscripten'" },
+    { name = "truststore", marker = "sys_platform != 'emscripten'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cb/f3/1db7aa2bc2524062192bb0e0323969492d1883152a232fe36eea65f4e35c/httpcore2-2.13.1.tar.gz", hash = "sha256:e0aa977abe17e69a3b820a24542a6fa88702676d83880b8d194dcd18408e5103", size = 68071, upload-time = "2026-09-23T07:47:22.372Z" }
 wheels = [
@@ -2080,7 +2092,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
@@ -3494,8 +3506,8 @@ name = "uvicorn"
 version = "0.41.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "click" },
-    { name = "h11" },
+    { name = "click", marker = "sys_platform != 'emscripten'" },
+    { name = "h11", marker = "sys_platform != 'emscripten'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/32/ce/eeb58ae4ac36fe09e3842eb02e0eb676bf2c53ae062b98f1b2531673efdd/uvicorn-0.41.0.tar.gz", hash = "sha256:09d11cf7008da33113824ee5a1c6422d89fbc2ff476540d69a34c87fab8b571a", size = 82633, upload-time = "2026-02-16T23:07:24.1Z" }
 wheels = [

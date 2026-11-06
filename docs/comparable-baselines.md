@@ -137,6 +137,14 @@ The runtime includes complete SDK resource identity, Python/platform and active
 base-dependency versions. It excludes unrelated host packages and optional tools;
 it does not attest hardware, every native binary or upstream honesty. A runtime
 change creates a new scope, preventing accidental cross-runtime checkpoint reuse.
+
+That base-only inventory describes the pinned v4.17 route above. Matrices
+created from the unreleased v5 source instead record runtime version 2 with an
+explicit `ci` dependency closure. Historical runtime-1 matrices remain readable;
+v5 does not adopt their executable checkpoints automatically. See
+[native runtime identities](core-installation.md#keep-native-runtime-identities-explicit)
+for the original pinned-v4 continuation route and the independent schema versions.
+
 Each raw observation carries `attempt_id` separately from data provenance.
 `record.provenance.source_revision` identifies the original frozen source
 content; `spec_fingerprint` hashes the typed native binding stored in the resolved

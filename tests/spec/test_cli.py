@@ -196,7 +196,7 @@ class TestCLISweep:
                     },
                     fh,
                 )
-            with patch("coleman.cli.run_many", return_value=[fake_result]):
+            with patch("coleman.api.run_many", return_value=[fake_result]):
                 main(["sweep", "--config", cfg_path, "--grid", "execution.seed=1,2"])
             captured = capsys.readouterr()
             assert "run_id=abc123" in captured.out
@@ -342,7 +342,7 @@ class TestCLIRunArtifacts:
             yaml.dump({}, fh)
             path = fh.name
         try:
-            with patch("coleman.cli.run", return_value=fake_result):
+            with patch("coleman.api.run", return_value=fake_result):
                 main(["run", "--config", path])
             captured = capsys.readouterr()
             assert "run_id: test-run-id" in captured.out
@@ -386,10 +386,10 @@ class TestCLIPrivateHandlers:
         fake_result.run_id = "rid-1"
 
         with (
-            patch("coleman.cli.load_spec", return_value=fake_spec),
-            patch("coleman.cli.load_sweep_spec", return_value=None),
-            patch("coleman.cli.sweep", return_value=[fake_spec]),
-            patch("coleman.cli.run_many", return_value=[fake_result]),
+            patch("coleman.api.load_spec", return_value=fake_spec),
+            patch("coleman.spec.io.load_sweep_spec", return_value=None),
+            patch("coleman.api.sweep", return_value=[fake_spec]),
+            patch("coleman.api.run_many", return_value=[fake_result]),
         ):
             _cmd_sweep(args)
 
@@ -405,9 +405,9 @@ class TestCLIPrivateHandlers:
         fake_spec = MagicMock()
 
         with (
-            patch("coleman.cli.load_spec", return_value=fake_spec),
-            patch("coleman.cli.compute_run_id", return_value="rid-x"),
-            patch("coleman.cli.save_resolved", return_value=out_path),
+            patch("coleman.api.load_spec", return_value=fake_spec),
+            patch("coleman.spec.run_id.compute_run_id", return_value="rid-x"),
+            patch("coleman.api.save_resolved", return_value=out_path),
         ):
             _cmd_validate(args)
 
@@ -421,7 +421,7 @@ class TestCLIErrorAndMainBlock:
         import argparse
 
         args = argparse.Namespace(config="bad.yaml", packs_dir=None, resolve=None)
-        with patch("coleman.cli.load_spec", side_effect=ValueError("bad spec")):
+        with patch("coleman.api.load_spec", side_effect=ValueError("bad spec")):
             import pytest
 
             with pytest.raises(SystemExit) as exc:
@@ -447,7 +447,7 @@ class TestCLIErrorAndMainBlock:
 
 class TestCLIAnalyze:
     def test_analyze_prints_table_to_stdout(self, capsys):
-        with patch("coleman.cli.run_report", return_value=(["col"], [("v",)])):
+        with patch("coleman.analysis.run_report", return_value=(["col"], [("v",)])):
             main(["analyze", "quality", "--input", "./runs"])
         captured = capsys.readouterr()
         assert "col" in captured.out
@@ -455,7 +455,7 @@ class TestCLIAnalyze:
 
     def test_analyze_writes_output_file(self, tmp_path, capsys):
         out_path = tmp_path / "report.md"
-        with patch("coleman.cli.run_report", return_value=(["a", "b"], [(1, 2)])):
+        with patch("coleman.analysis.run_report", return_value=(["a", "b"], [(1, 2)])):
             main(["analyze", "quality", "--input", "./runs", "--format", "markdown", "--out", str(out_path)])
         captured = capsys.readouterr()
         assert "analysis written to" in captured.out

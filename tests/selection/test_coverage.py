@@ -498,7 +498,7 @@ def test_installed_wheel_native_tcpci_and_synthetic_resource_examples(tmp_path):
     installed = tmp_path / "installed"
     subprocess.run(["uv", "venv", str(installed), "--python", sys.executable], check=True)
     python = installed / "bin" / "python"
-    subprocess.run(["uv", "pip", "install", "--python", str(python), str(wheel)], check=True)
+    subprocess.run(["uv", "pip", "install", "--python", str(python), str(wheel) + "[ci]"], check=True)
     external = tmp_path / "external"
     external.mkdir()
     environment = os.environ.copy()

@@ -12,7 +12,7 @@ from tests.corpus.test_installed_controlled import ROOT, command
 
 def test_installed_bounded_native_ci_and_existing_checkpoints(tmp_path, monkeypatch):
     monkeypatch.setenv("UV_OFFLINE", "1")
-    python, outside, env = installed_source_environment(tmp_path)
+    python, outside, env = installed_source_environment(tmp_path, extras=("ci",))
     guard = """
 import importlib.abc,importlib.util,sys
 from pathlib import Path

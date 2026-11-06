@@ -21,6 +21,11 @@ source .venv/bin/activate
 python -m pip install "https://github.com/jacksonpradolima/coleman/releases/download/v4.19.0/coleman-4.19.0-py3-none-any.whl#sha256=070e21c19fb7e3f2e392bd68706c354ed5ab7f76b86db80f5f1bdc5721b767bd"
 ```
 
+For the unreleased v5 source, install the reviewed wheel with `ci` using the
+[component guide](core-installation.md). The pinned v4 command above retains its
+original dependencies. Native durable workflows have their own Linux/macOS
+process and filesystem requirements.
+
 On Windows, activate the environment with `.venv\Scripts\Activate.ps1` in
 PowerShell. The experiment itself uses Python paths and works independently of
 these shell activation commands. Optional integrations and developer installation

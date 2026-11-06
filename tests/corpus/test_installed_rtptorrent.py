@@ -1,4 +1,4 @@
-"""Installed base-wheel source conversion and actual isolated native replay/checkpoint continuation."""
+"""Installed CI-capability wheel source conversion and actual isolated native replay/checkpoint continuation."""
 
 import json
 import os
@@ -27,7 +27,11 @@ def test_installed_adapter_boundaries_owned_source_and_native_checkpoint(tmp_pat
     virtual = tmp_path / "installed"
     command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
     python = virtual / "bin/python"
-    command([uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl")))], tmp_path, env)
+    command(
+        [uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl"))) + "[ci]"],
+        tmp_path,
+        env,
+    )
     outside = tmp_path / "outside"
     outside.mkdir()
     code = """

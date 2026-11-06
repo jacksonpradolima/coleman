@@ -1,4 +1,4 @@
-"""Installed base wheel, real CI resource replay, native checkpoints and executable documentation."""
+"""Installed CI-capability wheel, real CI resource replay, native checkpoints and executable documentation."""
 
 import json
 import os
@@ -28,7 +28,7 @@ def test_installed_native_resource_replay_and_retry(tmp_path):
     command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
     python = virtual / "bin/python"
     wheel = next(distributions.glob("*.whl"))
-    command([uv, "pip", "install", "--offline", "--python", str(python), str(wheel)], tmp_path, env)
+    command([uv, "pip", "install", "--offline", "--python", str(python), str(wheel) + "[ci]"], tmp_path, env)
     outside = tmp_path / "outside"
     outside.mkdir()
     example = outside / "run.py"

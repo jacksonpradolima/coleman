@@ -1,4 +1,4 @@
-"""Fresh base wheel outside checkout: HCS Parquet, actual strategies/checkpoints and import boundary."""
+"""Fresh CI-capability wheel outside checkout: HCS Parquet, actual strategies/checkpoints and import boundary."""
 
 import json
 import os
@@ -25,7 +25,11 @@ def test_installed_hcs_sources_native_recovery_and_domain_import_boundary(tmp_pa
     virtual = tmp_path / "installed"
     command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
     python = virtual / "bin/python"
-    command([uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl")))], tmp_path, env)
+    command(
+        [uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl"))) + "[ci]"],
+        tmp_path,
+        env,
+    )
     outside = tmp_path / "outside"
     outside.mkdir()
     recipe, csv_bytes, jobs_bytes = hcs_recipe()

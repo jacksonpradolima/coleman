@@ -1,14 +1,17 @@
-"""Bounded, offline native-Parquet descriptions; profiling never admits a source."""
+"""Bounded native descriptions with optional Parquet operations.
+
+Models and JSON readers need no numerical backend. Explicit table operations
+load Polars/PyArrow from the CI or analytics extra; profiling never admits a
+source or changes its evidence status.
+"""
 
 from __future__ import annotations
 
 import hashlib
 from io import BytesIO
 from pathlib import Path
-from typing import Annotated, Literal, Self, cast
+from typing import TYPE_CHECKING, Annotated, Literal, Self, cast
 
-import polars as pl
-import pyarrow.parquet as pq
 from pydantic import Field, field_validator, model_validator
 
 from coleman.artifacts import ArtifactWriter
@@ -17,6 +20,9 @@ from coleman.corpus.registry import CorpusRegistry
 from coleman.results.domain import Measurement
 from coleman.results.versioned import VersionedContract
 from coleman.selection.contracts import Immutable, UnitSemantics
+
+if TYPE_CHECKING:
+    import polars as pl
 
 Count = Annotated[int, Field(strict=True, ge=0, le=2_000_000)]
 Finite = Annotated[float, Field(strict=True, allow_inf_nan=False)]
@@ -304,6 +310,8 @@ def _native_card(card: DataCard) -> None:
 
 def _numbers(series: pl.Series, semantics: UnitSemantics) -> NumericProfile:
     """Compute finite binary64 order statistics; retain invalid values as counts without imputation."""
+    import polars as pl
+
     values = series.cast(pl.Float64, strict=True)
     finite = values.filter(values.is_finite()).sort()
     # Binary64 signed zeros are one statistical value; ties must not retain source order.
@@ -330,6 +338,9 @@ def _source_frame(card: DataCard, path: Path) -> tuple[pl.DataFrame, tuple[str, 
     conservative trusted-local artifact limits, not an OS sandbox for hostile
     native codecs. No file is modified and no third-party bytes are published.
     """
+    import polars as pl
+    import pyarrow.parquet as pq
+
     manifest = card.manifest
     maximum = min(MAX_SOURCE_BYTES, manifest.resources.maximum_source_bytes)
     with path.open("rb") as stream:
@@ -360,6 +371,8 @@ def _source_frame(card: DataCard, path: Path) -> tuple[pl.DataFrame, tuple[str, 
 
 def _native_column_types(frame: pl.DataFrame, selected: set[str]) -> None:
     """Reject unsupported identity/quantity types without coercing decimal verdict labels."""
+    import polars as pl
+
     for name in sorted(selected):
         dtype = frame.schema[name]
         allowed = dtype.is_integer() or dtype in {pl.String, pl.Null}
@@ -372,11 +385,39 @@ def _native_column_types(frame: pl.DataFrame, selected: set[str]) -> None:
 def profile_native_source(card: DataCard, path: str | Path) -> NativeSourceProfile:
     """Describe matching local native bytes, including blocked sources, without admission.
 
-    Raises ValueError for unsupported contracts, changed sources or resource/schema
-    limits; filesystem/Parquet decoding errors propagate. Source order does not
-    affect statistics; retries do not become independent observations. Variant
-    identity is retained even when the original card groups by logical build.
+    Parameters
+    ----------
+    card : DataCard
+        Versioned source card with explicit identity, byte digest/size, resource
+        limits and declared duration units, or explicitly unverified raw units.
+    path : str or pathlib.Path
+        Trusted local Parquet snapshot matching the card. URLs are not fetched.
+
+    Returns
+    -------
+    NativeSourceProfile
+        Descriptive counts and inverse empirical quantiles, including null,
+        nonfinite, negative and zero categories. No admission is granted.
+
+    Raises
+    ------
+    ValueError
+        Unsupported contract, changed source or exceeded resource/schema limits.
+    ImportError
+        Required Polars/PyArrow backends are absent; select the reviewed wheel's
+        ``ci`` or ``analytics`` extra. Model construction/reading needs neither.
+    OSError
+        Local source acquisition fails. Parquet decoding errors propagate.
+
+    Notes
+    -----
+    Reads and hashes bounded local bytes, then decodes the admitted table shape.
+    Writes no files. Source order does not affect statistics; retries do not
+    become independent observations. Variant identity and existing v1 profile
+    bytes/meanings are retained even when the card groups by logical build.
     """
+    import polars as pl
+
     card = DataCard.model_validate(card)
     _native_card(card)
     frame, columns = _source_frame(card, Path(path))

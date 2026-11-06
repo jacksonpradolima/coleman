@@ -15,7 +15,7 @@ from coleman.application.workflow_cli import configure_parser, run_command
 from coleman.application.workflow_registry import owned_fixture, snapshot_history
 from coleman.application.workflows import WorkflowService
 from coleman.results.domain import fingerprint
-from coleman.spec.runtime_identity import InstalledRuntime
+from coleman.spec.selected_runtime import SelectedInstalledRuntime, capture_native_runtime
 from coleman.workflows.contracts import PlanningRequest, WorkflowLimits
 from coleman.workflows.lifecycle import ExecutePlan, HostPolicy
 
@@ -262,10 +262,10 @@ def test_changed_runtime_and_native_thread_profile_reject_before_admission(tmp_p
     manifest = service.register(owned_fixture(tmp_path))
     preview = service.plan(PlanningRequest(schema_version=1, dataset_id=manifest.dataset_id))
     request = ExecutePlan(schema_version=1, request_id="compatible-only", plan_id=preview.plan_id)
-    actual = InstalledRuntime.capture()
+    actual = capture_native_runtime()
     incompatible = actual.model_copy(update={"package_fingerprint": "sha256:" + "0" * 64})
     with monkeypatch.context() as patch:
-        patch.setattr(InstalledRuntime, "capture", lambda: incompatible)
+        patch.setattr(SelectedInstalledRuntime, "capture", lambda *, extras: incompatible)
         with pytest.raises(ValueError, match="incompatible"):
             service.execute(request)
     threads = module.pl.thread_pool_size()

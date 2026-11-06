@@ -1,4 +1,4 @@
-"""Actual base-wheel native TCPCI pilot from outside the checkout, including retry."""
+"""Actual CI-capability wheel native TCPCI pilot from outside the checkout, including retry."""
 
 import json
 import os
@@ -28,7 +28,7 @@ def test_installed_native_ci_pilot_and_retry(tmp_path):
     command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
     python = virtual / "bin/python"
     wheel = next(distributions.glob("*.whl"))
-    command([uv, "pip", "install", "--offline", "--python", str(python), str(wheel)], tmp_path, env)
+    command([uv, "pip", "install", "--offline", "--python", str(python), str(wheel) + "[ci]"], tmp_path, env)
     outside = tmp_path / "outside"
     outside.mkdir()
     example = outside / "run.py"

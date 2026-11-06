@@ -29,7 +29,7 @@ def test_installed_lrts_boundaries_owned_sources_native_checkpoint_and_documenta
     command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
     python = virtual / "bin/python"
     wheel = str(next(dist.glob("*.whl")))
-    command([uv, "pip", "install", "--offline", "--python", str(python), wheel], tmp_path, env)
+    command([uv, "pip", "install", "--offline", "--python", str(python), wheel + "[ci]"], tmp_path, env)
     outside = tmp_path / "outside"
     outside.mkdir()
     code = """

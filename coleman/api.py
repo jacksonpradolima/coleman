@@ -23,6 +23,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from coleman.capabilities import require_capability
 from coleman.spec.io import load_spec, save_resolved
 from coleman.spec.run_id import compute_run_id
 from coleman.spec.sweep import expand_sweep
@@ -119,6 +120,8 @@ def run(spec: RunSpec) -> RunResult:
     run_many : Execute multiple resolved specifications.
     run_with_extension : Use native lifecycle callbacks.
     """
+    require_capability("ci")
+
     from coleman.manifest import generate_manifest
     from coleman.runner import run_experiment
     from coleman.spec.provenance import save_provenance
@@ -180,6 +183,8 @@ def run_with_extension(spec: RunSpec, extension: RunnerExtension) -> RunResult:
     --------
     run : Execute without an explicitly supplied runner extension.
     """
+    require_capability("ci")
+
     from coleman.manifest import generate_manifest
     from coleman.runner import run_experiment_with_extension
     from coleman.spec.provenance import save_provenance
@@ -246,6 +251,9 @@ def run_many(
     run : Execute one specification.
     sweep : Expand a candidate specification grid.
     """
+    if specs:
+        require_capability("ci")
+
     if max_workers > 1:
         ids = [compute_run_id(s) for s in specs]
         if len(set(ids)) != len(ids):

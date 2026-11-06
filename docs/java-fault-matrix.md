@@ -254,7 +254,7 @@ native CI/checkpoint workflow:
 
 ```bash
 COLEMAN_JUNIT_REAL_CACHE=/tmp/coleman-java-source-cache \
-  uv run pytest tests/corpus/test_installed_junit_matrix.py --no-cov
+  uv run --extra ci --extra dev pytest tests/corpus/test_installed_junit_matrix.py --no-cov
 ```
 
 The native CI fixture has its own exact-answer costs and outcomes; Java harness

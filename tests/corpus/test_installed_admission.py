@@ -1,4 +1,4 @@
-"""Fresh base wheel outside checkout: offline source audit, real publication crash and native checkpoints."""
+"""Fresh CI-capability wheel outside checkout: offline source audit, real publication crash and native checkpoints."""
 
 import hashlib
 import json
@@ -116,7 +116,11 @@ def test_installed_offline_admission_crash_recovery_and_actual_native_checkpoint
     virtual = tmp_path / "installed"
     command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
     python = virtual / "bin/python"
-    command([uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl")))], tmp_path, env)
+    command(
+        [uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl"))) + "[ci]"],
+        tmp_path,
+        env,
+    )
     _original_wire_and_resigned_metadata_attack(
         captured, raw_cache, raw_writer, python, next(dist.glob("*.whl")), tmp_path
     )

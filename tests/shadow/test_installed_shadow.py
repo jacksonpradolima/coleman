@@ -1,4 +1,4 @@
-"""Installed base wheel outside the checkout: real native shadow and complete API example."""
+"""Installed CI-capability wheel outside the checkout: real native shadow and complete API example."""
 
 import json
 import os
@@ -27,7 +27,11 @@ def test_installed_native_shadow_resume_and_documented_contract(tmp_path):
     virtual = tmp_path / "installed"
     command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
     python = virtual / "bin/python"
-    command([uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl")))], tmp_path, env)
+    command(
+        [uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl"))) + "[ci]"],
+        tmp_path,
+        env,
+    )
     outside = tmp_path / "outside"
     outside.mkdir()
     script = outside / "ci.py"

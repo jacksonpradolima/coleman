@@ -316,7 +316,7 @@ qualification and its independent reference:
 
 ```bash
 COLEMAN_HCS_REAL_CACHE=/tmp/coleman-hcs-cache \
-  uv run --extra dev python -m pytest tests/corpus/test_installed_hcs.py --no-cov
+  uv run --extra ci --extra dev python -m pytest tests/corpus/test_installed_hcs.py --no-cov
 ```
 
 The committed `tests/corpus/hcs_raw_reference.py` streams the original CSV and

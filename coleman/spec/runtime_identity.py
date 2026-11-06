@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import platform
 import re
+from collections.abc import Callable
 from importlib.metadata import Distribution, distribution, distributions
 from typing import Annotated, Self
 
@@ -25,7 +26,30 @@ class DistributionIdentity(Immutable):
     version: Identifier
 
 
-class InstalledRuntime(VersionedContract):
+class _RuntimeEnvironment(Immutable):
+    """Common recorded fields only; each concrete runtime retains its own generation and inventory meaning."""
+
+    package_fingerprint: Fingerprint
+    python_implementation: Identifier
+    python_version: Identifier
+    operating_system: Identifier
+    machine: Identifier
+    distributions: Annotated[tuple[DistributionIdentity, ...], Field(max_length=4096)]
+
+
+def _capture_environment(entries: dict[str, str]) -> _RuntimeEnvironment:
+    """Capture unchanged package/platform fields for one already qualified metadata closure."""
+    return _RuntimeEnvironment(
+        package_fingerprint=installed_producer_identity(),
+        python_implementation=platform.python_implementation(),
+        python_version=platform.python_version(),
+        operating_system=platform.system(),
+        machine=platform.machine(),
+        distributions=tuple(DistributionIdentity(name=name, version=value) for name, value in entries.items()),
+    )
+
+
+class InstalledRuntime(VersionedContract, _RuntimeEnvironment):
     """Recorded Python/platform/base-dependency closure and complete COLEMAN SDK identity.
 
     This conservative identity prevents checkpoint reuse across recorded runtime
@@ -36,13 +60,6 @@ class InstalledRuntime(VersionedContract):
     The legacy producer fingerprint algorithm remains unchanged and separately
     accessible. No network, subject execution or module/plugin loading occurs.
     """
-
-    package_fingerprint: Fingerprint
-    python_implementation: Identifier
-    python_version: Identifier
-    operating_system: Identifier
-    machine: Identifier
-    distributions: Annotated[tuple[DistributionIdentity, ...], Field(max_length=4096)]
 
     @model_validator(mode="after")
     def _canonical(self) -> Self:
@@ -65,15 +82,7 @@ class InstalledRuntime(VersionedContract):
         retain the existing producer identity exclusions.
         """
         entries = _base_distributions()
-        return cls(
-            schema_version=1,
-            package_fingerprint=installed_producer_identity(),
-            python_implementation=platform.python_implementation(),
-            python_version=platform.python_version(),
-            operating_system=platform.system(),
-            machine=platform.machine(),
-            distributions=tuple(DistributionIdentity(name=name, version=value) for name, value in entries.items()),
-        )
+        return cls(schema_version=1, **_capture_environment(entries).model_dump())
 
 
 def _installed_distribution(name: str) -> Distribution:
@@ -102,7 +111,14 @@ def _active_requirements(item: Distribution, extras: set[str]) -> tuple[Requirem
 
 def _base_distributions() -> dict[str, str]:
     """Inventory active base dependencies and check their installed versions within bounded traversal."""
-    requested: dict[str, set[str]] = {"coleman": set()}
+    return _dependency_distributions(set())
+
+
+def _dependency_distributions(
+    root_extras: set[str], *, qualify: Callable[[Distribution, set[str]], None] | None = None
+) -> dict[str, str]:
+    """Traverse the same bounded metadata graph; v1 supplies no root extras or additional qualification."""
+    requested: dict[str, set[str]] = {"coleman": set(root_extras)}
     visited: dict[str, frozenset[str]] = {}
     entries: dict[str, str] = {}
     pending = ["coleman"]
@@ -112,6 +128,8 @@ def _base_distributions() -> dict[str, str]:
         if visited.get(name) == frozenset(extras):
             continue
         item = _installed_distribution(name)
+        if qualify is not None:
+            qualify(item, extras)
         entries[name] = item.version
         visited[name] = frozenset(extras)
         for requirement in _active_requirements(item, extras):

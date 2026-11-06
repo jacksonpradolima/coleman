@@ -21,7 +21,7 @@ Install all cost evaluation tools together with the rest of the dev
 dependencies:
 
 ```bash
-uv sync --extra dev
+uv sync --frozen --extra ci --extra dev
 ```
 
 ---
@@ -216,14 +216,14 @@ memory allocation, and copy volume line-by-line:
 ```bash
 make cost-profile-scalene
 # or
-uv run scalene run coleman/cli.py --- --help
+uv run --extra ci --extra dev scalene run coleman/cli.py --- --help
 ```
 
 Replace `--help` with a real workload for meaningful results.  For
 example, profile an actual experiment run:
 
 ```bash
-uv run scalene run coleman/cli.py --- run --config run.yaml
+uv run --extra ci --extra dev scalene run coleman/cli.py --- run --config run.yaml
 ```
 
 !!! note
@@ -249,9 +249,9 @@ attaches to a running process with minimal overhead:
 ```bash
 make cost-profile-pyspy
 # or
-uv python install 3.13
-uv venv .venv-pyspy --python 3.13
-uv pip install --python .venv-pyspy/bin/python duckdb numpy polars pyarrow scipy scikit-posthocs "pydantic>=2.12.5" "pyyaml>=6.0.3"
+uv python install 3.14
+uv venv .venv-pyspy --python 3.14
+uv pip install --python .venv-pyspy/bin/python ".[ci]"
 PYTHONPATH=. .venv/bin/py-spy record --rate 20 --subprocesses -o profile.svg -- .venv-pyspy/bin/python -m coleman.cli run --config run.yaml
 ```
 
@@ -259,8 +259,11 @@ PYTHONPATH=. .venv/bin/py-spy record --rate 20 --subprocesses -o profile.svg -- 
     `py-spy` may require elevated privileges (`sudo`) on some systems.
     With Python 3.14 standalone runtimes, `py-spy` may fail with
     "Failed to find python version from target process".
-    The workflow above uses a dedicated Python 3.13 profiling venv,
-    while your main project environment can remain on Python 3.14.
+    The target environment above also uses Python 3.14, the supported package
+    minimum. A profiler failing to recognize that runtime does not authorize
+    running current COLEMAN source on an unsupported older interpreter. Use a
+    compatible profiler/runtime build, or report the profiling result as unavailable.
+    These commands select the target installation; they do not certify profiler support.
     For this workload, `--rate 20` avoids severe sampler lag and
     `--subprocesses` captures worker processes spawned by the experiment runner.
     Some `py-spy` runs may still report a teardown error after writing
@@ -288,7 +291,7 @@ emissions of compute workloads.  A minimal example lives at
 ```bash
 make cost-energy
 # or
-uv run python scripts/measure_energy.py
+uv run --extra ci --extra dev python scripts/measure_energy.py
 ```
 
 **Example output:**
@@ -396,7 +399,7 @@ For more realistic profiling, replace `--help` with an actual experiment
 configuration:
 
 ```bash
-uv run scalene run coleman/cli.py --- run --config run.yaml
+uv run --extra ci --extra dev scalene run coleman/cli.py --- run --config run.yaml
 ```
 
 ---

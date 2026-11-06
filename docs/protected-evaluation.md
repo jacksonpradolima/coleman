@@ -221,12 +221,12 @@ retains statistical conclusions and access context that a scalar alone cannot co
 
 ## Runnable installed-package workflow
 
-Install the reviewed wheel, then copy and run
+Install `ci,analytics` against the reviewed source wheel following the
+[component guide](core-installation.md#add-ci-or-analytical-capabilities), then copy and run
 [ci.py](https://github.com/jacksonpradolima/coleman/blob/main/examples/protected-evaluation/ci.py)
 from a directory outside the repository:
 
 ```bash
-pip install path/to/coleman.whl
 python ci.py ./protected-ci-output
 ```
 

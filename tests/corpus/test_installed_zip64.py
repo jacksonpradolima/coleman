@@ -1,4 +1,4 @@
-"""Fresh base-wheel ZIP64 selection and actual native checkpoint recovery outside the checkout."""
+"""Fresh CI-capability wheel ZIP64 selection and actual native checkpoint recovery outside the checkout."""
 
 import json
 import os
@@ -18,7 +18,11 @@ def test_installed_zip64_selected_ci_fixture_native_replay_and_boundaries(tmp_pa
     virtual = tmp_path / "installed"
     command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
     python = virtual / "bin/python"
-    command([uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl")))], tmp_path, env)
+    command(
+        [uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl"))) + "[ci]"],
+        tmp_path,
+        env,
+    )
     outside = tmp_path / "outside"
     outside.mkdir()
     boundary = command(

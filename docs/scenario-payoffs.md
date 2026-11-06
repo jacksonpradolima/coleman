@@ -260,8 +260,11 @@ retain it on retries. Native `cost`/APFDc and rewards are not reinterpreted.
 
 ## Installed native CI examples
 
+Install `ci` against the reviewed source wheel following the
+[component guide](core-installation.md#add-ci-or-analytical-capabilities).
+Direct allocation solving itself requires only the base installation.
+
 ```bash
-pip install path/to/coleman.whl
 python ci.py ./ci-output
 python resources.py ./resource-output
 ```

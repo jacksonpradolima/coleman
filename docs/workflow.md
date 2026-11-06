@@ -248,7 +248,7 @@ coleman analyze quality --input ./runs --format markdown --out reports/quality.m
 # Stability (coefficient of variation)
 coleman analyze stability --input ./runs --format csv --out reports/stability.csv
 
-# Pareto frontier (quality vs cost)
+# Pareto frontier (NAPFD and APFDc quality)
 coleman analyze pareto --input ./runs --format table
 ```
 
@@ -265,8 +265,9 @@ Use this checklist after generating enough runs:
 
 1. **Policy stability**
     - Compare mean, std, and coefficient of variation of NAPFD per policy.
-2. **Quality vs cost frontier**
-    - Build a Pareto frontier using high NAPFD + low APFDc.
+2. **Fault-detection quality frontier**
+    - Compare high NAPFD + high APFDc. The legacy `cost` column holds APFDc,
+      a quality score; inspect duration and resource measurements separately.
 3. **Budget sensitivity**
     - Compare policies per `scenario` / time-ratio group.
 4. **Execution variance**

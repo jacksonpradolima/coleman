@@ -19,7 +19,7 @@ def test_installed_c_source_replay_native_checkpoints_and_optional_real_c_source
     with monkeypatch.context() as external:
         substitute_runtime(external, environment)
         owned = capture_c_source(spec, cache, writer, "owned-installed")
-    python, outside, env = installed_source_environment(tmp_path)
+    python, outside, env = installed_source_environment(tmp_path, extras=("ci",))
     script = """
 import importlib.abc,json,os,signal,subprocess,sys,time
 from collections import Counter

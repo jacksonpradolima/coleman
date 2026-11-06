@@ -207,7 +207,7 @@ first populate the explicit cache above, then run from the source checkout:
 
 ```bash
 COLEMAN_LRTS_ETL_REAL_CACHE=/tmp/coleman-lrts-source-cache \
-  uv run pytest tests/corpus/test_installed_lrts_etl.py --no-cov -q
+  uv run --extra ci --extra dev pytest tests/corpus/test_installed_lrts_etl.py --no-cov -q
 ```
 
 This installs a wheel outside the checkout, verifies core import boundaries,

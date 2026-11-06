@@ -762,7 +762,7 @@ def test_installed_package_native_tcpci_protected_workflow(tmp_path):
     installed = tmp_path / "installed"
     subprocess.run(["uv", "venv", str(installed), "--python", sys.executable], check=True)
     python = installed / "bin" / "python"
-    subprocess.run(["uv", "pip", "install", "--python", str(python), str(wheel)], check=True)
+    subprocess.run(["uv", "pip", "install", "--python", str(python), str(wheel) + "[ci,analytics]"], check=True)
     external = tmp_path / "external"
     external.mkdir()
     script = external / "ci.py"

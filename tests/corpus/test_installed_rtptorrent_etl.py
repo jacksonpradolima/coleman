@@ -1,4 +1,4 @@
-"""Fresh base-wheel complete Parquet/native workflow outside checkout, with optional actual RTPTorrent cache."""
+"""Installed CI-capability Parquet/native workflow, with optional actual RTPTorrent cache."""
 
 import json
 import os
@@ -18,7 +18,11 @@ def test_installed_rtptorrent_etl_resources_domain_boundaries_native_resume_and_
     virtual = tmp_path / "installed"
     command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
     python = virtual / "bin/python"
-    command([uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl")))], tmp_path, env)
+    command(
+        [uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl"))) + "[ci]"],
+        tmp_path,
+        env,
+    )
     outside = tmp_path / "outside"
     outside.mkdir()
     shutil.copyfile(ROOT / "examples/rtptorrent-parquet/ci.py", outside / "ci.py")

@@ -1,4 +1,4 @@
-"""Noneditable base-wheel benchmarks and real TCPCI execution outside the source checkout."""
+"""Noneditable minimal benchmarks followed by CI-capability TCPCI execution outside the source checkout."""
 
 import json
 import os
@@ -64,6 +64,7 @@ def test_installed_base_wheel_repeats_mathematics_and_native_ci_without_componen
     assert artifacts[0].mathematical_identity == artifacts[1].mathematical_identity
     assert artifacts[0].environment.source_commit is None
     assert all(row.summary.absolute_regret == 0 for row in artifacts[0].observations if row.summary.evidence == "exact")
+    command([uv, "pip", "install", "--python", str(python), str(wheel) + "[ci]"], tmp_path, env)
     script = outside / "ci.py"
     shutil.copyfile(ROOT / "examples/finite-coverage/ci.py", script)
     outputs = []

@@ -1,4 +1,4 @@
-"""Base-wheel installation outside the checkout, real native checkpoint reuse and runnable docs."""
+"""CI-capability wheel installation outside the checkout, real native checkpoint reuse and runnable docs."""
 
 import hashlib
 import json
@@ -36,7 +36,7 @@ def test_installed_base_wheel_real_native_fresh_stale_resume_and_documentation(t
     command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
     python = virtual / "bin/python"
     wheel = next(distributions.glob("*.whl"))
-    command([uv, "pip", "install", "--offline", "--python", str(python), str(wheel)], tmp_path, env)
+    command([uv, "pip", "install", "--offline", "--python", str(python), str(wheel) + "[ci]"], tmp_path, env)
     outside = tmp_path / "outside"
     outside.mkdir()
     origin = command(

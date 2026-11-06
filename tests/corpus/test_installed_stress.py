@@ -1,4 +1,4 @@
-"""Fresh base wheel outside checkout: real 50K native replay, process interruption and old artifacts."""
+"""Fresh CI-capability wheel outside checkout: real 50K native replay, process interruption and old artifacts."""
 
 import json
 import os
@@ -119,7 +119,11 @@ def test_installed_offline_stress_transport_boundary_50k_and_real_checkpoint_pro
     virtual = tmp_path / "installed"
     command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
     python = virtual / "bin/python"
-    command([uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl")))], tmp_path, env)
+    command(
+        [uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl"))) + "[ci]"],
+        tmp_path,
+        env,
+    )
     outside = tmp_path / "outside"
     outside.mkdir()
     (outside / "stress_check.py").write_text(SCRIPT)

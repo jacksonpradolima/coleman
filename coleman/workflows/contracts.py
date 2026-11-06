@@ -12,7 +12,7 @@ from coleman.results.domain import Fingerprint, Finite
 from coleman.results.versioned import VersionedContract
 from coleman.selection.contracts import Immutable
 from coleman.spec.models import BudgetSpec
-from coleman.spec.runtime_identity import InstalledRuntime
+from coleman.spec.selected_runtime import RuntimeIdentity
 
 WorkflowId = Annotated[str, Field(strict=True, pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")]
 Seed = Annotated[int, Field(strict=True, ge=0, le=2**64 - 1)]
@@ -336,8 +336,10 @@ class ExperimentPlan(WorkflowContract):
         Canonical enumeration/defaults and explicit resource caps.
     dataset : DatasetManifest
         Complete exact-byte and evidence binding.
-    runtime : InstalledRuntime
-        Existing conservative SDK/base-runtime checkpoint compatibility identity.
+    runtime : InstalledRuntime or SelectedInstalledRuntime
+        Explicit historical base-only or selected-extra installed identity.
+        Native v5 execution requires generation 2 with the fixed CI selection;
+        a readable historical v1 plan does not authorize checkpoint reuse.
     trials : tuple[Trial, ...]
         Exact expected coordinates; validated against existing sweep expansion.
     defaults_origin : str
@@ -350,7 +352,7 @@ class ExperimentPlan(WorkflowContract):
 
     request: PlanningRequest
     dataset: DatasetManifest
-    runtime: InstalledRuntime
+    runtime: RuntimeIdentity
     trials: Annotated[tuple[Trial, ...], Field(min_length=1, max_length=128)]
     defaults_origin: Literal["coleman-workflow-defaults-v1"] = "coleman-workflow-defaults-v1"
     native_threads: Annotated[int, Field(strict=True, ge=1, le=1024)] = 1

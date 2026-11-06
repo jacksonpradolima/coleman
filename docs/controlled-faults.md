@@ -96,7 +96,9 @@ released 4.5 wheel predates this adapter. From the checkout:
 wheel_dir=$(mktemp -d /tmp/coleman-controlled-wheel.XXXXXX)
 uv build --wheel --out-dir "$wheel_dir"
 uv venv /tmp/coleman-controlled-installed --python 3.14
-uv pip install --python /tmp/coleman-controlled-installed/bin/python "$wheel_dir"/*.whl
+for coleman_controlled_wheel in "$wheel_dir"/coleman-*.whl; do
+  uv pip install --python /tmp/coleman-controlled-installed/bin/python "${coleman_controlled_wheel}[ci]"
+done
 mkdir -p /tmp/coleman-controlled-workspace
 cp examples/controlled_faults/ci.py /tmp/coleman-controlled-workspace/ci.py
 cd /tmp/coleman-controlled-workspace

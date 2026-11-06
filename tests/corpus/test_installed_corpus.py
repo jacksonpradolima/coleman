@@ -1,4 +1,4 @@
-"""Noneditable base-wheel corpus commands and a real native CI run outside the checkout."""
+"""Noneditable CI-capability wheel corpus commands and a real native CI run outside the checkout."""
 
 import json
 import os
@@ -28,7 +28,7 @@ def test_installed_registry_correctness_fixtures_and_real_native_ci(tmp_path):
     command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
     python = virtual / "bin/python"
     wheel = next(distributions.glob("*.whl"))
-    command([uv, "pip", "install", "--offline", "--python", str(python), str(wheel)], tmp_path, env)
+    command([uv, "pip", "install", "--offline", "--python", str(python), str(wheel) + "[ci]"], tmp_path, env)
     outside = tmp_path / "outside"
     outside.mkdir()
     origin = command([str(python), "-c", "import coleman; print(coleman.__file__)"], outside, env)

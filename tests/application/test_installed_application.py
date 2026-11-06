@@ -1,4 +1,4 @@
-"""Offline noneditable wheel, base isolation, actual TCPCI and optional MCP stdio client."""
+"""Offline noneditable CI-capability wheel, transport isolation, actual TCPCI and optional MCP stdio client."""
 
 import json
 import os
@@ -12,7 +12,7 @@ import pytest
 ROOT = Path(__file__).parents[2]
 
 
-def test_installed_base_and_optional_tools_outside_checkout_offline(tmp_path):
+def test_installed_ci_and_optional_tools_outside_checkout_offline(tmp_path):
     # The explicit optional test job pre-caches the pinned SDK; execution below
     # remains offline and never uses a model, credentials or a provider endpoint.
     pytest.importorskip("mcp")
@@ -59,8 +59,8 @@ def test_installed_base_and_optional_tools_outside_checkout_offline(tmp_path):
         )
         assert setup.returncode == 0, setup.stderr
 
-    dependency_setup()
-    command([uv, "pip", "install", "--no-deps", "--python", str(python), str(wheel)])
+    dependency_setup("--extra", "ci")
+    command([uv, "pip", "install", "--no-deps", "--python", str(python), str(wheel) + "[ci]"])
     assert not tmp_path.is_relative_to(ROOT)
     base = tmp_path / "base.py"
     base.write_text("""
@@ -115,7 +115,7 @@ print(json.dumps({"base":"verified","mcp":False}))
     cli = json.loads(command([str(virtual / "bin/coleman"), "application", "--request", request]).stdout)
     assert cli["ok"]
     assert cli["data"] == json.loads((tmp_path / "expected.json").read_text())
-    dependency_setup("--extra", "mcp")
+    dependency_setup("--extra", "ci", "--extra", "mcp")
     host = tmp_path / "host.py"
     host.write_text("""
 from pathlib import Path

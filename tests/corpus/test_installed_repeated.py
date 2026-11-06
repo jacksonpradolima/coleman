@@ -27,7 +27,9 @@ def test_installed_native_repetitions_and_checkpoint_continuation_outside_checko
     subprocess.run(["uv", "venv", str(environment), "--python", sys.executable], check=True, capture_output=True)
     python = environment / "bin" / "python"
     subprocess.run(
-        ["uv", "pip", "install", "--offline", "--python", str(python), str(wheel)], check=True, capture_output=True
+        ["uv", "pip", "install", "--offline", "--python", str(python), str(wheel) + "[ci,analytics]"],
+        check=True,
+        capture_output=True,
     )
     external = tmp_path / "external"
     external.mkdir()

@@ -1,4 +1,4 @@
-"""Base-wheel materialization and actual checkpointed native CI outside the repository, without network."""
+"""CI-capability wheel materialization and actual checkpointed native CI outside the repository, without network."""
 
 import json
 import os
@@ -27,7 +27,11 @@ def test_installed_external_cache_owned_zip_native_resume_and_commands(tmp_path)
     virtual = tmp_path / "installed"
     command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
     python = virtual / "bin/python"
-    command([uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl")))], tmp_path, env)
+    command(
+        [uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl"))) + "[ci]"],
+        tmp_path,
+        env,
+    )
     outside = tmp_path / "outside"
     outside.mkdir()
     code = (

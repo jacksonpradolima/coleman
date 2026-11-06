@@ -19,12 +19,13 @@ Use Python 3.14+, uv and Git. From the cloned repository:
 ```bash
 git clone https://github.com/jacksonpradolima/coleman.git
 cd coleman
-uv sync --frozen --extra dev --extra docs --extra telemetry --extra mcp --extra release --group build
+uv sync --frozen --extra ci --extra analytics --extra dev --extra docs --extra telemetry --extra mcp --extra release --group build
 uv run --frozen --no-sync pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push
 ```
 
-This installs the locked development and documentation tools plus the extras used
-by integration tests. Notebook, ClickHouse and controlled-capture work may need
+This selects native CI, analytical evaluation and the locked development/documentation
+tools used by integration tests. A base installation intentionally omits those
+optional runtime capabilities; see [component installation](docs/core-installation.md). Notebook, ClickHouse and controlled-capture work may need
 additional extras or the exact runtime in that guide. `make install` provisions
 the broader development environment; the DevContainer is an optional route with
 its own monitoring services. Read its scripts before choosing that setup.

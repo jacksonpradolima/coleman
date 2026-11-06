@@ -59,7 +59,9 @@ explicit meaning. Both outputs can coexist; the legacy table is never overwritte
 
 ## Complete installed-package example
 
-Install the package from the reviewed wheel (`pip install path/to/coleman.whl`).
+Install the reviewed source wheel with `analytics` using the
+[component installation guide](core-installation.md#add-ci-or-analytical-capabilities).
+The example uses DuckDB persistence; pure result records require only the base installation.
 The following can run from any directory. Its credits are synthetic CI runner
 accounting units, with no claim of operational savings.
 

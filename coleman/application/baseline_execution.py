@@ -28,7 +28,7 @@ from coleman.results.domain import Fingerprint, Identifier
 from coleman.results.versioned import VersionedContract
 from coleman.runner import EnvironmentBuildConfig, RunnerExtension
 from coleman.scenarios import ScenarioLoader, VirtualScenario
-from coleman.spec.runtime_identity import InstalledRuntime
+from coleman.spec.selected_runtime import capture_native_runtime
 
 
 class NativeBaselineBinding(VersionedContract):
@@ -219,7 +219,7 @@ def _binding_plan(config: EnvironmentBuildConfig, agent_seed: int | None) -> tup
         plan, cell.method, cell.seed, cell.budget
     ):
         raise ValueError("Baseline native binding differs from its frozen plan/cell")
-    if agent_seed != cell.seed or InstalledRuntime.capture().fingerprint != binding.runtime_fingerprint:
+    if agent_seed != cell.seed or capture_native_runtime().fingerprint != binding.runtime_fingerprint:
         raise ValueError("Baseline native seed or installed runtime differs from its frozen binding")
     if (
         config.dataset != baseline_dataset_name(plan)

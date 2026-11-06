@@ -9,8 +9,8 @@ import sys
 from tests.corpus.test_installed_controlled import ROOT, command
 
 
-def installed_source_environment(tmp_path):
-    """Build the current wheel and install it offline in a fresh base environment outside the checkout."""
+def installed_source_environment(tmp_path, *, extras=()):
+    """Build and install the selected wheel capabilities offline outside the checkout."""
     uv = shutil.which("uv")
     assert uv is not None
     env = {key: value for key, value in os.environ.items() if key not in {"PYTHONPATH", "PYTHONHOME"}}
@@ -20,7 +20,9 @@ def installed_source_environment(tmp_path):
     virtual = tmp_path / "installed"
     command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
     python = virtual / "bin/python"
-    command([uv, "pip", "install", "--offline", "--python", str(python), str(next(dist.glob("*.whl")))], tmp_path, env)
+    wheel = str(next(dist.glob("*.whl")))
+    requirement = wheel + ("[" + ",".join(extras) + "]" if extras else "")
+    command([uv, "pip", "install", "--offline", "--python", str(python), requirement], tmp_path, env)
     outside = tmp_path / "outside"
     outside.mkdir()
     return python, outside, env

@@ -17,7 +17,8 @@ The integration source now includes [versioned generic decision contracts](decis
 and shared primitive implementations below result/selection/temporal consumers.
 Their old namespaces retain compatible reexports and existing wire semantics.
 This step does not publish v5, migrate executable checkpoints or complete the
-planned TCPCI adapter and minimal-installation qualification.
+planned TCPCI adapter. [Component installation](core-installation.md) describes
+the explicit base, CI and analytical dependency profiles in the integration source.
 
 ## Choose an execution route
 
@@ -136,11 +137,21 @@ Keep one distribution and the `coleman` import root initially. The implemented
 `coleman.core` namespace supplies narrow mathematical contracts and protocols;
 generic learners remain planned. The
 existing source adapters, artifacts, services and transports remain separate
-modules in that distribution. This does not mean the current wheel is already
-lightweight: its base dependencies include NumPy, Polars, PyArrow, DuckDB, SciPy,
-Pydantic, YAML and statistical tooling. The core extraction must measure cold
-imports, installed dependencies, memory and installation from a noneditable
-wheel outside the repository.
+modules in that distribution. The integration metadata now keeps Pydantic and
+packaging in the base installation; `ci` and `analytics` select the numerical,
+Parquet, database and statistical capabilities used by those operations. Import
+checks and actual clean dependency resolution qualify separate facts. Installed
+regular-file bytes are disk-footprint observations, not process-memory evidence.
+See [component installation](core-installation.md) for exact commands and limits.
+
+New durable native workflow plans and baseline matrices use
+`SelectedInstalledRuntime` schema version 2 with the fixed `ci` selection.
+Historical `InstalledRuntime` version 1 retains its base-only meaning and reader
+bytes; reading an old plan/matrix does not authorize v5 execution or continuation.
+Use its original pinned v4 environment for that work. The outer workflow,
+SQLite store and existing PCG64 codec stay at their own version 1. See
+[native runtime identities](core-installation.md#keep-native-runtime-identities-explicit)
+for capture, dependency closure and migration limits.
 
 Separate wheels are justified only by demonstrated dependency or support
 isolation that a modular namespace and optional extras cannot provide. Evidence

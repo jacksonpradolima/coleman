@@ -18,7 +18,7 @@ from coleman.application.workflow_native import execute_native
 from coleman.application.workflow_store import JobRecord, WorkflowStore
 from coleman.artifacts import ArtifactWriter
 from coleman.results.domain import canonical_json, fingerprint
-from coleman.spec.runtime_identity import InstalledRuntime
+from coleman.spec.selected_runtime import require_native_runtime
 from coleman.workflows.contracts import MAX_WORKFLOW_ARTIFACT_ENTRIES, ExperimentPlan, Trial, WorkflowError
 from coleman.workflows.lifecycle import PhysicalAttempt, TrialResult, WorkflowReport, report_assumptions
 
@@ -350,8 +350,7 @@ def run_job(root: Path, job_id: str, *, progress_hook: Callable[[str, int], None
     try:
         _check_output(store, job_id, plan, deadline)
         guard.start()
-        if plan.runtime != InstalledRuntime.capture():
-            raise WorkflowError("Saved producer/runtime does not match this executable")
+        require_native_runtime(plan.runtime)
         if plan.native_threads != pl.thread_pool_size():
             raise WorkflowError("Native Polars thread profile differs from the frozen plan")
         _transition(store, job_id, deadline=deadline, attempts=len(read_attempts(root / "jobs" / job_id, plan)))

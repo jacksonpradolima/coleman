@@ -1,4 +1,4 @@
-"""Installed base-wheel matrix outside checkout, no MCP, and transport-free domain import boundary."""
+"""Installed CI-capability wheel matrix outside checkout, no MCP, and transport-free domain import boundary."""
 
 import os
 import shutil
@@ -22,7 +22,7 @@ def test_installed_comparable_matrix_outside_checkout(tmp_path):
     subprocess.run(["uv", "venv", str(environment), "--python", sys.executable], check=True, capture_output=True)
     python = environment / "bin/python"
     subprocess.run(
-        ["uv", "pip", "install", "--offline", "--python", str(python), str(next(wheels.glob("*.whl")))],
+        ["uv", "pip", "install", "--offline", "--python", str(python), str(next(wheels.glob("*.whl"))) + "[ci]"],
         check=True,
         capture_output=True,
     )

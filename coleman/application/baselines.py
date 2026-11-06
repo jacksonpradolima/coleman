@@ -21,6 +21,7 @@ from coleman.application.baseline_resources import BaselineLimitError
 from coleman.application.baseline_storage import (
     load_baseline_observations,
     read_baseline_artifact,
+    read_baseline_payload,
     validate_native_baseline_completion,
 )
 from coleman.artifacts import ArtifactWriter
@@ -38,7 +39,12 @@ from coleman.corpus.baseline_results import (
 from coleman.corpus.materialization import validate_source_storage
 from coleman.spec.models import RunSpec
 from coleman.spec.run_id import compute_run_id
-from coleman.spec.runtime_identity import InstalledRuntime
+from coleman.spec.selected_runtime import (
+    RuntimeIdentity,
+    SelectedInstalledRuntime,
+    capture_native_runtime,
+    read_runtime,
+)
 
 _PLAN_FILE = "plan.json"
 
@@ -226,14 +232,14 @@ def run_baseline_matrix(plan: BaselinePlan, output: str | Path) -> BaselineMatri
     admission is granted; current timing is not portable reproducible evidence.
     """
     plan = BaselinePlan.model_validate(plan)
-    runtime = InstalledRuntime.capture()
+    runtime = capture_native_runtime()
     root = Path(output).resolve() / "baseline-matrices" / plan.fingerprint[7:] / runtime.fingerprint[7:]
     validate_source_storage(root)
     with baseline_lock(root / "matrix.lock"):
         return _run_locked(root, plan, runtime)
 
 
-def _run_locked(root: Path, plan: BaselinePlan, runtime: InstalledRuntime) -> BaselineMatrixReport:
+def _run_locked(root: Path, plan: BaselinePlan, runtime: SelectedInstalledRuntime) -> BaselineMatrixReport:
     """Serialize inventory and completion publication while native children separately own their execution locks."""
     writer = ArtifactWriter(root)
     _publish(writer, root / _PLAN_FILE, plan)
@@ -317,7 +323,7 @@ def read_baseline_matrix(root: str | Path) -> BaselineMatrixReport:
         report_path = root / "reports" / f"{receipt.report_fingerprint[7:]}.json"
         report = read_baseline_artifact(report_path, BaselineMatrixReport)
         plan = read_baseline_artifact(root / _PLAN_FILE, BaselinePlan)
-        runtime = read_baseline_artifact(root / "runtime.json", InstalledRuntime)
+        runtime = read_runtime(read_baseline_payload(root / "runtime.json"))
         if (
             not report.complete
             or report.fingerprint != receipt.report_fingerprint
@@ -333,7 +339,7 @@ def read_baseline_matrix(root: str | Path) -> BaselineMatrixReport:
         return report
 
 
-def _verify_report_cells(root: Path, report: BaselineMatrixReport, runtime: InstalledRuntime) -> None:
+def _verify_report_cells(root: Path, report: BaselineMatrixReport, runtime: RuntimeIdentity) -> None:
     """Verify native cell membership separately from the matrix completion envelope."""
     plan = report.plan
     coordinates = {cell.cell_id: cell for cell in baseline_coordinates(plan)}

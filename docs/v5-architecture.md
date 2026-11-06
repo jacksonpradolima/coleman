@@ -84,7 +84,7 @@ explicit acceptance protocol.
 ```mermaid
 flowchart TD
     Host[User application or notebook] --> DirectLearner[Planned direct learner and MAB capabilities]
-    Host --> DirectSolver[Planned solver boundary reusing existing finite solvers]
+    Host --> DirectSolver[Existing finite solvers; broader solver boundary planned]
     Host --> Problem[Planned typed problem adapters including CI]
     Problem --> Contracts[Implemented generic contracts and capability validation]
     Problem --> Objectives[Explicit objective definitions and pure loss mappings]
@@ -106,9 +106,11 @@ flowchart TD
 
 Here an arrow means a call or dependency toward the component used. Storage,
 session, evaluation and transport can be absent when the host directly calls a
-learner or solver. Existing finite solver APIs remain independently callable;
-their current package dependency closure is heavier than the planned minimal
-core and must be measured during extraction.
+learner or solver. Existing finite solver APIs are independently callable from
+the base wheel. Select the explicit `ci` or `analytics` extra for the outer
+operations that require those dependencies; see the
+[component installation guide](core-installation.md) for complete isolated
+examples and the supported runtime envelope.
 
 ## Action and feedback capabilities
 
@@ -264,9 +266,10 @@ The currently supported Python minimum is **3.14**. Changing it or introducing
 another distribution needs resolver, wheel ownership, import and support-matrix
 evidence. Install examples must identify this repository's built wheel: the bare
 PyPI project name is not a reliable instruction for installing this repository.
-Minimal-core and optional CI/analysis/transport dependencies are qualified during
-extraction; the current mandatory scientific dependency list is not already a
-minimal-core installation.
+The integration metadata now separates the base Pydantic/packaging closure
+from explicit `ci` and `analytics` extras, with independent transport/telemetry
+SDK extras. [Component installation](core-installation.md) describes the exact
+source-wheel routes and their installed-package qualification boundaries.
 
 The target import graph uses arrows from importer to dependency. This is a DAG;
 runtime orchestration imports capabilities, never the reverse.
@@ -289,7 +292,9 @@ flowchart TD
     Contracts --> Primitives[Core units clocks identities and canonical codecs]
 ```
 
-The source baseline has several edges that must move or be isolated:
+The original source baseline identified the following extraction seams. Shared
+primitive leaves and lazy compatibility exports now separate their imports;
+native algorithms and generic executor/session delivery remain distinct work:
 
 | Current edge | Staged change and verification |
 | --- | --- |
@@ -315,10 +320,11 @@ imports for transitive imports and package initializers. Installed checks run
 outside the checkout with optional integrations absent, no network discovery or
 storage initialization. Cycles and forbidden edges fail the gate; allowlists
 name specific transitional legacy modules rather than exempting the new core.
-The decision-contract implementation qualifies this boundary with AST and
-noneditable-wheel cold-import tests for the new core contracts. This does not
-qualify the future learner graph, a resolver-minimal installation or all optional
-dependency combinations; those remain staged extraction work.
+Decision contracts and packaging use AST plus noneditable-wheel cold-import
+checks, with separate resolver/install checks for base and declared optional
+profiles. Passing a contract/import check does not qualify a future learner, an
+unlisted dependency combination or a lower Python version. See
+[component installation](core-installation.md) for the supported consumption routes.
 
 ## Two executable baseline slices before extraction
 

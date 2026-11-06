@@ -39,24 +39,25 @@ setup: ensure-uv ## Setup Python 3.14 for local development
 	$(UV) python pin 3.14
 	$(UV) venv .venv --python 3.14 --allow-existing
 
-pre-commit-install: ## Install pre-commit hooks
-	$(UV) run pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push
+pre-commit-install: ## Install pre-commit hooks in the provisioned development environment
+	$(UV) run --frozen --no-sync --no-build pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push
 
-install: ensure-uv setup pre-commit-install ## Install all dependencies from uv.lock (including dev, docs, notebook extras) into .venv
-	$(UV) sync --frozen --extra dev --extra docs --extra notebook --extra telemetry --extra clickhouse --extra mcp --extra release
+install: ensure-uv setup ## Install all dependencies from uv.lock (including dev, docs, notebook extras) into .venv
+	$(UV) sync --frozen --extra ci --extra analytics --extra dev --extra docs --extra notebook --extra telemetry --extra clickhouse --extra mcp --extra release --group build
 	# Ensure project is installed in editable mode
-	$(UV) run --python $(PYTHON) --no-project pip install -e .
+	$(UV) pip install --python $(PYTHON) --no-deps --no-build --no-build-isolation --editable .
+	$(MAKE) pre-commit-install
 
 # ——— Quality ——————————————————————————————————————————————
 
 lint: ensure-uv ## Run ruff linter
-	$(UV) run ruff check .
+	$(UV) run --extra dev ruff check .
 
 format: ensure-uv ## Run ruff formatter
-	$(UV) run ruff format .
+	$(UV) run --extra dev ruff format .
 
 format-check: ensure-uv ## Check ruff formatting without changing files
-	$(UV) run ruff format --check .
+	$(UV) run --extra dev ruff format --check .
 
 typecheck: ensure-uv ## Run pyright and ty type checkers
 	# Run both static type checkers
@@ -64,14 +65,14 @@ typecheck: ensure-uv ## Run pyright and ty type checkers
 	$(UV) run --python $(PYTHON) --no-project ty check coleman tests
 
 interrogate: ensure-uv ## Check docstring coverage with interrogate
-	$(UV) run interrogate coleman/ -v
+	$(UV) run --extra dev interrogate coleman/ -v
 
 docstrings: ensure-uv ## Check NumPy parameter coverage of documented public entry points
 	$(UV) run --python $(PYTHON) --no-project python scripts/audit_docstrings.py --check \
 		coleman/api.py coleman/artifacts.py coleman/results/domain.py \
-		coleman/corpus/materialization.py coleman/spec/io.py coleman/spec/run_id.py coleman/spec/sweep.py \
+		coleman/corpus/materialization.py coleman/spec/io.py coleman/spec/run_id.py coleman/spec/sweep.py coleman/spec/selected_runtime.py \
 		coleman/workflows coleman/application/workflow*.py \
-		coleman/core coleman/testing coleman/objectives \
+		coleman/core coleman/testing coleman/objectives coleman/capabilities.py coleman/interchange \
 		coleman/transports/mcp.py coleman/transports/workflow_tools.py
 
 # ——— Testing ——————————————————————————————————————————————
@@ -102,13 +103,13 @@ test-cov: ensure-uv install ## Run tests with coverage report in parallel if xdi
 # ——— Documentation ————————————————————————————————————————
 
 docs: ensure-uv ## Build documentation with Zensical
-	$(UV) run --extra docs zensical build --strict
+	$(UV) run --extra ci --extra analytics --extra docs zensical build --strict
 
 docs-serve: ensure-uv ## Serve documentation locally
-	$(UV) run --extra docs zensical serve
+	$(UV) run --extra ci --extra analytics --extra docs zensical serve
 
 docs-export-workflow: ensure-uv ## Export marimo workflow notebook to Markdown for Zensical
-	$(UV) run --extra notebook marimo export md docs/workflow.py -o docs/workflow.md --force
+	$(UV) run --extra ci --extra analytics --extra notebook marimo export md docs/workflow.py -o docs/workflow.md --force
 
 # ——— Build ————————————————————————————————————————————————
 
@@ -119,7 +120,7 @@ build: ensure-uv ## Build the package
 
 run: ensure-uv ## Remove runs/checkpoints and execute coleman run
 	rm -rf runs/ checkpoints/
-	$(UV) run coleman run --config run.yaml
+	$(UV) run --extra ci coleman run --config run.yaml
 
 # ——— Pre-commit ———————————————————————————————————————————
 
@@ -154,9 +155,9 @@ cost-wily: ensure-uv ## Build and report complexity trend with Wily
 		archiver=filesystem; \
 		echo "INFO: Dirty repository detected; using Wily filesystem archiver."; \
 	fi; \
-	$(UV) run wily build -a $$archiver coleman
-	$(UV) run wily index
-	$(UV) run wily report $(WILY_FILE)
+	$(UV) run --extra dev wily build -a $$archiver coleman
+	$(UV) run --extra dev wily index
+	$(UV) run --extra dev wily report $(WILY_FILE)
 
 cost-wily-file: ensure-uv ## Build Wily history and report a specific file (use WILY_FILE=path)
 	@archiver=git; \
@@ -164,17 +165,17 @@ cost-wily-file: ensure-uv ## Build Wily history and report a specific file (use 
 		archiver=filesystem; \
 		echo "INFO: Dirty repository detected; using Wily filesystem archiver."; \
 	fi; \
-	$(UV) run wily build -a $$archiver coleman
-	$(UV) run wily index
-	$(UV) run wily report $(WILY_FILE)
+	$(UV) run --extra dev wily build -a $$archiver coleman
+	$(UV) run --extra dev wily index
+	$(UV) run --extra dev wily report $(WILY_FILE)
 
 cost-profile-scalene: ensure-uv ## Smoke-test Scalene against the CLI entrypoint
-	$(UV) run scalene run coleman/cli.py --- run --config run.yaml
+	$(UV) run --extra ci --extra dev scalene run coleman/cli.py --- run --config run.yaml
 
-cost-profile-pyspy: ensure-uv ## Record a py-spy profile using a dedicated Python 3.13 profiling venv
-	$(UV) python install 3.13
-	$(UV) venv $(PROFILE_VENV) --python 3.13 --allow-existing
-	$(UV) pip install --python $(PROFILE_PYTHON) duckdb numpy polars pyarrow scipy scikit-posthocs "pydantic>=2.12.5" "pyyaml>=6.0.3"
+cost-profile-pyspy: ensure-uv ## Record a py-spy profile using a dedicated Python 3.14 profiling venv
+	$(UV) python install 3.14
+	$(UV) venv $(PROFILE_VENV) --python 3.14 --allow-existing
+	$(UV) pip install --python $(PROFILE_PYTHON) ".[ci]"
 	@set -e; \
 	rm -f profile.svg /tmp/pyspy-cost-profile.log; \
 	status=0; \
@@ -193,7 +194,7 @@ cost-profile-pyspy: ensure-uv ## Record a py-spy profile using a dedicated Pytho
 	fi
 
 cost-energy: ensure-uv ## Estimate energy/carbon for a representative workload
-	$(UV) run python scripts/measure_energy.py
+	$(UV) run --extra ci --extra dev python scripts/measure_energy.py
 
 # ——— Cleanup ——————————————————————————————————————————————
 

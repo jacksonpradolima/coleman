@@ -28,15 +28,18 @@ coleman_workflow_dist="$(mktemp -d)"
 uv build --wheel --out-dir "$coleman_workflow_dist"
 python3.14 -m venv /tmp/coleman-workflows-env
 for coleman_workflow_wheel in "$coleman_workflow_dist"/coleman-*.whl; do
-  /tmp/coleman-workflows-env/bin/python -m pip install "${coleman_workflow_wheel}[mcp]"
+  /tmp/coleman-workflows-env/bin/python -m pip install "${coleman_workflow_wheel}[ci,mcp]"
 done
 /tmp/coleman-workflows-env/bin/coleman workflow \
   --workspace /tmp/coleman-workspace init-fixture
 ```
 
 Use the actual wheel produced by the build; the temporary directory contains
-that build alone. The `[mcp]` extra is optional: library and
-CLI workflows run without it. No model, API key, Docker or network collector is
+that build alone. `ci` supplies native execution and this workflow's bounded
+protected comparison; its bounded-mean method does not require `analytics`.
+Normal-model paired inference is a separate analytical capability. The `mcp`
+extra is optional: library and CLI workflows run without that SDK. See
+[component installation](core-installation.md). No model, API key, Docker or network collector is
 needed after package installation and source preparation.
 
 The workspace belongs to the host. Keep it outside Git. It contains private
@@ -366,6 +369,14 @@ Ordinary older native checkpoints lack this workflow context and cannot be
 silently adopted or reseeded. The existing native pickle/progress formats and
 non-workflow checkpoint behavior are unchanged. The saved plan also records its
 actual Polars thread pool; restart with that same host setting.
+
+For the unreleased v5 source, new plans additionally bind the explicit
+runtime-version-2 CI dependency selection. Runtime-version-1 historical plans
+remain readable evidence and require their original pinned v4 environment for
+execution/continuation. The outer workflow, SQLite store and existing PCG64
+codec versions remain unchanged. See
+[native runtime identities](core-installation.md#keep-native-runtime-identities-explicit)
+for the exact boundary; installing extras does not migrate an old checkpoint.
 
 ## Keep tuning separate from protected evaluation
 

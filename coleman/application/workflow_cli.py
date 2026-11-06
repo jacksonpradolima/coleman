@@ -6,13 +6,6 @@ import argparse
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from coleman.application.baseline_storage import read_baseline_artifact
-from coleman.application.workflow_registry import owned_fixture, snapshot_history
-from coleman.application.workflows import WorkflowService
-from coleman.results.domain import canonical_json
-from coleman.workflows.contracts import DatasetManifest, PlanningRequest
-from coleman.workflows.lifecycle import ExecutePlan
-
 
 def configure_parser(parser: argparse.ArgumentParser) -> None:
     """Add trusted setup and shared service operations to the existing CLI.
@@ -71,6 +64,10 @@ def run_command(args: argparse.Namespace) -> None:
         Missing required setup fields, malformed/oversized JSON, invalid registration,
         incompatible versions/caps or unavailable owned evidence. Work is never guessed.
     """
+    from coleman.application.workflow_registry import owned_fixture
+    from coleman.application.workflows import WorkflowService
+    from coleman.results.domain import canonical_json
+
     service = WorkflowService(args.workspace)
     operation = args.operation
     if operation == "init-fixture":
@@ -101,6 +98,9 @@ def run_command(args: argparse.Namespace) -> None:
 
 def _request_command(args, service):
     """Validate bounded JSON before invoking the matching typed planning/admission operation."""
+    from coleman.workflows.contracts import PlanningRequest
+    from coleman.workflows.lifecycle import ExecutePlan
+
     if args.request is None or len(args.request.encode()) > 65536:
         raise ValueError("A bounded versioned --request is required")
     if args.operation == "plan":
@@ -127,6 +127,10 @@ def _job_command(args, service):
 
 def _register(args, service):
     """Prepare trusted source data and validate reviewed manifests before registry admission."""
+    from coleman.application.baseline_storage import read_baseline_artifact
+    from coleman.application.workflow_registry import snapshot_history
+    from coleman.workflows.contracts import DatasetManifest
+
     if args.operation == "register-karaf":
         from coleman.application.workflow_presets import register_karaf
         from coleman.corpus.materialization import SourceCache
