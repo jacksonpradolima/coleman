@@ -56,9 +56,9 @@ def _scalar_signature(value: Any) -> Hashable:
     if isinstance(value, complex):
         if not isfinite(value.real) or not isfinite(value.imag):
             raise ValueError("Component state requires finite complex values")
-        return type(value), value.real.hex(), value.imag.hex()
+        return type(value), (value.real.hex(), value.imag.hex())
     if isinstance(value, (datetime, time)):
-        return type(value), value.isoformat(), value.fold, getattr(value.tzinfo, "key", None)
+        return type(value), (value.isoformat(), value.fold, getattr(value.tzinfo, "key", None))
     if not isinstance(value, Hashable):
         raise TypeError("Component state requires explicit portable scalar fields")
     return type(value), value

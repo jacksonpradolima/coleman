@@ -49,7 +49,7 @@ losses, paths, RNG bits and cost tables provide the independent behavioral oracl
 A round-trip alone is not an independent correctness argument.
 
 The manifest's `example_sha256` retains the original producer bytes. Its additive
-`example_compatibility` metadata names a reviewed comment-only source variant;
+`example_compatibility` metadata names reviewed comment-only source variants;
 none of the five golden payloads, file digests or model fingerprints was
 regenerated. The `python-3.14-full-ast-no-locations-v1` profile parses Python 3.14
 syntax and hashes the UTF-8 `ast.dump` output with field names and empty fields,
