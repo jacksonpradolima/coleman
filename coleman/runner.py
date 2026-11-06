@@ -492,8 +492,9 @@ def create_agents(policy, rew_fun, window_sizes, seed: int | None = None):
         Window such as FRRMABPolicy).
     seed : int, optional
         Seed for the agents' internal RNG, which controls the random initial
-        shuffle at ``t=0``.  When provided, repeated runs with the same seed
-        and scenario produce identical prioritization sequences.
+        shuffle at ``t=0`` on non-contextual routes. Does not seed the shared
+        policy generator or certify native tie/run determinism. Contextual
+        agents delegate to their policy even at the first choice.
 
     Returns
     -------

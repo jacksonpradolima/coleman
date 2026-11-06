@@ -1,0 +1,339 @@
+{
+  "ast_profile": "cpython-3.14-without-docstrings-v1",
+  "resources": [
+    {
+      "kind": "python",
+      "mechanism_sha256": "10a6977d1150f436b23264b77b0f2613a48de990872738f707e5b2d233184b2b",
+      "path": "coleman/agent/__init__.py",
+      "source_sha256": "6806fa6bae80ceb7ba475f36dd8c9b34323ecb24b7614ef839e17c552330908e"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "8ce7e0c97e3824e88d7afed2ff1a1f16c5b27504cd2e9a40d36aaef11598fd50",
+      "path": "coleman/agent/base.py",
+      "source_sha256": "939246e7cf11256f01db608a6fcdf9b7ab5bff86c8e86133727ddab79a4957b2"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "43c6a023b0c8d07a7227e7ddca40833268b8121bae5644bff8628378fc07bff4",
+      "path": "coleman/agent/contextual.py",
+      "source_sha256": "1e1b384d7fb8bf6432d08afd772c45dd7738a95d9d306b77ca972e01c4ece981"
+    },
+    {
+      "kind": "marker",
+      "path": "coleman/agent/py.typed",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "2e8b466217b4f776bc4580328f15edf15ebefdc83e734730f5de091e3d9bd314",
+      "path": "coleman/agent/reward_agent.py",
+      "source_sha256": "6aa9a8608a3d78d9a42196201c5d6d50573fdd1624bd646862006eaf19bc9a55"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "161d5f96265611bf723f10f8fdba505ddd497d2e7e895fac2c6da5154059a84a",
+      "path": "coleman/agent/schemas.py",
+      "source_sha256": "0ddab46a398c43d406a53ca7b0f2d2d4a8c20cc368a0d545a4584a7049f9fd3e"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "bfed845685664cc6b85fa98ef8263e2f87c166422c1d2685740d0352cfa0e952",
+      "path": "coleman/agent/sliding_window.py",
+      "source_sha256": "899e2b38b4f6eeeb66e3757898f48e218cd0ca0e1f830962426b75dcda3ec5d4"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "88043dbba242f133e2f33321098f51179d92317bd8bbba426a855f5d9c24973a",
+      "path": "coleman/agent/state_ops.py",
+      "source_sha256": "7d680b2f87ddcce4db9e135cd8363429443cf9c08266d4ba339d0cfc0e1285ae"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "2045df27d8dffd894370c7ac8d08e0468367abea873b96998ccfb5a6ec18d16c",
+      "path": "coleman/policy/__init__.py",
+      "source_sha256": "9cde1d645a5174fb0c7257576908de280af298165b50152009e7b0fb46196847"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "df1022854e9b1368313f49d4fa22c850e6065d07d2e47a09852d30b9b02003ef",
+      "path": "coleman/policy/base.py",
+      "source_sha256": "0c8827f79cf44fb758008d79dd43d0aa086877b75fa58632b7a2e8cb07aedef8"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "f02a3c055a9b550cac58a29c7cd9471526943870aba618487cae1f2a2720618f",
+      "path": "coleman/policy/combinatorial/__init__.py",
+      "source_sha256": "c4c373a61d4e855734e6b4a2e2f4301d585c536ff9e4ab30a90a9c541763ea2b"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "9cffb16b312a50e16367f1995e00b9c4d03640608f354ae65568d907d4c541b9",
+      "path": "coleman/policy/combinatorial/policies.py",
+      "source_sha256": "87f84ba49387e1f861779f66e3f54f7dfb21be9df0ccd2fd1aa4b37a288e2876"
+    },
+    {
+      "kind": "marker",
+      "path": "coleman/policy/combinatorial/py.typed",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "90237bc7f0b532fb38dd517e45cb0d7bd87df57242522b3bf3b055e2593d1a3c",
+      "path": "coleman/policy/contextual/__init__.py",
+      "source_sha256": "3cc96df8eb2e4604ce966a95974a64f1791c1f41a9f1a4a702417aef197fd02d"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "94b4a8c378d219a8d19ce62d8adfb1f6f2029693d7d8d5418bface29144ec695",
+      "path": "coleman/policy/contextual/contextual_epsilon_greedy.py",
+      "source_sha256": "90bde28c17074cbeec6381f2daaa3fec44a8a1896a8ec5336ac0bb3fe0353ec0"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "6f0dd3ca697d706fc7878cdc8dc9f4a28fb7171896ebb55ca323db8f68c364d2",
+      "path": "coleman/policy/contextual/lin_ts.py",
+      "source_sha256": "f74b23ef065434e7a83755de67eb4ad726353bcc3f99f00799a22934acd10ee1"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "79628c8ff0c2c1bbf765d14a0bc0715c31ee868b6182b63a4cae9c841425e455",
+      "path": "coleman/policy/contextual/linucb.py",
+      "source_sha256": "9a0e5d7d9769733c2dce9c481463f86da543df8701ce0adb7e0da2426ebfdf64"
+    },
+    {
+      "kind": "marker",
+      "path": "coleman/policy/contextual/py.typed",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "92e54286bf9a877d046d2e4c4441df3d30a427da5fc51e62308252d43b097cb4",
+      "path": "coleman/policy/dueling/__init__.py",
+      "source_sha256": "122bdeb983180879ec5e59516511678b7977be339daf20af79539d8f7ae67c18"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "e1c9a908dd38a4b938f4b9658b712a8eb6305f4265ed68fab15c598160c77a43",
+      "path": "coleman/policy/dueling/policies.py",
+      "source_sha256": "2373bc7368fa0bbcf8efba110592152ad6897b3f24e8c70679889e1a02b08deb"
+    },
+    {
+      "kind": "marker",
+      "path": "coleman/policy/dueling/py.typed",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "28a9aba42bca5728df8aea4b37e380c7efe41f8c0447d1f8e7f04a584694060a",
+      "path": "coleman/policy/greedy/__init__.py",
+      "source_sha256": "4bae8d1a2c089173f125151a0de9397275a6dbcd4abc365e3db2615c1f029b99"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "c098f6ebbf2cc58bbd3bf6837f2ee01c582255fe7abeec11de3075f8539d9bd9",
+      "path": "coleman/policy/greedy/decay_epsilon.py",
+      "source_sha256": "2aa0a4d1a6901d5991f9a14cedbb3171bb3c92d8259cf1890402fdd25e99d230"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "41f0b9b6f0bec76f36634d47adc5a9a31f0477d148bc8acb5d66e76c14cddbeb",
+      "path": "coleman/policy/greedy/epsilon_greedy.py",
+      "source_sha256": "dea4f0b1001aacd7d42fb533a356ddda5b936dcc88a486e7ed8233f9cd36f2d8"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "772d94bd3c8f96c7c0215599d36d8d67c45f5ae2f7c867757ca9cfe46f7de434",
+      "path": "coleman/policy/greedy/optimistic.py",
+      "source_sha256": "a8a215e12de9de8e72f42c1dc2b3c43586de517c63b82d41f19746c57cd6c2ea"
+    },
+    {
+      "kind": "marker",
+      "path": "coleman/policy/greedy/py.typed",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "1a8ce00c196a9f54bf0b57c7e3a0345f126806134b010f8d78324a3d6a1098f1",
+      "path": "coleman/policy/mab/__init__.py",
+      "source_sha256": "d6ee265bac92236528fe1f08cc124707c1cf61afd59c67acb0c539c2d850f28f"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "c4f8bc9aa452d0166714cb96fbf30a47d4ec6b3ae008eec9fc1b7d819b73ecdf",
+      "path": "coleman/policy/mab/adversarial.py",
+      "source_sha256": "fa5d3f80673115a98f56bd964994e5c8df80fd8bb06d7aaeca4ccd6555bed2a9"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "a09888d81e9b7524c48f9f9a2cd6e2db3baa10b903547464cdf12341905da8ec",
+      "path": "coleman/policy/mab/exploration.py",
+      "source_sha256": "984f2496df18d0a50b09e544bc84cb8fdf481441f03a4c7898d362502155ed86"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "ee2ba1d76729ef286e30abbfc84558809551293fb93c430ad57a9acc3e5d189e",
+      "path": "coleman/policy/mab/frrmab.py",
+      "source_sha256": "eea4277686b894c9960ec0397d47176e45aea1f03733c6433f9f7a26ebb6c889"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "fe7c5c9dee5dc7b9bf0f0e85da42dc658cb2f32d070f2f9ce0c467cd93105cc7",
+      "path": "coleman/policy/mab/nonstationary.py",
+      "source_sha256": "280670580484d0c3cb5b687ffa14d5cc5a2edab76c061cab38d750d8536afb24"
+    },
+    {
+      "kind": "marker",
+      "path": "coleman/policy/mab/py.typed",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "d0541e9b31f481e4609948ecfecd643fe47878d079f246c54fc576346b1dbb6c",
+      "path": "coleman/policy/mab/shared.py",
+      "source_sha256": "d0f94d8e30b5afb2848ede7475da1dacbc6fd526a52873f1cb62747a396dcbd9"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "7d7f7d356fddf753479272147b3ee5fd27b841e899c86f055621d4b51a4d0d66",
+      "path": "coleman/policy/mab/slmab.py",
+      "source_sha256": "c6049b1be9d20025f594e8721f0b86f42b142f752253407da2f68d2170ca8021"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "a83d07e32db7eeeb8b7f58c623b151323fca106ecc114d590c10e541550018ea",
+      "path": "coleman/policy/mab/stochastic.py",
+      "source_sha256": "7a0c1b7d3165345a3a45aa7b34705a9cd4d3ff10ef66b7fe3acf5bdf42c94164"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "609a510e4d12cbb5f02c8d1d446f0dc6755df831e969d3d00661ddd79c159725",
+      "path": "coleman/policy/portfolio/__init__.py",
+      "source_sha256": "d6c9eba1de29eef01d3b89ab00172c2ef817c25aa1540e1fd0aee9552c0d8cdb"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "b8326bec3d3414f4761e187bcf81885971e2ca32af3ae1d84ba12691e25a1fcc",
+      "path": "coleman/policy/portfolio/policies.py",
+      "source_sha256": "badcc5daa52365742178ecee11e9fc05b2e132653091969050dba540203f3842"
+    },
+    {
+      "kind": "marker",
+      "path": "coleman/policy/portfolio/py.typed",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "kind": "marker",
+      "path": "coleman/policy/py.typed",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "b403cf4f2fc7320187737c590783fd5454fc4ad22951bfb4ad8adf168672590b",
+      "path": "coleman/policy/random/__init__.py",
+      "source_sha256": "b03747619f4ac902988813d9f460c18e5a058ae69d4cb638a14d8a0975cdf190"
+    },
+    {
+      "kind": "marker",
+      "path": "coleman/policy/random/py.typed",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "b42d7ccb9bdc08aff0306b3bf133da3efa18253d5a2693d8f2dfc9eb13350fda",
+      "path": "coleman/policy/random/random_policy.py",
+      "source_sha256": "fb83adc562f0cabb6ef9ad908a8572a82f3e5fc4dec3df1b2ba224a8fd46c5ef"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "5495360d65ae66f30672e64c9f2e7cbb6ff29de5432baa892614dc8faa213c4f",
+      "path": "coleman/policy/ucb/__init__.py",
+      "source_sha256": "c6ae5036351c6ad0241fcf42352bb549d1f2c7922b5a60311946fc4b11a86d40"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "ec5ae2c3f6bef08ce9e51b3593924fb3a03f15987e3fca281ceb5b792bc11d70",
+      "path": "coleman/policy/ucb/policies.py",
+      "source_sha256": "94a93f8bce58d3051550ff533a43abe69760d90bd4cbdfd36de79b675fc66768"
+    },
+    {
+      "kind": "marker",
+      "path": "coleman/policy/ucb/py.typed",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "4f9a503d5763343932c863ee314c700f0fa93a892032bec49ac6f10253ae0401",
+      "path": "coleman/policy/ucb/sliding_window.py",
+      "source_sha256": "922e3efe9bd4001a7ade3abbf483b5daccefe90bc2ba027f16166175eb476555"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "2426d3dd326437e52379c683c61f99b917dd237031a885d92b7cc5d143149e3b",
+      "path": "coleman/policy/ucb/ucb2.py",
+      "source_sha256": "946e385c2bbb0973bab05f5826839413761f836c6164a9cf85d0f71f5cfd6892"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "22f3460b4e8c8029e081cd046f3f163f9e4b6fa469b08f36149880d1f9436c87",
+      "path": "coleman/reward/__init__.py",
+      "source_sha256": "d1aaa07e01ccc4aa512ecfed9b66cfbb705bd3e205b4aefaabae649bfa643f57"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "1adbcd40c9456d6da746c79b229612d2a12707d00e10eaeac59598abdfb960c3",
+      "path": "coleman/reward/apfdc_reward.py",
+      "source_sha256": "720c3b05fe47c8440f334011614395b1952b03d52dab9372c05ac612b41eb94d"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "3423b73194d07085f7ebc8c7283c7dc61da106fece07f30ac4c7302059b9808e",
+      "path": "coleman/reward/base.py",
+      "source_sha256": "5663c4c9e18d1ae5b5741e90c9cdac4a7aad523c42bc7f8790558fc7a838bb0d"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "5edad4cf8028ea54646f595962fd6b2b0a742aa9689dc9b90c1414caf29a51dc",
+      "path": "coleman/reward/discounted_failures.py",
+      "source_sha256": "e425b0a34119b75d03ebfb289c9d37f7308b1ab10b0b062a30a91ac2b89f554e"
+    },
+    {
+      "kind": "marker",
+      "path": "coleman/reward/py.typed",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "37a5ddea7141118d55a7e1824db8f3cf5ab7ba2b1f5b5ac90ae26b5b8bca5bcf",
+      "path": "coleman/reward/reciprocal_rank.py",
+      "source_sha256": "3db8509b5c528ca8742334fbbe4382501adc1998ea42cc405aa805e23e4711ce"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "b3a189aa522097e423ffd1664eb11fa1eac281d5fee80231f7160d5185cb52ac",
+      "path": "coleman/reward/rnfail.py",
+      "source_sha256": "bb2465a2c0dabeb7480f30cf361f94955caae9f0a6e3e7b6516549fdaba15569"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "18f88ca88e1bed65e74af266c015d1aee971f0cf6e850cd7d80b398d09ff0fc7",
+      "path": "coleman/reward/timerank.py",
+      "source_sha256": "5d75068e8b679b86a0e6664c486d471c3afd47cf541c00f1357f8f1bdde7354f"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "e5a7adb7a9717fd004566aad732ecb31647557954ce083d72973117c401cae7b",
+      "path": "coleman/reward/topk_rnfail.py",
+      "source_sha256": "467ef08280e0f86b71c584cd3cda880767f9bd5c921a6cf7a462551ce9cf0c05"
+    },
+    {
+      "kind": "python",
+      "mechanism_sha256": "4a1f8e1458ec5073773eb211a36e46b193e882d1d0e64c54343fc889d705fab3",
+      "path": "coleman/runner.py",
+      "source_sha256": "4901760edbb737226f1d681c15ff1a062872b00353d6a80ccb8cfb9f5b8a3095"
+    }
+  ],
+  "schema_version": 1,
+  "source_release": "4.20.0",
+  "source_revision": "1edbee874129aa85e26e592d9649826e85e1ac6b"
+}

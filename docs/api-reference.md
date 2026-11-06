@@ -28,6 +28,12 @@ understand their scope before composing a host-owned learner or solver.
 the existing runtime. Use [extensions and parallelism](extensibility.md) for lifecycle
 and worker-state guidance.
 
+The integration source adds [native semantic definitions and frozen decision evidence](api/native.md)
+without changing these runtime classes. Follow the
+[native CI decision walkthrough](native-policy-semantics.md) to inspect all 37
+policy names, capture one actual choice before evaluation, and interpret the
+retained artifact's limits.
+
 ## Retain source and result evidence
 
 | Contract/API | Purpose | Complete guide |

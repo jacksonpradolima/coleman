@@ -46,8 +46,9 @@ class Agent:
             The bandit instance the agent interacts with.
         seed : int, optional
             Seed for the internal RNG used for the random initial shuffle at t=0.
-            When provided, repeated runs with the same seed produce identical
-            prioritization sequences.  When ``None``, the shuffle is non-deterministic.
+            Controls that owned shuffle only, not policy-global RNG, native tie
+            ordering or complete-run determinism. ``reset`` does not rewind this
+            generator. When ``None``, its initial state is non-deterministic.
         """
         self.policy = policy
         self.bandit: Bandit | None = bandit

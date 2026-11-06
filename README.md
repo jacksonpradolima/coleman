@@ -120,9 +120,10 @@ Follow the linked guide for a complete example and the evidence it supports.
 
 ## MAB policies available
 
-**37 selectable policies** cover simple comparators, confidence bounds, Bayesian
-sampling, changing histories, contextual features, subsets, pairwise rankings and
-policy portfolios. These are the actual native configuration names:
+**37 native configuration names** cover simple comparators, confidence bounds, Bayesian
+scores, changing histories, contextual features and portfolio-style ranking
+recipes. These are the actual native configuration names; their names describe
+families rather than certifying sampled-action or feedback guarantees:
 
 | Family | Available policies |
 | --- | --- |
@@ -138,6 +139,13 @@ policy portfolios. These are the actual native configuration names:
 
 Use the [policy guide](docs/policies.md) to understand the families, reward choices,
 required parameters and contextual feature availability. The
+[native behavior audit](docs/native-policy-semantics.md) explains what all 37
+recipes actually consume and emit, their factory/window restrictions, and how to
+retain versioned pre-evaluation rankings without treating scores as probabilities.
+Three legacy factory routes need the documented explicit window-agent construction;
+the audit preserves those limits alongside the 34 successful factory recipes.
+This new audit API requires the reviewed source wheel; the published v4 runner
+keeps its existing behavior. The
 [constructor reference](docs/api/policy.md) gives the exact API; configuration packs
 cover a subset of the policies. The [baseline workflow](docs/comparable-baselines.md)
 adds history-based heuristic comparators under a declared common protocol.

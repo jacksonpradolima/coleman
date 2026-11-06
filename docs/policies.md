@@ -20,22 +20,32 @@ belong in the corresponding reward branch of `algorithm`; some windowed methods
 also require `window_sizes`. Use the [configuration reference](configuration.md)
 and [constructor API](api/policy.md) for the exact fields. A configuration pack
 is a preset for a subset of these names, not the complete policy inventory.
+The [native decision walkthrough](native-policy-semantics.md) explains the actual
+37 mechanisms, their factory dispositions and an explicit pre-evaluation record
+available in the unreleased v5 integration source. Three named windowed factory
+routes need explicit refusal rather than being advertised as successful recipes.
 
 | Family | Native configuration names | What changes in the ranking |
 | --- | --- | --- |
 | Random and greedy | `Random`, `Greedy`, `EpsilonGreedy`, `DecayEpsilonGreedy`, `OptimisticGreedy`, `EpsilonDecreasing` | Start with random order, exploit accumulated value, or vary explicit exploration |
 | Confidence-based | `UCB`, `UCB1`, `UCB2`, `KLUCB`, `UCBTuned`, `UCBV`, `MOSSUCB` | Combine accumulated value with different exploration/confidence constructions |
-| Bayesian and stochastic | `ThompsonSampling`, `BayesianUCB`, `BootstrappedThompson`, `Softmax`, `Pursuit`, `PHE` | Sample, randomize or update selection preferences using the observed feedback |
-| Adversarial | `EXP3`, `EXP3IX` | Use exponential-weight exploration mechanisms |
+| Bayesian and stochastic | `ThompsonSampling`, `BayesianUCB`, `BootstrappedThompson`, `Softmax`, `Pursuit`, `PHE` | Rank sampled scores, posterior scores or maintained preferences; Softmax and Pursuit sort preferences without sampling them |
+| Adversarial-inspired ranking | `EXP3`, `EXP3IX` | Sort exponential-weight scores and update all current names using native reward deltas |
 | Changing-history | `SlidingWindowUCB`, `DiscountedUCB`, `ChangeDetectionUCB`, `FRRMAB`, `SlMAB` | Adapt the use of older feedback through windows, discounting, detected changes or rank-based credit |
 | Contextual | `LinUCB`, `SWLinUCB`, `LinTS`, `SWLinTS`, `ContextualEpsilonGreedy`, `SWContextualEpsilonGreedy` | Condition a test's score on configured feature vectors |
-| Combinatorial | `CombinatorialUCB`, `CombinatorialThompson` | Prioritize a subset while retaining the native full-ranking interface |
-| Dueling/ranking | `DuelingUCB`, `PairwiseThompsonRanking` | Build a ranking using pairwise preference estimates |
-| Portfolio | `PortfolioUCB` | Select among declared candidate policies online |
+| Combinatorial-inspired ranking | `CombinatorialUCB`, `CombinatorialThompson` | Return the complete score order; the native `ordered[:k] + ordered[k:]` operation selects no subset |
+| Dueling-inspired ranking | `DuelingUCB`, `PairwiseThompsonRanking` | Rank pair estimates updated from the policy's own previous order, without observed pairwise preferences |
+| Policy portfolio | `PortfolioUCB` | Select candidate ranking policies sharing one underlying agent and its native values |
 
 The policy families expose different hypotheses to test. Keep their actual native
 reward/update and feedback contracts visible: sharing an algorithm name does not
 establish the regret guarantee or feedback model of the original publication.
+The actual factory paths for `SlMAB`, `SWLinTS` and
+`SWContextualEpsilonGreedy` select agents missing the required window capability.
+`SlidingWindowUCB` takes a mean-ranking fallback and ignores factory windows.
+The [catalog and migration guidance](native-policy-semantics.md#the-37-native-ranking-mechanisms)
+distinguish these paths from separately constructed window agents. Existing raw
+behavior is preserved; the explicit capture API refuses incompatible routes.
 
 ## Connect a policy to its research
 

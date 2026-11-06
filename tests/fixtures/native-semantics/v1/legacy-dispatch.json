@@ -1,0 +1,968 @@
+{
+  "comparison_scope": "same_host_cpython_3_14_6_macos_arm64_native_pins",
+  "policies": [
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.mab.stochastic.BayesianUCBPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "alpha_prior": 1.0,
+        "beta_prior": 1.0,
+        "c": 2.0
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "BayesianUCB",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.mab.nonstationary.BootstrappedThompsonPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "n_bootstrap": 8
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "BootstrappedThompson",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.mab.nonstationary.ChangeDetectionUCBPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "c": 1.0,
+        "threshold": 0.25,
+        "window": 3
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "ChangeDetectionUCB",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.combinatorial.policies.CombinatorialThompsonPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "alpha_prior": 1.0,
+        "beta_prior": 1.0,
+        "subset_size": 5
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "CombinatorialThompson",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.combinatorial.policies.CombinatorialUCBPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "c": 1.0,
+        "subset_size": 5
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "CombinatorialUCB",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.contextual.ContextualAgent",
+          "policy_type": "coleman.policy.contextual.contextual_epsilon_greedy.ContextualEpsilonGreedyPolicy",
+          "requires_context_setup": true,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "epsilon": 0.1
+      },
+      "context_required": true,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "ContextualEpsilonGreedy",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.greedy.decay_epsilon.DecayEpsilonGreedyPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "decay": 0.5,
+        "epsilon0": 1.0,
+        "min_epsilon": 0.01
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "DecayEpsilonGreedy",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.mab.nonstationary.DiscountedUCBPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "c": 1.0,
+        "gamma": 0.95
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "DiscountedUCB",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.dueling.policies.DuelingUCBPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "c": 1.0
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "DuelingUCB",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.mab.exploration.EpsilonDecreasingPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "decay": 0.5,
+        "epsilon0": 1.0
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "EpsilonDecreasing",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.greedy.epsilon_greedy.EpsilonGreedyPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "epsilon": 0.1
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "EpsilonGreedy",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.mab.adversarial.EXP3Policy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "gamma": 0.07
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "EXP3",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.mab.adversarial.EXP3IXPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "eta": 0.1,
+        "gamma": 0.01
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "EXP3IX",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.sliding_window.RewardSlidingWindowAgent",
+          "policy_type": "coleman.policy.mab.frrmab.FRRMABPolicy",
+          "requires_context_setup": false,
+          "window_size": 2
+        },
+        {
+          "agent_type": "coleman.agent.sliding_window.RewardSlidingWindowAgent",
+          "policy_type": "coleman.policy.mab.frrmab.FRRMABPolicy",
+          "requires_context_setup": false,
+          "window_size": 3
+        }
+      ],
+      "constructor_parameters": {
+        "c": 1.0,
+        "decayed_factor": 1
+      },
+      "context_required": false,
+      "expected_native_rows": 8,
+      "factory_outcome": "completed",
+      "name": "FRRMAB",
+      "policy_identity_groups": [
+        [
+          0,
+          1
+        ]
+      ],
+      "single_trace_reproducibility": "not_qualified",
+      "window_sizes": [
+        2,
+        3
+      ]
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.greedy.epsilon_greedy.GreedyPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {},
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "Greedy",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.mab.stochastic.KLUCBPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "c": 3.0
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "KLUCB",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.contextual.ContextualAgent",
+          "policy_type": "coleman.policy.contextual.lin_ts.LinTSPolicy",
+          "requires_context_setup": true,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "alpha": 0.5
+      },
+      "context_required": true,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "LinTS",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.contextual.ContextualAgent",
+          "policy_type": "coleman.policy.contextual.linucb.LinUCBPolicy",
+          "requires_context_setup": true,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "alpha": 0.5
+      },
+      "context_required": true,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "LinUCB",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.mab.stochastic.MOSSUCBPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {},
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "MOSSUCB",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.greedy.optimistic.OptimisticGreedyPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "optimistic_q": 1.0
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "OptimisticGreedy",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.dueling.policies.PairwiseThompsonRankingPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "alpha_prior": 1.0,
+        "beta_prior": 1.0
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "PairwiseThompsonRanking",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.mab.stochastic.PHEPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "a": 1.0
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "PHE",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.portfolio.policies.PortfolioUCBPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "c": 1.0,
+        "policies": [
+          "Random",
+          "UCB"
+        ],
+        "window_size": 3
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "PortfolioUCB",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.mab.exploration.PursuitPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "beta": 0.1
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "Pursuit",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.random.random_policy.RandomPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {},
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "Random",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.ucb.sliding_window.SlidingWindowUCBPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "c": 1.0
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "SlidingWindowUCB",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": [
+        2,
+        3
+      ]
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.mab.slmab.SlMABPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {},
+      "context_required": false,
+      "expected_failure": {
+        "message": "'RewardAgent' object has no attribute 'history'",
+        "phase": "native_run",
+        "type": "builtins.AttributeError"
+      },
+      "expected_native_rows": 0,
+      "factory_outcome": "failed",
+      "name": "SlMAB",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": [
+        2,
+        3
+      ]
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.mab.exploration.SoftmaxPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "tau": 0.2
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "Softmax",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.contextual.ContextualAgent",
+          "policy_type": "coleman.policy.contextual.contextual_epsilon_greedy.SWContextualEpsilonGreedyPolicy",
+          "requires_context_setup": true,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "epsilon": 0.1
+      },
+      "context_required": true,
+      "expected_failure": {
+        "message": "SWContextualEpsilonGreedyPolicy requires a SlidingWindowContextualAgent",
+        "phase": "native_run",
+        "type": "builtins.TypeError"
+      },
+      "expected_native_rows": 0,
+      "factory_outcome": "failed",
+      "name": "SWContextualEpsilonGreedy",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": [
+        2,
+        3
+      ]
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.contextual.ContextualAgent",
+          "policy_type": "coleman.policy.contextual.lin_ts.SWLinTSPolicy",
+          "requires_context_setup": true,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "alpha": 0.5
+      },
+      "context_required": true,
+      "expected_failure": {
+        "message": "SWLinTSPolicy requires a SlidingWindowContextualAgent",
+        "phase": "native_run",
+        "type": "builtins.TypeError"
+      },
+      "expected_native_rows": 0,
+      "factory_outcome": "failed",
+      "name": "SWLinTS",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": [
+        2,
+        3
+      ]
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.sliding_window.SlidingWindowContextualAgent",
+          "policy_type": "coleman.policy.contextual.linucb.SWLinUCBPolicy",
+          "requires_context_setup": true,
+          "window_size": 2
+        },
+        {
+          "agent_type": "coleman.agent.sliding_window.SlidingWindowContextualAgent",
+          "policy_type": "coleman.policy.contextual.linucb.SWLinUCBPolicy",
+          "requires_context_setup": true,
+          "window_size": 3
+        }
+      ],
+      "constructor_parameters": {
+        "alpha": 0.5
+      },
+      "context_required": true,
+      "expected_native_rows": 8,
+      "factory_outcome": "completed",
+      "name": "SWLinUCB",
+      "policy_identity_groups": [
+        [
+          0,
+          1
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": [
+        2,
+        3
+      ]
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.mab.stochastic.ThompsonSamplingPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "alpha_prior": 1.0,
+        "beta_prior": 1.0
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "ThompsonSampling",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.ucb.policies.UCBPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "c": 1.0
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "UCB",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.ucb.policies.UCB1Policy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "c": 1.0
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "UCB1",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.ucb.ucb2.UCB2Policy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "alpha": 0.2,
+        "c": 1.0
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "UCB2",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.mab.stochastic.UCBTunedPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "c": 1.0
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "UCBTuned",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    },
+    {
+      "agents": [
+        {
+          "agent_type": "coleman.agent.reward_agent.RewardAgent",
+          "policy_type": "coleman.policy.mab.stochastic.UCBVPolicy",
+          "requires_context_setup": false,
+          "window_size": null
+        }
+      ],
+      "constructor_parameters": {
+        "b": 1.0,
+        "c": 1.0
+      },
+      "context_required": false,
+      "expected_native_rows": 4,
+      "factory_outcome": "completed",
+      "name": "UCBV",
+      "policy_identity_groups": [
+        [
+          0
+        ]
+      ],
+      "single_trace_reproducibility": "same_host_pair_only",
+      "window_sizes": []
+    }
+  ],
+  "producer": {
+    "effective_hash_seed": "not_controlled_by_request",
+    "numpy": "2.4.6",
+    "platform": "macOS arm64",
+    "polars": "1.39.3",
+    "polars_threads": 1,
+    "python": "3.14.6",
+    "python_ignore_environment": true,
+    "requested_hash_seed": "0",
+    "seed": 20261106
+  },
+  "schema_version": 1,
+  "scope": "Recorded actual legacy routes and bounded outcomes; not universal numerical/ranking goldens",
+  "source_revision": "1edbee874129aa85e26e592d9649826e85e1ac6b"
+}

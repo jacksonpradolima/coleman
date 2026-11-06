@@ -1,0 +1,158 @@
+{
+  "budget": {
+    "mode": "ratio",
+    "modeled_seconds": 3.0,
+    "value": 0.5
+  },
+  "context_meaning": "authored prior_score; no historical availability claim",
+  "duration_unit": "s",
+  "evidence_basis": "authored_synthetic_ci",
+  "rows": [
+    {
+      "BuildId": 1,
+      "CalcPrio": 0,
+      "Duration": 1.0,
+      "LastResults": "[]",
+      "LastRun": "2026-01-01",
+      "Name": "unit",
+      "NumErrors": 0,
+      "NumRan": 1,
+      "Verdict": 0,
+      "prior_score": 0.25
+    },
+    {
+      "BuildId": 1,
+      "CalcPrio": 0,
+      "Duration": 2.0,
+      "LastResults": "[]",
+      "LastRun": "2026-01-01",
+      "Name": "integration",
+      "NumErrors": 0,
+      "NumRan": 1,
+      "Verdict": 0,
+      "prior_score": 0.5
+    },
+    {
+      "BuildId": 1,
+      "CalcPrio": 0,
+      "Duration": 3.0,
+      "LastResults": "[]",
+      "LastRun": "2026-01-01",
+      "Name": "system",
+      "NumErrors": 1,
+      "NumRan": 1,
+      "Verdict": 1,
+      "prior_score": 0.75
+    },
+    {
+      "BuildId": 2,
+      "CalcPrio": 0,
+      "Duration": 1.0,
+      "LastResults": "[]",
+      "LastRun": "2026-01-01",
+      "Name": "unit",
+      "NumErrors": 0,
+      "NumRan": 1,
+      "Verdict": 0,
+      "prior_score": 0.25
+    },
+    {
+      "BuildId": 2,
+      "CalcPrio": 0,
+      "Duration": 2.0,
+      "LastResults": "[]",
+      "LastRun": "2026-01-01",
+      "Name": "integration",
+      "NumErrors": 1,
+      "NumRan": 1,
+      "Verdict": 1,
+      "prior_score": 0.5
+    },
+    {
+      "BuildId": 2,
+      "CalcPrio": 0,
+      "Duration": 3.0,
+      "LastResults": "[]",
+      "LastRun": "2026-01-01",
+      "Name": "system",
+      "NumErrors": 0,
+      "NumRan": 1,
+      "Verdict": 0,
+      "prior_score": 0.75
+    },
+    {
+      "BuildId": 3,
+      "CalcPrio": 0,
+      "Duration": 1.0,
+      "LastResults": "[]",
+      "LastRun": "2026-01-01",
+      "Name": "unit",
+      "NumErrors": 1,
+      "NumRan": 1,
+      "Verdict": 1,
+      "prior_score": 0.25
+    },
+    {
+      "BuildId": 3,
+      "CalcPrio": 0,
+      "Duration": 2.0,
+      "LastResults": "[]",
+      "LastRun": "2026-01-01",
+      "Name": "integration",
+      "NumErrors": 0,
+      "NumRan": 1,
+      "Verdict": 0,
+      "prior_score": 0.5
+    },
+    {
+      "BuildId": 3,
+      "CalcPrio": 0,
+      "Duration": 3.0,
+      "LastResults": "[]",
+      "LastRun": "2026-01-01",
+      "Name": "system",
+      "NumErrors": 0,
+      "NumRan": 1,
+      "Verdict": 0,
+      "prior_score": 0.75
+    },
+    {
+      "BuildId": 4,
+      "CalcPrio": 0,
+      "Duration": 1.0,
+      "LastResults": "[]",
+      "LastRun": "2026-01-01",
+      "Name": "unit",
+      "NumErrors": 0,
+      "NumRan": 1,
+      "Verdict": 0,
+      "prior_score": 0.25
+    },
+    {
+      "BuildId": 4,
+      "CalcPrio": 0,
+      "Duration": 2.0,
+      "LastResults": "[]",
+      "LastRun": "2026-01-01",
+      "Name": "integration",
+      "NumErrors": 0,
+      "NumRan": 1,
+      "Verdict": 0,
+      "prior_score": 0.5
+    },
+    {
+      "BuildId": 4,
+      "CalcPrio": 0,
+      "Duration": 3.0,
+      "LastResults": "[]",
+      "LastRun": "2026-01-01",
+      "Name": "system",
+      "NumErrors": 1,
+      "NumRan": 1,
+      "Verdict": 1,
+      "prior_score": 0.75
+    }
+  ],
+  "schema_version": 1,
+  "verdict_meaning": "0=pass;1=fail"
+}

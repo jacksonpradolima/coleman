@@ -1,0 +1,181 @@
+{
+  "resources": [
+    {
+      "line_count": 232,
+      "path": "coleman/agent/base.py",
+      "source_sha256": "939246e7cf11256f01db608a6fcdf9b7ab5bff86c8e86133727ddab79a4957b2"
+    },
+    {
+      "line_count": 142,
+      "path": "coleman/agent/contextual.py",
+      "source_sha256": "1e1b384d7fb8bf6432d08afd772c45dd7738a95d9d306b77ca972e01c4ece981"
+    },
+    {
+      "line_count": 82,
+      "path": "coleman/agent/reward_agent.py",
+      "source_sha256": "6aa9a8608a3d78d9a42196201c5d6d50573fdd1624bd646862006eaf19bc9a55"
+    },
+    {
+      "line_count": 219,
+      "path": "coleman/agent/sliding_window.py",
+      "source_sha256": "899e2b38b4f6eeeb66e3757898f48e218cd0ca0e1f830962426b75dcda3ec5d4"
+    },
+    {
+      "line_count": 220,
+      "path": "coleman/checkpoint/checkpoint_store.py",
+      "source_sha256": "643a66894e3c3ed9cb3f2864ecbd9c8ddb60495dcf47278c469aacd0716580c4"
+    },
+    {
+      "line_count": 877,
+      "path": "coleman/environment.py",
+      "source_sha256": "7b4ecea534f7469bc3957a0acb4825f12bd3d2e0a5c925e687f1247c41aa14cb"
+    },
+    {
+      "line_count": 195,
+      "path": "coleman/evaluation/base.py",
+      "source_sha256": "411a434832d5d03a45a46a8b5f9fd057e97b3e91ed02f86fce833f33561a4883"
+    },
+    {
+      "line_count": 70,
+      "path": "coleman/policy/base.py",
+      "source_sha256": "0c8827f79cf44fb758008d79dd43d0aa086877b75fa58632b7a2e8cb07aedef8"
+    },
+    {
+      "line_count": 159,
+      "path": "coleman/policy/combinatorial/policies.py",
+      "source_sha256": "87f84ba49387e1f861779f66e3f54f7dfb21be9df0ccd2fd1aa4b37a288e2876"
+    },
+    {
+      "line_count": 102,
+      "path": "coleman/policy/contextual/contextual_epsilon_greedy.py",
+      "source_sha256": "90bde28c17074cbeec6381f2daaa3fec44a8a1896a8ec5336ac0bb3fe0353ec0"
+    },
+    {
+      "line_count": 83,
+      "path": "coleman/policy/contextual/lin_ts.py",
+      "source_sha256": "f74b23ef065434e7a83755de67eb4ad726353bcc3f99f00799a22934acd10ee1"
+    },
+    {
+      "line_count": 231,
+      "path": "coleman/policy/contextual/linucb.py",
+      "source_sha256": "9a0e5d7d9769733c2dce9c481463f86da543df8701ce0adb7e0da2426ebfdf64"
+    },
+    {
+      "line_count": 199,
+      "path": "coleman/policy/dueling/policies.py",
+      "source_sha256": "2373bc7368fa0bbcf8efba110592152ad6897b3f24e8c70679889e1a02b08deb"
+    },
+    {
+      "line_count": 49,
+      "path": "coleman/policy/greedy/decay_epsilon.py",
+      "source_sha256": "2aa0a4d1a6901d5991f9a14cedbb3171bb3c92d8259cf1890402fdd25e99d230"
+    },
+    {
+      "line_count": 104,
+      "path": "coleman/policy/greedy/epsilon_greedy.py",
+      "source_sha256": "dea4f0b1001aacd7d42fb533a356ddda5b936dcc88a486e7ed8233f9cd36f2d8"
+    },
+    {
+      "line_count": 36,
+      "path": "coleman/policy/greedy/optimistic.py",
+      "source_sha256": "a8a215e12de9de8e72f42c1dc2b3c43586de517c63b82d41f19746c57cd6c2ea"
+    },
+    {
+      "line_count": 100,
+      "path": "coleman/policy/mab/adversarial.py",
+      "source_sha256": "fa5d3f80673115a98f56bd964994e5c8df80fd8bb06d7aaeca4ccd6555bed2a9"
+    },
+    {
+      "line_count": 134,
+      "path": "coleman/policy/mab/exploration.py",
+      "source_sha256": "984f2496df18d0a50b09e544bc84cb8fdf481441f03a4c7898d362502155ed86"
+    },
+    {
+      "line_count": 149,
+      "path": "coleman/policy/mab/frrmab.py",
+      "source_sha256": "eea4277686b894c9960ec0397d47176e45aea1f03733c6433f9f7a26ebb6c889"
+    },
+    {
+      "line_count": 200,
+      "path": "coleman/policy/mab/nonstationary.py",
+      "source_sha256": "280670580484d0c3cb5b687ffa14d5cc5a2edab76c061cab38d750d8536afb24"
+    },
+    {
+      "line_count": 49,
+      "path": "coleman/policy/mab/shared.py",
+      "source_sha256": "d0f94d8e30b5afb2848ede7475da1dacbc6fd526a52873f1cb62747a396dcbd9"
+    },
+    {
+      "line_count": 114,
+      "path": "coleman/policy/mab/slmab.py",
+      "source_sha256": "c6049b1be9d20025f594e8721f0b86f42b142f752253407da2f68d2170ca8021"
+    },
+    {
+      "line_count": 346,
+      "path": "coleman/policy/mab/stochastic.py",
+      "source_sha256": "7a0c1b7d3165345a3a45aa7b34705a9cd4d3ff10ef66b7fe3acf5bdf42c94164"
+    },
+    {
+      "line_count": 98,
+      "path": "coleman/policy/portfolio/policies.py",
+      "source_sha256": "badcc5daa52365742178ecee11e9fc05b2e132653091969050dba540203f3842"
+    },
+    {
+      "line_count": 40,
+      "path": "coleman/policy/random/random_policy.py",
+      "source_sha256": "fb83adc562f0cabb6ef9ad908a8572a82f3e5fc4dec3df1b2ba224a8fd46c5ef"
+    },
+    {
+      "line_count": 127,
+      "path": "coleman/policy/ucb/policies.py",
+      "source_sha256": "94a93f8bce58d3051550ff533a43abe69760d90bd4cbdfd36de79b675fc66768"
+    },
+    {
+      "line_count": 64,
+      "path": "coleman/policy/ucb/sliding_window.py",
+      "source_sha256": "922e3efe9bd4001a7ade3abbf483b5daccefe90bc2ba027f16166175eb476555"
+    },
+    {
+      "line_count": 49,
+      "path": "coleman/policy/ucb/ucb2.py",
+      "source_sha256": "946e385c2bbb0973bab05f5826839413761f836c6164a9cf85d0f71f5cfd6892"
+    },
+    {
+      "line_count": 76,
+      "path": "coleman/reward/apfdc_reward.py",
+      "source_sha256": "720c3b05fe47c8440f334011614395b1952b03d52dab9372c05ac612b41eb94d"
+    },
+    {
+      "line_count": 57,
+      "path": "coleman/reward/discounted_failures.py",
+      "source_sha256": "e425b0a34119b75d03ebfb289c9d37f7308b1ab10b0b062a30a91ac2b89f554e"
+    },
+    {
+      "line_count": 50,
+      "path": "coleman/reward/reciprocal_rank.py",
+      "source_sha256": "3db8509b5c528ca8742334fbbe4382501adc1998ea42cc405aa805e23e4711ce"
+    },
+    {
+      "line_count": 56,
+      "path": "coleman/reward/rnfail.py",
+      "source_sha256": "bb2465a2c0dabeb7480f30cf361f94955caae9f0a6e3e7b6516549fdaba15569"
+    },
+    {
+      "line_count": 77,
+      "path": "coleman/reward/timerank.py",
+      "source_sha256": "5d75068e8b679b86a0e6664c486d471c3afd47cf541c00f1357f8f1bdde7354f"
+    },
+    {
+      "line_count": 79,
+      "path": "coleman/reward/topk_rnfail.py",
+      "source_sha256": "467ef08280e0f86b71c584cd3cda880767f9bd5c921a6cf7a462551ce9cf0c05"
+    },
+    {
+      "line_count": 1278,
+      "path": "coleman/runner.py",
+      "source_sha256": "4901760edbb737226f1d681c15ff1a062872b00353d6a80ccb8cfb9f5b8a3095"
+    }
+  ],
+  "schema_version": 1,
+  "source_revision": "1edbee874129aa85e26e592d9649826e85e1ac6b"
+}

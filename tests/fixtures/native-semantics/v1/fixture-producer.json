@@ -1,0 +1,66 @@
+{
+  "cases": [
+    {
+      "context": null,
+      "current_verdicts": {
+        "integration": 0,
+        "unit": 1
+      },
+      "file": "exp3-decision.json",
+      "parameters": {
+        "gamma": 0.2
+      },
+      "policy": "EXP3",
+      "prior_observations": [
+        {
+          "integration": 0,
+          "unit": 0
+        }
+      ],
+      "window_size": null
+    },
+    {
+      "context": {
+        "feature": "signal",
+        "unit": "1",
+        "value": 1.0
+      },
+      "current_verdicts": {
+        "integration": 0,
+        "unit": 1
+      },
+      "file": "contextual-decision.json",
+      "parameters": {
+        "alpha": 0.0
+      },
+      "policy": "LinUCB",
+      "prior_observations": [],
+      "window_size": null
+    },
+    {
+      "context": {
+        "feature": "signal",
+        "unit": "1",
+        "value": 1.0
+      },
+      "current_verdicts": {
+        "integration": 0,
+        "unit": 1
+      },
+      "file": "window-decision.json",
+      "parameters": {
+        "alpha": 0.0
+      },
+      "policy": "SWLinUCB",
+      "prior_observations": [],
+      "window_size": 2
+    }
+  ],
+  "catalog_fingerprint": "sha256:1e2ef8ee12379af802bfd158c072adbb400e4e38fc6ea29df83f7d10db669ca4",
+  "evidence_basis": "authored_synthetic_ci",
+  "name": "public-authored-native-codec-producer",
+  "schema_version": 1,
+  "scope": "Retained canonical record bytes; not an installed runtime inventory or universal execution trace.",
+  "seed": 17,
+  "version": "1"
+}

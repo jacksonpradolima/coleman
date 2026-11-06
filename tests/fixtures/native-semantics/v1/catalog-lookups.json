@@ -1,0 +1,955 @@
+{
+  "catalog_fingerprint": "sha256:1e2ef8ee12379af802bfd158c072adbb400e4e38fc6ea29df83f7d10db669ca4",
+  "policies": [
+    {
+      "name": "BayesianUCB",
+      "policy_class": "coleman.policy.mab.stochastic.BayesianUCBPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.BayesianUCB.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.BayesianUCB.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.BayesianUCB",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "BootstrappedThompson",
+      "policy_class": "coleman.policy.mab.nonstationary.BootstrappedThompsonPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.BootstrappedThompson.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.BootstrappedThompson.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.BootstrappedThompson",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "ChangeDetectionUCB",
+      "policy_class": "coleman.policy.mab.nonstationary.ChangeDetectionUCBPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.ChangeDetectionUCB.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.ChangeDetectionUCB.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.ChangeDetectionUCB",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "CombinatorialThompson",
+      "policy_class": "coleman.policy.combinatorial.policies.CombinatorialThompsonPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.CombinatorialThompson.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.CombinatorialThompson.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.CombinatorialThompson",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "CombinatorialUCB",
+      "policy_class": "coleman.policy.combinatorial.policies.CombinatorialUCBPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.CombinatorialUCB.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.CombinatorialUCB.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.CombinatorialUCB",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "ContextualEpsilonGreedy",
+      "policy_class": "coleman.policy.contextual.contextual_epsilon_greedy.ContextualEpsilonGreedyPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.contextual.ContextualAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.ContextualEpsilonGreedy.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.ContextualEpsilonGreedy.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.ContextualEpsilonGreedy",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "DecayEpsilonGreedy",
+      "policy_class": "coleman.policy.greedy.decay_epsilon.DecayEpsilonGreedyPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.DecayEpsilonGreedy.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.DecayEpsilonGreedy.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.DecayEpsilonGreedy",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "DiscountedUCB",
+      "policy_class": "coleman.policy.mab.nonstationary.DiscountedUCBPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.DiscountedUCB.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.DiscountedUCB.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.DiscountedUCB",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "DuelingUCB",
+      "policy_class": "coleman.policy.dueling.policies.DuelingUCBPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.DuelingUCB.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.DuelingUCB.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.DuelingUCB",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "EXP3",
+      "policy_class": "coleman.policy.mab.adversarial.EXP3Policy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.EXP3.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.EXP3.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.EXP3",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "EXP3IX",
+      "policy_class": "coleman.policy.mab.adversarial.EXP3IXPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.EXP3IX.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.EXP3IX.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.EXP3IX",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "EpsilonDecreasing",
+      "policy_class": "coleman.policy.mab.exploration.EpsilonDecreasingPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.EpsilonDecreasing.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.EpsilonDecreasing.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.EpsilonDecreasing",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "EpsilonGreedy",
+      "policy_class": "coleman.policy.greedy.epsilon_greedy.EpsilonGreedyPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.EpsilonGreedy.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.EpsilonGreedy.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.EpsilonGreedy",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "FRRMAB",
+      "policy_class": "coleman.policy.mab.frrmab.FRRMABPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.sliding_window.RewardSlidingWindowAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.FRRMAB.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.FRRMAB.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "restricted"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.FRRMAB",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "Greedy",
+      "policy_class": "coleman.policy.greedy.epsilon_greedy.GreedyPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.Greedy.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.Greedy.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.Greedy",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "KLUCB",
+      "policy_class": "coleman.policy.mab.stochastic.KLUCBPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.KLUCB.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.KLUCB.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.KLUCB",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "LinTS",
+      "policy_class": "coleman.policy.contextual.lin_ts.LinTSPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.contextual.ContextualAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.LinTS.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.LinTS.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.LinTS",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "LinUCB",
+      "policy_class": "coleman.policy.contextual.linucb.LinUCBPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.contextual.ContextualAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.LinUCB.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.LinUCB.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.LinUCB",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "MOSSUCB",
+      "policy_class": "coleman.policy.mab.stochastic.MOSSUCBPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.MOSSUCB.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.MOSSUCB.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.MOSSUCB",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "OptimisticGreedy",
+      "policy_class": "coleman.policy.greedy.optimistic.OptimisticGreedyPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.OptimisticGreedy.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.OptimisticGreedy.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.OptimisticGreedy",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "PHE",
+      "policy_class": "coleman.policy.mab.stochastic.PHEPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.PHE.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.PHE.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.PHE",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "PairwiseThompsonRanking",
+      "policy_class": "coleman.policy.dueling.policies.PairwiseThompsonRankingPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.PairwiseThompsonRanking.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.PairwiseThompsonRanking.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "restricted"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.PairwiseThompsonRanking",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "PortfolioUCB",
+      "policy_class": "coleman.policy.portfolio.policies.PortfolioUCBPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.PortfolioUCB.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.PortfolioUCB.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "restricted"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.PortfolioUCB",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "Pursuit",
+      "policy_class": "coleman.policy.mab.exploration.PursuitPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.Pursuit.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.Pursuit.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.Pursuit",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "Random",
+      "policy_class": "coleman.policy.random.random_policy.RandomPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.Random.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.Random.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.Random",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "SWContextualEpsilonGreedy",
+      "policy_class": "coleman.policy.contextual.contextual_epsilon_greedy.SWContextualEpsilonGreedyPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.contextual.ContextualAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.SWContextualEpsilonGreedy.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.SWContextualEpsilonGreedy.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "unsupported"
+        },
+        {
+          "agent_class": "coleman.agent.sliding_window.SlidingWindowContextualAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.SWContextualEpsilonGreedy.manual-window.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.SWContextualEpsilonGreedy.manual-window",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "restricted"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.SWContextualEpsilonGreedy",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "SWLinTS",
+      "policy_class": "coleman.policy.contextual.lin_ts.SWLinTSPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.contextual.ContextualAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.SWLinTS.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.SWLinTS.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "unsupported"
+        },
+        {
+          "agent_class": "coleman.agent.sliding_window.SlidingWindowContextualAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.SWLinTS.manual-window.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.SWLinTS.manual-window",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "restricted"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.SWLinTS",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "SWLinUCB",
+      "policy_class": "coleman.policy.contextual.linucb.SWLinUCBPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.sliding_window.SlidingWindowContextualAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.SWLinUCB.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.SWLinUCB.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "restricted"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.SWLinUCB",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "SlMAB",
+      "policy_class": "coleman.policy.mab.slmab.SlMABPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.SlMAB.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.SlMAB.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "unsupported"
+        },
+        {
+          "agent_class": "coleman.agent.sliding_window.RewardSlidingWindowAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.SlMAB.manual-window.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.SlMAB.manual-window",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "restricted"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.SlMAB",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "SlidingWindowUCB",
+      "policy_class": "coleman.policy.ucb.sliding_window.SlidingWindowUCBPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.SlidingWindowUCB.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.SlidingWindowUCB.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "restricted"
+        },
+        {
+          "agent_class": "coleman.agent.sliding_window.RewardSlidingWindowAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.SlidingWindowUCB.manual-window.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.SlidingWindowUCB.manual-window",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "restricted"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.SlidingWindowUCB",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "Softmax",
+      "policy_class": "coleman.policy.mab.exploration.SoftmaxPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.Softmax.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.Softmax.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.Softmax",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "ThompsonSampling",
+      "policy_class": "coleman.policy.mab.stochastic.ThompsonSamplingPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.ThompsonSampling.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.ThompsonSampling.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.ThompsonSampling",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "UCB",
+      "policy_class": "coleman.policy.ucb.policies.UCBPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.UCB.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.UCB.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.UCB",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "UCB1",
+      "policy_class": "coleman.policy.ucb.policies.UCB1Policy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.UCB1.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.UCB1.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.UCB1",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "UCB2",
+      "policy_class": "coleman.policy.ucb.ucb2.UCB2Policy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.UCB2.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.UCB2.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.UCB2",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "UCBTuned",
+      "policy_class": "coleman.policy.mab.stochastic.UCBTunedPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.UCBTuned.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.UCBTuned.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.UCBTuned",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    },
+    {
+      "name": "UCBV",
+      "policy_class": "coleman.policy.mab.stochastic.UCBVPolicy",
+      "routes": [
+        {
+          "agent_class": "coleman.agent.reward_agent.RewardAgent",
+          "feedback_ref": {
+            "id": "coleman.native.ranking.UCBV.factory.feedback",
+            "version": "legacy-4.20.0-v1"
+          },
+          "semantic_ref": {
+            "id": "coleman.native.ranking.UCBV.factory",
+            "version": "legacy-4.20.0-v1"
+          },
+          "status": "supported"
+        }
+      ],
+      "semantic_ref": {
+        "id": "coleman.native.ranking.UCBV",
+        "version": "legacy-4.20.0-v1"
+      },
+      "theory_status": "not_claimed"
+    }
+  ],
+  "rewards": [
+    {
+      "name": "APFDc",
+      "reward_class": "coleman.reward.apfdc_reward.APFDcReward",
+      "semantic_ref": {
+        "id": "coleman.native.reward.APFDc",
+        "version": "legacy-4.20.0-v1"
+      }
+    },
+    {
+      "name": "DiscountedFailure",
+      "reward_class": "coleman.reward.discounted_failures.DiscountedFailureReward",
+      "semantic_ref": {
+        "id": "coleman.native.reward.DiscountedFailure",
+        "version": "legacy-4.20.0-v1"
+      }
+    },
+    {
+      "name": "RNFail",
+      "reward_class": "coleman.reward.rnfail.RNFailReward",
+      "semantic_ref": {
+        "id": "coleman.native.reward.RNFail",
+        "version": "legacy-4.20.0-v1"
+      }
+    },
+    {
+      "name": "ReciprocalRank",
+      "reward_class": "coleman.reward.reciprocal_rank.ReciprocalRankReward",
+      "semantic_ref": {
+        "id": "coleman.native.reward.ReciprocalRank",
+        "version": "legacy-4.20.0-v1"
+      }
+    },
+    {
+      "name": "TimeRank",
+      "reward_class": "coleman.reward.timerank.TimeRankReward",
+      "semantic_ref": {
+        "id": "coleman.native.reward.TimeRank",
+        "version": "legacy-4.20.0-v1"
+      }
+    },
+    {
+      "name": "TopKRNFail",
+      "reward_class": "coleman.reward.topk_rnfail.TopKRNFailReward",
+      "semantic_ref": {
+        "id": "coleman.native.reward.TopKRNFail",
+        "version": "legacy-4.20.0-v1"
+      }
+    }
+  ],
+  "schema_version": 1
+}
