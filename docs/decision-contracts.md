@@ -252,6 +252,12 @@ They are pure in-memory helpers, not durable exactly-once delivery or idempotent
 learner updates. Crash recovery and durable state frontiers need the separately
 qualified session.
 
+For an explicit processing schedule, use the v5 source's
+[delayed CI replay](causal-replay.md). It joins feedback to producing decisions,
+keeps immature or unreceived values pending, and distinguishes the information
+cutoff from the actual update instant. Its caller-owned continuation does not
+replace the later durable commit foundation.
+
 Shared legacy primitives retain reexports through their original result,
 selection and temporal namespaces. Existing artifacts, run IDs and older numeric
 projection retain their bytes and meaning. A legacy result cannot be upgraded

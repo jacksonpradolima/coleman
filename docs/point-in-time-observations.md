@@ -259,6 +259,12 @@ flowchart LR
 
 ## Continue the workflow
 
+An observation history selects the information visible at a cutoff. The v5
+source's [delayed-feedback replay](causal-replay.md) additionally schedules
+eligible updates, preserves live decisions after corrections and keeps decision
+and completed-update counts separate. It reuses these histories without
+changing their readers or inventing missing receipt/maturity facts.
+
 Use these availability boundaries in [protected evaluation](protected-evaluation.md) or [shadow
 evaluation](prospective-shadow.md). The [glossary](glossary.md) distinguishes source availability
 from first receipt.

@@ -11,13 +11,16 @@ now implements [generic decision contracts and direct-use protocols](decision-co
 in a lightweight core, together with [explicit objective and loss mappings](objectives.md).
 It also provides [source-pinned native ranking semantics and explicit decision capture](native-policy-semantics.md)
 without changing the legacy policy mechanisms or automatically enriching runner output.
+The optional [causal replay layer](causal-replay.md) adds bounded delayed-feedback
+processing, explicit information/application frontiers and caller-owned typed
+continuation. It does not supply a learner or a durable commit engine.
 Generic learners, adapters and durable sessions below
 remain planned until individually qualified. The original implementation baseline
 is COLEMAN **4.20.0**, commit
 `1edbee874129aa85e26e592d9649826e85e1ac6b`. Examples explicitly identified as
 existing use that source. Proposed namespaces and call sequences below are design
 contracts to qualify in subsequent work, except for the explicitly linked
-implemented contract, objective and native-evidence layers. No v5 release wheel has been published.
+implemented contract, objective, native-evidence and replay layers. No v5 release wheel has been published.
 
 Read the [compatibility and migration policy](v5-compatibility.md) alongside this
 specification. Use the [current getting-started guide](getting-started.md) for the
@@ -70,7 +73,8 @@ introduced.
 | Learner adapter | Supported decision/update capabilities, algorithm statistics, RNG and state codec | Workspace construction, durable delivery deduplication or external effects |
 | Solver | Declared finite/continuous optimization, limits and result certificates/status | Learning, executing the proposal or manufacturing missing inputs |
 | Execution adapter | Work or effects, proposed-to-executed action mapping, outcome receipts and reconciliation limits | A regret guarantee, universal retry safety or automatically observed counterfactuals |
-| Optional session | Accepted event identity, ordering, applied-event deduplication and a committed frontier | Changing past decisions after a correction without a new replay lineage |
+| Optional bounded replay | Eligible event selection, revision/decision binding, declared processing order and typed continuation | Durable acknowledgement, implicit continuous processing or changing earlier live decisions |
+| Durable session, planned | Persisted acceptance, applied-event deduplication and a coherent committed frontier | Exactly-once physical effects without an executor-specific contract |
 | Optional storage adapter | Atomic publication, reads, durability and conflict detection under its documented backend assumptions | Authenticating a source or proving an external effect occurred once |
 | Application service | Frozen plans, registered trusted implementations, attempts, cancellation and orchestration | Mandatory dependencies for direct mathematical calls |
 | Transport | CLI/MCP input validation and calls into the shared service | Its own learner, solver or orchestration rules |
@@ -89,6 +93,10 @@ flowchart TD
     Host[User application or notebook] --> DirectLearner[Planned direct learner and MAB capabilities]
     Host --> DirectSolver[Existing finite solvers; broader solver boundary planned]
     Host --> Problem[Planned typed problem adapters including CI]
+    Host --> Replay[Optional bounded causal replay]
+    Replay --> Contracts
+    Replay --> Objectives
+    Replay --> Continuation[Caller-owned typed continuation]
     Problem --> Contracts[Implemented generic contracts and capability validation]
     Problem --> Objectives[Explicit objective definitions and pure loss mappings]
     Objectives --> Contracts
@@ -99,7 +107,7 @@ flowchart TD
     Service --> DirectLearner
     Service --> DirectSolver
     Service --> Execution[Planned executor capabilities]
-    Service --> Session[Planned optional generic session]
+    Service --> Session[Planned optional durable generic session]
     Session --> State
     Session --> Storage[Existing artifact and checkpoint infrastructure]
     Evidence[Existing protected evaluation with planned generic protocol] --> Storage
@@ -238,6 +246,13 @@ are separate quantities. Unknown historical receipt is not replaced by a downloa
 time and presented as a historical fact. Pending, not-yet-mature and unavailable
 feedback must not become an observed zero.
 
+The implemented replay profile keeps `eligible_through` and actual `apply_at`
+independent and monotonic. Before a decision, only feedback eligible by its
+information cutoff can affect the host; the acceptance time is the actual
+decision/update instant. The declared `closed-drain-v1` schedule is part of the
+trace. Adding drain calls does not acquire a continuous-processing or arbitrary
+batching-invariance guarantee. See the [worked CI timeline](causal-replay.md).
+
 `0`, a permitted finite negative value, unknown/null, unavailable and not applicable
 retain their distinct contracts and explicit units. Nonfinite input and
 bool-as-number reject in the new contracts. Seconds do not silently become
@@ -301,13 +316,19 @@ runtime orchestration imports capabilities, never the reverse.
 flowchart TD
     CLI[CLI and MCP transports] --> Application[Application orchestration]
     Application --> Domain[CI and other problem or execution adapters]
-    Application --> Session[Optional session and replay]
+    Application --> Session[Planned durable session]
+    Session --> Replay[Bounded causal replay]
     Application --> Storage[Storage and telemetry adapters]
     Application --> Evaluation[Evaluation and evidence]
     Domain --> Learners[Core learners]
     Domain --> Solvers[Finite and continuous solvers]
     Session --> Learners
     Session --> Contracts[Core contracts]
+    Replay --> Contracts
+    Replay --> Observations[Point-in-time observations]
+    Replay --> Objectives[Objective and loss contracts]
+    Observations --> Contracts
+    Objectives --> Contracts
     Storage --> Contracts
     Evaluation --> Contracts
     Learners --> Contracts
@@ -430,6 +451,12 @@ already implement that system.
 
 ## Interaction, interruption and recovery
 
+The implemented [bounded replay](causal-replay.md) has one linear host/session
+owner, exact logical retries and a complete caller-owned continuation envelope.
+It refuses stale host state and fails closed after a host-call failure. A host
+may already have mutated, so a failed call is not a successful frontier or an
+automatic rollback. Independent sessions need independent hosts.
+
 The following is the proposed optional durable interaction. A caller may omit the
 session/storage participants and perform direct calls with caller-owned delivery
 responsibility.
@@ -501,9 +528,13 @@ checkpoint limits are reused with their documented scope, rather than relabeled
 as universal transactional storage.
 
 Corrections preserve earlier live decisions and their available information.
-Retrospective recomputation creates a declared new lineage restored before the
-correction and replays its dependent states. It cannot mix a corrected outcome
-with unchanged downstream state and claim an equivalent historical run.
+The implemented `preserve_live_v1` profile selects the latest source-visible
+revision before first acceptance; an unready successor blocks an obsolete ready
+predecessor. After acceptance, corrections remain audit evidence and do not add
+another completed loss round. A new lineage requires a matched complete
+continuation or fresh origin; it cannot mix a corrected outcome with unchanged
+dependent state and claim an equivalent historical run. Broader retrospective
+correction policies require their own explicit qualification.
 
 ## Delivery boundaries and qualification
 

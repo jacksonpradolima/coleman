@@ -99,6 +99,7 @@ flowchart TD
 | Understand the framework's resource footprint | [Persisted CPU and memory samples](docs/observability.md#understand-resource-measurements), plus [Scalene and py-spy profiling](docs/code-cost.md) for investigating hotspots |
 | Query results with your analytical tools | [Parquet, embedded DuckDB or optional ClickHouse](#results-and-live-observability), SQL and Polars analysis, with configuration and provenance retained locally |
 | Stress a difficult CI decision | [32 deterministic interaction-covering cases](docs/ci-stress-laboratory.md), explicit truth and feedback clocks, native Parquet and resumable agents |
+| Replay late CI outcomes | [Typed delayed-feedback replay](docs/causal-replay.md), explicit maturity/receipt, immutable live decisions and pending feedback; requires the unreleased v5 source wheel |
 | Audit what a source actually supports | [Source admission](docs/corpus-admission.md): original evidence, explicit units and a 35-axis production-reality matrix |
 | Compare repeated CI experiments | [Raw build/seed records and paired repository-family means](docs/corpus-evaluation.md), explicit missingness and protected access |
 | Compare metrics with known limits | [Conservative bounded paired means](docs/bounded-paired-evaluation.md), full-family uncertainty and practical equivalence under declared independent-unit assumptions |

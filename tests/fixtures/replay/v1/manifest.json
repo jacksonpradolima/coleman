@@ -1,0 +1,60 @@
+{
+  "clock_origin": "2026-01-01T10:00:00Z",
+  "files": {
+    "chosen-continuation.json": {
+      "causal_prefix_fingerprint": "sha256:61ce39c3edc5962ad5d95983e4c2704e5feca4d9aa6232ea67ae601a794ac331",
+      "continuation_fingerprint": "sha256:12dd83bae2d5c6d4795ffbba4cc8494a3f3fc9d968d8d68c6ec4b6c5667101d7",
+      "expected_counts": [
+        1,
+        0,
+        0
+      ],
+      "expected_decisions": 3,
+      "expected_loss_sums": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "expected_updates": 1,
+      "sha256": "6b84214aef87119a8fe9ebc2c83a25c1453c9beaa9ba2b9e91cb379629a78f70"
+    },
+    "component-continuation.json": {
+      "causal_prefix_fingerprint": "sha256:c4d8d4da3438543a4477b45e53a10faddf01288756d658c501aaa220b1bfb4c2",
+      "continuation_fingerprint": "sha256:54a54423edd5e97bea945fd338cc8ed01777234b8bb2c07c8df6c0ee5bee6b16",
+      "expected_counts": [
+        1,
+        1,
+        0
+      ],
+      "expected_decisions": 3,
+      "expected_loss_sums": [
+        0.5,
+        0.0,
+        0.0
+      ],
+      "expected_updates": 1,
+      "sha256": "456343f7b111d6bacd96c0aaa6dc972db917372272f42fc7dcba8fe8b70dc921"
+    },
+    "full_panel-continuation.json": {
+      "causal_prefix_fingerprint": "sha256:36517487d752db2997f5eb8fafbbc1843b3079a420cb3234f8a0d576513f29ce",
+      "continuation_fingerprint": "sha256:2b2ede13e2b592bf9cc55586d15287aa14fc664c64765c6f56a58e6e2528acbe",
+      "expected_counts": [
+        1,
+        1,
+        1
+      ],
+      "expected_decisions": 1,
+      "expected_loss_sums": [
+        0.0,
+        0.5,
+        1.0
+      ],
+      "expected_updates": 1,
+      "sha256": "88ad5bb9b4fc117637d97adddcc1de55e2303822c54020657187acc61ec8c4da"
+    }
+  },
+  "fixture_kind": "authored-synthetic-ci-replay-v1",
+  "interpretation": "Portable v1 JSON serialization and hand-worked mechanics, not independent observations or efficacy evidence.",
+  "loss_unit": "1",
+  "schema_version": 1
+}
