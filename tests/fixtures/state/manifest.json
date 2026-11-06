@@ -1,4 +1,11 @@
 {
+  "example_compatibility": {
+    "comment_only_source_sha256": [
+      "ecc050b52493b0a513b235becd1c87866af93003ebd4c1a39bd34930b02072a3"
+    ],
+    "original_ast_sha256": "76b85ee834f205094f897719d46d1cdcd58fcb5f33ed3c785a0a0e218a13e09f",
+    "profile": "python-3.14-full-ast-no-locations-v1"
+  },
   "example_sha256": "72baee79822b3b68ca440df65f32bde3503b73df6f9d67ccee25e9afa70fd5e3",
   "fixtures": [
     {

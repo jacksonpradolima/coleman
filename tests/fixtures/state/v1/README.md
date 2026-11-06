@@ -47,3 +47,19 @@ from the frozen public example and CPython 3.14 state codec. They qualify exact
 serialization and explicit reading. The separately authored literal counts,
 losses, paths, RNG bits and cost tables provide the independent behavioral oracle.
 A round-trip alone is not an independent correctness argument.
+
+The manifest's `example_sha256` retains the original producer bytes. Its additive
+`example_compatibility` metadata names a reviewed comment-only source variant;
+none of the five golden payloads, file digests or model fingerprints was
+regenerated. The `python-3.14-full-ast-no-locations-v1` profile parses Python 3.14
+syntax and hashes the UTF-8 `ast.dump` output with field names and empty fields,
+without source locations. Tests require both a registered source-byte digest and
+equality with the original complete syntax-tree fingerprint. An unregistered
+comment change does not automatically qualify, even when its syntax tree is
+unchanged.
+
+This limited qualification only preserves the interpretation of these existing
+fixtures. It does not establish binary/runtime compatibility or authorize an
+operational checkpoint resume. Changed example bytes still have different
+source/code fingerprints, and the store's `ExecutionCompatibility` checks and
+explicit known-mapping requirements remain in force.

@@ -1,5 +1,6 @@
 """Versioned canonical fixtures retain full actual state and independent CI facts."""
 
+import ast
 import hashlib
 import json
 import random
@@ -44,7 +45,20 @@ def test_complete_versioned_goldens_round_trip_with_single_file_lf_and_exact_man
     assert value.schema_version == item["schema_version"]
     assert value.fingerprint == item["model_fingerprint"]
     assert value.to_json().encode() + b"\n" == raw
-    assert manifest["example_sha256"] == hashlib.sha256(Path(example.__file__).read_bytes()).hexdigest()
+    example_source = Path(example.__file__).read_bytes()
+    compatibility = manifest["example_compatibility"]
+    assert compatibility["profile"] == "python-3.14-full-ast-no-locations-v1"
+    assert hashlib.sha256(example_source).hexdigest() in {
+        manifest["example_sha256"],
+        *compatibility["comment_only_source_sha256"],
+    }
+    current_ast = ast.dump(
+        ast.parse(example_source.decode("utf-8"), feature_version=(3, 14)),
+        annotate_fields=True,
+        include_attributes=False,
+        show_empty=True,
+    )
+    assert hashlib.sha256(current_ast.encode("utf-8")).hexdigest() == compatibility["original_ast_sha256"]
 
 
 def test_golden_oracles_have_literal_pending_buffer_cache_path_and_sealed_loss_facts(state_example):

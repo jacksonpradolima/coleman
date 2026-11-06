@@ -511,7 +511,12 @@ class HostConsumer:
         restore_random(generator, state.rng)
         word, remaining, refills = state.reservoir_word, state.reservoir_remaining, state.backend_refills
         if not remaining:
-            word, remaining, refills = generator.getrandbits(32), 32, refills + 1
+            # The restored owned stream only selects simulated CI plans.
+            word, remaining, refills = (
+                generator.getrandbits(32),  # NOSONAR(S2245): deterministic offline choices, never security tokens.
+                32,
+                refills + 1,
+            )
         action = ChoiceAction(schema_version=1, space=space(), chosen=PLANS[word & 1])
         sampling = SamplingRecord(
             mechanism="sampled",
