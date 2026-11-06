@@ -4,10 +4,9 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 
 from tests.corpus.test_installed_controlled import ROOT, command
-from tests.installed_support import seed_locked_dependencies
+from tests.installed_support import build_install_offline_wheel
 
 
 def installed_source_environment(tmp_path, *, extras=()):
@@ -17,32 +16,9 @@ def installed_source_environment(tmp_path, *, extras=()):
     env = {key: value for key, value in os.environ.items() if key not in {"PYTHONPATH", "PYTHONHOME"}}
     env.update(UV_LINK_MODE="copy", UV_NO_PROGRESS="1")
     dist = tmp_path / "dist"
-    command(
-        [
-            uv,
-            "build",
-            "--offline",
-            "--no-build-isolation",
-            "--python",
-            sys.executable,
-            "--wheel",
-            "--out-dir",
-            str(dist),
-        ],
-        ROOT,
-        env,
-    )
     virtual = tmp_path / "installed"
-    command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
+    build_install_offline_wheel(uv, dist, virtual, env, extras=extras)
     python = virtual / "bin/python"
-    wheel = str(next(dist.glob("*.whl")))
-    requirement = wheel + ("[" + ",".join(extras) + "]" if extras else "")
-    seed_locked_dependencies(uv, virtual, env, extras=extras)
-    command(
-        [uv, "pip", "install", "--offline", "--no-index", "--no-deps", "--python", str(python), requirement],
-        tmp_path,
-        env,
-    )
     outside = tmp_path / "outside"
     outside.mkdir()
     return python, outside, env

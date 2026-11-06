@@ -5,11 +5,11 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 from coleman.corpus.repeated import RepeatedCorpusReport
 from coleman.evaluation.protected import FamilyReport
+from tests.installed_support import build_install_offline_wheel
 
 ROOT = Path(__file__).parents[2]
 
@@ -20,53 +20,10 @@ def test_installed_native_repetitions_and_checkpoint_continuation_outside_checko
     env = {key: value for key, value in os.environ.items() if key not in {"PYTHONPATH", "PYTHONHOME"}}
     env.update(UV_OFFLINE="1", UV_NO_INDEX="1", UV_NO_PROGRESS="1", UV_LINK_MODE="copy")
 
-    def command(arguments, *, cwd=tmp_path, extra_environment=None):
-        result = subprocess.run(
-            arguments,
-            cwd=cwd,
-            env={**env, **(extra_environment or {})},
-            capture_output=True,
-            text=True,
-            timeout=180,
-            check=False,
-        )
-        assert result.returncode == 0, result.stdout + result.stderr
-        return result
-
     wheel_dir = tmp_path / "wheels"
-    command(
-        [uv, "build", "--offline", "--no-build-isolation", "--wheel", "--out-dir", str(wheel_dir)],
-        cwd=ROOT,
-    )
-    wheel = next(wheel_dir.glob("*.whl"))
     environment = tmp_path / "installed"
-    command([uv, "venv", str(environment), "--python", sys.executable])
+    build_install_offline_wheel(uv, wheel_dir, environment, env, extras=("ci", "analytics"))
     python = environment / "bin" / "python"
-    # CI's frozen sync caches pinned wheel URLs, not registry metadata. Require
-    # the real offline profile to work with indexes forbidden, even on a warm
-    # developer cache, before installing the noneditable wheel without resolving.
-    command(
-        [
-            uv,
-            "sync",
-            "--frozen",
-            "--offline",
-            "--no-index",
-            "--no-default-groups",
-            "--no-dev",
-            "--no-install-project",
-            "--extra",
-            "ci",
-            "--extra",
-            "analytics",
-            "--python",
-            str(python),
-        ],
-        cwd=ROOT,
-        extra_environment={"UV_PROJECT_ENVIRONMENT": str(environment)},
-    )
-    command([uv, "pip", "install", "--offline", "--no-index", "--no-deps", "--python", str(python), str(wheel)])
-    command([uv, "pip", "check", "--python", str(python)])
     external = tmp_path / "external"
     external.mkdir()
     script = external / "ci.py"

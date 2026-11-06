@@ -5,11 +5,10 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 from coleman.corpus import MaterializationReceipt
-from tests.installed_support import seed_locked_dependencies
+from tests.installed_support import build_install_offline_wheel
 
 ROOT = Path(__file__).parents[2]
 
@@ -24,30 +23,9 @@ def test_installed_external_cache_owned_zip_native_resume_and_commands(tmp_path)
     env = {key: value for key, value in os.environ.items() if key not in {"PYTHONPATH", "PYTHONHOME"}}
     env.update({"UV_LINK_MODE": "copy", "UV_NO_PROGRESS": "1"})
     dist = tmp_path / "dist"
-    command(
-        [uv, "build", "--offline", "--no-build-isolation", "--python", sys.executable, "--out-dir", str(dist)],
-        ROOT,
-        env,
-    )
     virtual = tmp_path / "installed"
-    command([uv, "venv", str(virtual), "--python", sys.executable], tmp_path, env)
+    build_install_offline_wheel(uv, dist, virtual, env, extras=("ci",))
     python = virtual / "bin/python"
-    seed_locked_dependencies(uv, virtual, env, extras=("ci",))
-    command(
-        [
-            uv,
-            "pip",
-            "install",
-            "--offline",
-            "--no-index",
-            "--no-deps",
-            "--python",
-            str(python),
-            str(next(dist.glob("*.whl"))) + "[ci]",
-        ],
-        tmp_path,
-        env,
-    )
     outside = tmp_path / "outside"
     outside.mkdir()
     code = (

@@ -3,10 +3,9 @@
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
-from tests.installed_support import seed_locked_dependencies
+from tests.installed_support import build_install_offline_wheel
 
 ROOT = Path(__file__).parents[2]
 
@@ -14,41 +13,9 @@ ROOT = Path(__file__).parents[2]
 def test_installed_comparable_matrix_outside_checkout(tmp_path):
     """Build/install offline, execute every candidate through real workers, then verify exact idempotent retry."""
     wheels = tmp_path / "wheels"
-    subprocess.run(
-        [
-            "uv",
-            "build",
-            "--python",
-            sys.executable,
-            "--offline",
-            "--no-build-isolation",
-            "--wheel",
-            "--out-dir",
-            str(wheels),
-        ],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-    )
     environment = tmp_path / "installed"
-    subprocess.run(["uv", "venv", str(environment), "--python", sys.executable], check=True, capture_output=True)
+    build_install_offline_wheel("uv", wheels, environment, os.environ, extras=("ci",))
     python = environment / "bin/python"
-    seed_locked_dependencies("uv", environment, os.environ, extras=("ci",))
-    subprocess.run(
-        [
-            "uv",
-            "pip",
-            "install",
-            "--offline",
-            "--no-index",
-            "--no-deps",
-            "--python",
-            str(python),
-            str(next(wheels.glob("*.whl"))) + "[ci]",
-        ],
-        check=True,
-        capture_output=True,
-    )
     outside = tmp_path / "outside"
     outside.mkdir()
     script = outside / "ci.py"
