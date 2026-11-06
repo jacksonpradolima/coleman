@@ -4,6 +4,7 @@ import json
 import sqlite3
 import time
 from contextlib import closing
+from functools import partial
 
 import pytest
 
@@ -68,8 +69,9 @@ def test_invalid_content_addresses_cannot_choose_a_filesystem_path(tmp_path, nam
 
 
 def test_valid_digest_cannot_select_an_unrecognized_artifact_namespace(tmp_path):
+    digest = fingerprint("payload")
     with pytest.raises(ValueError, match="family"):
-        _disk.artifact(tmp_path, "../outside", fingerprint("payload"))
+        _disk.artifact(tmp_path, "../outside", digest)
     expected = tmp_path / "blobs" / (fingerprint("payload")[7:] + ".json")
     assert _disk.artifact(tmp_path, "blobs", fingerprint("payload")) == expected
 
@@ -88,8 +90,10 @@ def test_bounded_file_acquisition_rejects_unusable_or_changed_acknowledged_bytes
         path.write_bytes(exact + b" ")
     elif shape == "changed":
         path.write_bytes(b'{"value":1}')
+    byte_count = len(exact)
+    digest = _disk.digest(exact)
     with pytest.raises(ValueError, match="regular|missing|ceiling|digest"):
-        _disk.acquire(path, len(exact), expected=_disk.digest(exact))
+        _disk.acquire(path, byte_count, expected=digest)
 
 
 @pytest.mark.parametrize("shape", ["file", "nonempty", "symlink"])
@@ -150,15 +154,19 @@ def test_explicit_virgin_and_transition_operations_have_distinct_admission(layou
     def callback(stage):
         calls.append("transition")
 
+    if operation == "wrong_initialize":
+        request = command(0, None, kind="transition")
+        principal = partial(store.initialize, request, (), watched, compatibility=compatibility)
+    elif operation == "wrong_transition":
+        request = command(0, None, kind="initialize")
+        principal = partial(store.commit_transition, request, watched, callback, compatibility=compatibility)
+    elif operation == "virgin_load":
+        principal = partial(store.load, watched, compatibility=compatibility)
+    else:
+        request = command(0, None)
+        principal = partial(store.commit_transition, request, watched, callback, compatibility=compatibility)
     with pytest.raises(ValueError, match="Initialization|transition|Virgin"):
-        if operation == "wrong_initialize":
-            store.initialize(command(0, None, kind="transition"), (), watched, compatibility=compatibility)
-        elif operation == "wrong_transition":
-            store.commit_transition(command(0, None, kind="initialize"), watched, callback, compatibility=compatibility)
-        elif operation == "virgin_load":
-            store.load(watched, compatibility=compatibility)
-        else:
-            store.commit_transition(command(0, None), watched, callback, compatibility=compatibility)
+        principal()
     assert calls == []
     assert store.read_head() is None
 
@@ -167,10 +175,12 @@ def test_skipping_a_generation_rejects_before_factory_and_transition(layout, tmp
     _, bindings, compatibility = layout
     store, receipt = initialized(layout, tmp_path / "generation")
     calls = []
+    request = command(2, receipt.current_head)
+    watched = watched_bindings(bindings, calls)
     with pytest.raises(ValueError, match="next consecutive generation"):
         store.commit_transition(
-            command(2, receipt.current_head),
-            watched_bindings(bindings, calls),
+            request,
+            watched,
             lambda stage: calls.append("transition"),
             compatibility=compatibility,
         )
@@ -287,10 +297,12 @@ def test_invalid_flat_layout_and_entry_overflow_reject_before_any_factory(layout
         for index in range(store.limits.maximum_entries):
             (parent / f"foreign-{index:03d}.txt").write_bytes(b"retained foreign bytes")
     calls = []
+    request = command(1, receipt.current_head)
+    watched = watched_bindings(bindings, calls)
     with pytest.raises(ValueError, match="symlink|directory|flat regular|entry ceiling"):
         store.commit_transition(
-            command(1, receipt.current_head),
-            watched_bindings(bindings, calls),
+            request,
+            watched,
             lambda stage: calls.append("transition"),
             compatibility=compatibility,
         )
@@ -325,10 +337,12 @@ def test_byte_admission_precedes_callbacks_and_keeps_every_foreign_byte(layout, 
     with path.open("wb") as stream:
         stream.truncate(store.limits.maximum_root_bytes + 1)
     calls = []
+    request = command(1, receipt.current_head)
+    watched = watched_bindings(bindings, calls)
     with pytest.raises(ValueError, match="metadata exceeds|total byte ceiling"):
         store.commit_transition(
-            command(1, receipt.current_head),
-            watched_bindings(bindings, calls),
+            request,
+            watched,
             lambda stage: calls.append("transition"),
             compatibility=compatibility,
         )
@@ -352,10 +366,12 @@ def test_foreign_files_cannot_consume_the_next_candidates_reserved_headroom(layo
             path.write_bytes(b"keep")
             foreign.append(path)
     calls = []
+    request = command(1, receipt.current_head)
+    watched = watched_bindings(bindings, calls)
     with pytest.raises(ValueError, match="headroom before state callback"):
         store.commit_transition(
-            command(1, receipt.current_head),
-            watched_bindings(bindings, calls),
+            request,
+            watched,
             lambda stage: calls.append("transition"),
             compatibility=compatibility,
         )
@@ -379,9 +395,10 @@ def test_unacknowledged_publication_overflow_cannot_commit_a_candidate(layout, t
 
     principal = InterruptedPublication.open(store.root)
     calls = []
+    request = command(1, receipt.current_head)
     with pytest.raises(ValueError, match="orphan .* ceiling"):
         principal.commit_transition(
-            command(1, receipt.current_head),
+            request,
             bindings,
             lambda stage: calls.append("transition"),
             compatibility=compatibility,
@@ -407,18 +424,21 @@ def test_cleanup_detects_an_actual_intervening_commit_before_pruning(layout, tmp
     with pytest.raises(ValueError, match="head changed before protected pruning"):
         racing.cleanup(receipt.current_head)
     current = store.read_head()
-    assert current is not None and current.generation == 1
+    assert current is not None
+    assert current.generation == 1
     assert store.load(bindings, compatibility=compatibility).manifest.intent.generation == 1
 
 
 def test_owned_transaction_rolls_back_metadata_when_the_body_fails(layout, tmp_path):
     store, receipt = initialized(layout, tmp_path / "rollback")
-    with (
-        pytest.raises(RuntimeError, match="after actual SQL mutation"),
-        _disk.ownership(store.root, 1.0, limits=store.limits) as database,
-    ):
-        database.execute("DELETE FROM receipts")
-        raise RuntimeError("after actual SQL mutation")
+
+    def failing_transaction():
+        with _disk.ownership(store.root, 1.0, limits=store.limits) as database:
+            database.execute("DELETE FROM receipts")
+            raise RuntimeError("after actual SQL mutation")
+
+    with pytest.raises(RuntimeError, match="after actual SQL mutation"):
+        failing_transaction()
     assert store.read_head() == receipt.current_head
 
 
@@ -482,8 +502,9 @@ def test_busy_commit_does_not_renew_its_original_monotonic_budget():
         pending.close()
         database.rollback()
         assert database.execute("SELECT count(*) FROM updates").fetchone() == (0,)
+        expired = time.monotonic() - 1
         with pytest.raises(TimeoutError, match="finite wait allowance"):
-            _disk._busy(database, time.monotonic() - 1)
+            _disk._busy(database, expired)
     finally:
         database.close()
 

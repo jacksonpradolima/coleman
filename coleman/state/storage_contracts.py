@@ -546,17 +546,37 @@ class CollectionManifest(CoreContract):
         if (self.definition.session, self.definition.source_epoch) != (previous.session, previous.source_epoch):
             raise ValueError("Manifest cannot change its session or source epoch")
         if self.intent.kind == "codec_migration":
-            receipt = self.migration
-            if receipt is None or receipt.source_head != previous:
-                raise ValueError("Codec migration requires its exact source receipt")
-            if receipt.source_definition_fingerprint != previous.definition_fingerprint:
-                raise ValueError("Migration source definition differs from its acknowledged predecessor")
-            if receipt.target_definition_fingerprint != self.definition.fingerprint:
-                raise ValueError("Migration target definition differs from its manifest")
-            if receipt.preserved_frontiers_fingerprint != semantic_frontiers_fingerprint(self.frontiers):
-                raise ValueError("Migration receipt differs from its target's preserved semantic frontiers")
+            self._migration_ancestry(previous)
         elif self.migration is not None or self.definition.fingerprint != previous.definition_fingerprint:
             raise ValueError("Ordinary publication must preserve the exact definition")
+
+    def _migration_ancestry(self, previous: AcknowledgedHead) -> None:
+        """Check known migration evidence in its original validation order.
+
+        Parameters
+        ----------
+        previous : AcknowledgedHead
+            Exact predecessor already checked for generation, session and epoch.
+
+        Raises
+        ------
+        ValueError
+            Missing source receipt or conflicting source, target or frontier digest.
+
+        Notes
+        -----
+        Performs pure comparisons and deterministic fingerprinting only; creates
+        no receipt, file or acknowledged progress and never executes a mapping.
+        """
+        receipt = self.migration
+        if receipt is None or receipt.source_head != previous:
+            raise ValueError("Codec migration requires its exact source receipt")
+        if receipt.source_definition_fingerprint != previous.definition_fingerprint:
+            raise ValueError("Migration source definition differs from its acknowledged predecessor")
+        if receipt.target_definition_fingerprint != self.definition.fingerprint:
+            raise ValueError("Migration target definition differs from its manifest")
+        if receipt.preserved_frontiers_fingerprint != semantic_frontiers_fingerprint(self.frontiers):
+            raise ValueError("Migration receipt differs from its target's preserved semantic frontiers")
 
 
 class CleanupReceipt(CoreContract):

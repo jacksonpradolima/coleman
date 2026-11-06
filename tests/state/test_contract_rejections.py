@@ -1,6 +1,7 @@
 """Untrusted manifests preserve complete inventories, ancestry and exact codecs."""
 
 from dataclasses import replace
+from functools import partial
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -120,8 +121,9 @@ def test_virgin_manifest_cannot_claim_a_successor_or_mapping(manifest_case, chan
         "kind": {"intent": command(0, None).intent},
         "migration": {"migration": case.migration},
     }
+    candidate = value.model_copy(update=updates[change])
     with pytest.raises(ValueError, match="generation-zero"):
-        read_manifest(value.model_copy(update=updates[change]))
+        read_manifest(candidate)
 
 
 @pytest.mark.parametrize("change", ["generation", "initialize", "session", "epoch", "definition", "mapping"])
@@ -163,8 +165,9 @@ def test_migration_wire_requires_exact_source_target_and_preserved_frontiers(man
             "semantics": "preserved_frontiers_fingerprint",
         }[change]
         migration = migration.model_copy(update={field: fingerprint("unrelated")})
+    candidate = case.migrated.model_copy(update={"migration": migration})
     with pytest.raises(ValueError, match="source|target|frontiers"):
-        read_manifest(case.migrated.model_copy(update={"migration": migration}))
+        read_manifest(candidate)
     assert read_manifest(case.migrated).migration == case.migration
 
 
@@ -220,8 +223,9 @@ def test_child_frontier_refuses_impossible_counts_and_partial_or_reversed_clocks
         "only_application": {"apply_at": case.example.instant(1)},
         "reversed": {"eligible_through": case.example.instant(2), "apply_at": case.example.instant(1)},
     }
+    candidate = frontier.model_copy(update=changes[change])
     with pytest.raises(ValueError, match="counts|clocks|clock"):
-        ChildFrontier.model_validate(frontier.model_copy(update=changes[change]))
+        ChildFrontier.model_validate(candidate)
 
 
 @pytest.mark.parametrize("shape", ["mutable", "too_many", "same_id", "other_version"])
@@ -234,8 +238,9 @@ def test_migration_semantics_digest_rejects_ambiguous_or_unbounded_frontiers(man
         "same_id": (frontier, frontier),
         "other_version": (frontier, other),
     }
+    candidate = cast(Any, values[shape])
     with pytest.raises(ValueError, match="bounded tuple|unique"):
-        semantic_frontiers_fingerprint(cast(Any, values[shape]))
+        semantic_frontiers_fingerprint(candidate)
 
 
 def test_codec_migration_digest_ignores_only_the_three_declared_reencoding_fields(manifest_case):
@@ -273,23 +278,24 @@ def test_one_child_cannot_declare_two_frontier_owners(manifest_case):
     original = case.definition.components[0]
     binding = original.binding.model_copy(update={"owner": case.example.reference("another-frontier-owner")})
     other = original.model_copy(update={"binding": binding})
+    candidate = case.definition.model_copy(update={"components": (*case.definition.components, other)})
     with pytest.raises(ValueError, match="frontier|replay"):
-        CollectionDefinition.model_validate(
-            case.definition.model_copy(update={"components": (*case.definition.components, other)})
-        )
+        CollectionDefinition.model_validate(candidate)
 
 
 @pytest.mark.parametrize("operation", ["bindings", "codecs", "values"])
 def test_bad_inventory_entry_rejects_before_any_factory_or_decoder(manifest_case, operation):
     case = manifest_case
     invalid = cast(Any, (object(),))
+    if operation == "bindings":
+        principal = partial(_prepare.bound_codecs, invalid)
+    elif operation == "codecs":
+        principal = partial(_prepare.inventory, case.definition, invalid)
+    else:
+        limits = StorageLimits(schema_version=1)
+        principal = partial(_prepare.encoded, case.definition, invalid, limits)
     with pytest.raises(TypeError, match="concrete"):
-        if operation == "bindings":
-            _prepare.bound_codecs(invalid)
-        elif operation == "codecs":
-            _prepare.inventory(case.definition, invalid)
-        else:
-            _prepare.encoded(case.definition, invalid, StorageLimits(schema_version=1))
+        principal()
 
 
 def test_concrete_inventory_cannot_omit_or_alias_a_codec(manifest_case):
@@ -309,23 +315,26 @@ def test_prepared_and_staged_lookups_require_the_exact_requested_interpretation(
     other_codec = ComponentCodec(other_binding, original.codec.state_type)
     with pytest.raises(ValueError, match="absent or incompatible"):
         case.prepared.component(other_codec)
+    empty = PreparedCollection(case.manifest)
     with pytest.raises(ValueError, match="absent or incompatible"):
-        PreparedCollection(case.manifest).component(original.codec)
+        empty.component(original.codec)
     other_type = ComponentCodec(original.codec.binding, AlgorithmState[case.example.DomainState])
     with pytest.raises(ValueError, match="absent or incompatible"):
         case.prepared.component(other_type)
     owner = original.new_owner()
     staged = StagedCollection(((original, owner),))
     assert staged.owner(original) is owner
+    another_binding = replace(original)
     with pytest.raises(ValueError, match="exact owner"):
-        staged.owner(replace(original))
+        staged.owner(another_binding)
 
 
 def test_canonical_component_decoder_refuses_mutable_or_reformatted_bytes(manifest_case):
     value = manifest_case.values[-1]
     raw = value.codec.encode(value.value).content
+    mutable = bytearray(raw)
     with pytest.raises(TypeError, match="immutable bytes"):
-        value.codec.decode(bytearray(raw))
+        value.codec.decode(mutable)
     with pytest.raises(ValueError, match="canonical"):
         value.codec.decode(raw + b"\n")
     assert value.codec.decode(raw) == value.value
@@ -336,8 +345,9 @@ def test_bare_generic_or_embedded_binding_cannot_erase_an_owner_interpretation(m
     binding = case.bindings[-1].codec.binding
     with pytest.raises(TypeError, match="generic parameters"):
         ComponentCodec(binding, AlgorithmState)
+    empty_payload = CoreContract(schema_version=1)
     with pytest.raises(ValueError, match="concrete payload"):
-        AlgorithmState[CoreContract](schema_version=1, binding=binding, payload=CoreContract(schema_version=1))
+        AlgorithmState[CoreContract](schema_version=1, binding=binding, payload=empty_payload)
     state = AlgorithmState[case.example.DomainState](schema_version=1, binding=binding, payload=case.values[-1].value)
     other_binding = binding.model_copy(update={"state_codec": case.example.reference("other-envelope-codec")})
     codec = ComponentCodec(other_binding, type(state))
@@ -363,8 +373,10 @@ def test_frontier_inspectors_cannot_change_concrete_state_or_invent_delivery(man
     else:
         forged = frontier.model_copy(update={"host_fingerprint": fingerprint("unrelated-host")})
         bindings[0] = replace(bindings[0], frontier=lambda _state: forged)
+    candidates = tuple(values)
+    selected_bindings = tuple(bindings)
     with pytest.raises(ValueError, match="concrete state type|invent|RetainedContinuation|Inspector differs"):
-        _prepare.frontiers(case.definition, tuple(values), tuple(bindings))
+        _prepare.frontiers(case.definition, candidates, selected_bindings)
     assert _prepare.frontiers(case.definition, case.values, case.bindings) == case.manifest.frontiers
 
 
@@ -372,8 +384,9 @@ def test_manifest_frontier_must_match_the_actual_decoded_component_before_factor
     case = manifest_case
     forged = case.manifest.frontiers[0].model_copy(update={"host_fingerprint": fingerprint("forged-host")})
     manifest = CollectionManifest.model_validate(case.manifest.model_copy(update={"frontiers": (forged,)}))
+    candidate = PreparedCollection(manifest, case.values)
     with pytest.raises(ValueError, match="Actual decoded frontiers"):
-        _prepare.verify(PreparedCollection(manifest, case.values), case.bindings)
+        _prepare.verify(candidate, case.bindings)
 
 
 def test_manifest_byte_admission_rejects_before_publication_or_factory_use(manifest_case):
@@ -383,14 +396,16 @@ def test_manifest_byte_admission_rejects_before_publication_or_factory_use(manif
         raise AssertionError("Preparing a manifest must not construct an owner")
 
     bindings = tuple(replace(binding, new_owner=forbidden_owner) for binding in case.bindings)
+    request = command(0, None, kind="initialize")
+    limits = StorageLimits(schema_version=1, maximum_manifest_bytes=1)
     with pytest.raises(ValueError, match="manifest exceeds"):
         _prepare.build(
             case.definition,
             case.manifest.compatibility,
-            command(0, None, kind="initialize"),
+            request,
             case.values,
             bindings,
-            StorageLimits(schema_version=1, maximum_manifest_bytes=1),
+            limits,
         )
 
 

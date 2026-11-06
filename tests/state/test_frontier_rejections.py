@@ -158,8 +158,9 @@ def test_valid_complete_causal_and_seal_relations_accept_without_changing_any_va
 @pytest.mark.parametrize("kind", ["initialize", "unknown", ""])
 def test_publication_relation_rejects_non_successor_kinds_before_acceptance(collections, kind):
     origin, one, _, _ = collections
+    selected_kind = cast(Any, kind)
     with pytest.raises(ValueError, match="requires transition"):
-        _relations.validate_successor(origin, one, cast(Any, kind))
+        _relations.validate_successor(origin, one, selected_kind)
 
 
 def test_valid_seal_intent_cannot_be_relabelled_as_transition(collections):
@@ -255,14 +256,16 @@ def test_admitted_feedback_and_source_facts_are_immutable_across_valid_histories
     example = state_example
     other = example.ReplayOwner(0)
     other.step(0.5)
+    changed_feedback = other.export_state().state
     with pytest.raises(ValueError, match="feedback revision"):
-        _relations._feedback_extension(histories.one.state, other.export_state().state)
+        _relations._feedback_extension(histories.one.state, changed_feedback)
     with pytest.raises(ValueError, match="source revision"):
         _relations._history_extension(histories.with_source.state, histories.one.state)
     other.restore_state(histories.one)
     other.replay.admit_history(source_history(example, revision(example, value=5.0)))
+    changed_source = other.export_state().state
     with pytest.raises(ValueError, match="source revision"):
-        _relations._history_extension(histories.with_source.state, other.export_state().state)
+        _relations._history_extension(histories.with_source.state, changed_source)
     _relations._history_extension(histories.one.state, histories.with_source.state)
 
 
@@ -297,8 +300,10 @@ def test_independently_valid_later_clock_and_counter_states_cannot_be_rewound(st
     later.step(0.25, at=3)
     earlier = example.ReplayOwner(0)
     earlier.step(0.25, at=2)
+    later_state = later.export_state().state
+    earlier_state = earlier.export_state().state
     with pytest.raises(ValueError, match="either replay clock"):
-        _relations._monotone_frontiers(later.export_state().state, earlier.export_state().state)
+        _relations._monotone_frontiers(later_state, earlier_state)
     with pytest.raises(ValueError, match="global replay counters"):
         _relations._monotone_frontiers(histories.two.state, histories.one.state)
     with pytest.raises(ValueError, match="exact replay counters"):
@@ -325,8 +330,9 @@ def test_component_owner_and_child_identity_are_not_migration_relabelling_knobs(
         blob = clone(origin.manifest.components[-1], binding=binding)
         manifest = clone(origin.manifest, definition=layout, components=(*origin.manifest.components[:-1], blob))
         match = "owner/child/role"
+    candidate = PreparedCollection(manifest)
     with pytest.raises(ValueError, match=match):
-        _relations._definition_identity(origin, PreparedCollection(manifest))
+        _relations._definition_identity(origin, candidate)
 
 
 def migration_candidate(example, source, old):
@@ -370,12 +376,13 @@ def test_a_real_typed_migration_preserves_the_actual_source_semantic_projection(
     old = collections[-1]
     target, mapping = migration_candidate(state_example, histories.sealed, old)
     _relations.validate_successor(old, target, "codec_migration", migration=mapping)
+    another_mapping = definition(state_example, "another-qualified-mapping")
     with pytest.raises(ValueError, match="qualified collection migration"):
         _relations.validate_successor(
             old,
             target,
             "codec_migration",
-            migration=definition(state_example, "another-qualified-mapping"),
+            migration=another_mapping,
         )
     owner = state_example.ReplayOwner(0)
     owner.restore_state(histories.two)
@@ -546,8 +553,9 @@ def test_real_v2_reader_rejects_inconsistent_seals_and_codec_receipt_chains(stat
 
 @pytest.mark.parametrize("ordinal", [-1, True, 0.5, "0"])
 def test_ordinal_namespace_refuses_non_integer_or_negative_indices_before_any_host(state_example, ordinal):
+    selected_ordinal = cast(Any, ordinal)
     with pytest.raises(ValueError, match="nonnegative integer"):
-        ordinal_decision_id(state_example.EPOCH, cast(Any, ordinal))
+        ordinal_decision_id(state_example.EPOCH, selected_ordinal)
 
 
 def test_origin_and_repeated_seal_compaction_are_explicit_idempotent_pure_operations(state_example, histories):
@@ -558,12 +566,14 @@ def test_origin_and_repeated_seal_compaction_are_explicit_idempotent_pure_operat
         example.HostConsumer(0), histories.sealed, state_type=example.HostState, state_codec=example.CODEC
     )
     assert replay.compact().to_json() == histories.sealed.to_json()
+    fresh = example.HostConsumer(0)
+    wrong_codec = example.reference("wrong-selected-codec")
     with pytest.raises(ValueError, match="selected codec"):
         RetainedReplay.from_continuation(
-            example.HostConsumer(0),
+            fresh,
             histories.sealed,
             state_type=example.HostState,
-            state_codec=example.reference("wrong-selected-codec"),
+            state_codec=wrong_codec,
         )
 
 
@@ -579,15 +589,15 @@ def test_v1_matched_parent_cannot_be_installed_as_a_v2_origin(state_example):
         state_type=example.HostState,
         state_codec=example.CODEC,
     )
+    fresh = example.HostConsumer(0)
+    retention = OrdinalRetention(profile="quiescent-ordinal-v1", source_epoch=example.EPOCH, maximum_tail_records=64)
     with pytest.raises(ValueError, match="independent origin"):
         RetainedReplay(
-            example.HostConsumer(0),
+            fresh,
             fork.state.policy,
             state_type=example.HostState,
             state_codec=example.CODEC,
-            retention=OrdinalRetention(
-                profile="quiescent-ordinal-v1", source_epoch=example.EPOCH, maximum_tail_records=64
-            ),
+            retention=retention,
         )
 
 
@@ -598,11 +608,14 @@ def test_rebind_rejects_a_completed_live_suffix_and_a_noncontinuation_without_mu
     owner.step(0.25)
     live = owner.export_state()
     mapping = definition(example, "authored-wrap-complete-ci-state")
+    wrapped_live = wrapped(example, live.host_state)
+    codec = target_codec(example)
     with pytest.raises(ValueError, match="empty sealed tail"):
-        rebind_retained(live, wrapped(example, live.host_state), target_codec=target_codec(example), migration=mapping)
+        rebind_retained(live, wrapped_live, target_codec=codec, migration=mapping)
+    bare_host = cast(Any, histories.one.host_state)
     with pytest.raises(TypeError, match="concrete retained continuation"):
         rebind_retained(
-            cast(Any, histories.one.host_state),
+            bare_host,
             histories.one.host_state,
             target_codec=example.CODEC,
             migration=mapping,

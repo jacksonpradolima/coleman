@@ -580,17 +580,42 @@ def owned_files(root: Path, limits: StorageLimits) -> tuple[Path, ...]:
         if path.is_symlink():
             raise ValueError("State roots cannot contain symlinks")
         if path.is_dir():
-            if path.name not in {"blobs", "manifests"}:
-                raise ValueError("State root contains a foreign directory")
-            for child in path.iterdir():
-                if child.is_symlink() or not child.is_file():
-                    raise ValueError("State artifact directories must remain flat regular files")
-                result.append(child)
-                if len(result) > limits.maximum_entries:
-                    raise ValueError("State root exceeds its persisted entry ceiling")
+            _append_artifact_directory(path, result, limits)
         if len(result) > limits.maximum_entries:
             raise ValueError("State root exceeds its persisted entry ceiling")
     return tuple(result)
+
+
+def _append_artifact_directory(directory: Path, result: list[Path], limits: StorageLimits) -> None:
+    """Append flat artifact entries in their actual filesystem enumeration order.
+
+    Parameters
+    ----------
+    directory : pathlib.Path
+        Root entry already confirmed to be a nonsymlink directory.
+    result : list of pathlib.Path
+        Existing counted entries, including this directory; mutated in place.
+    limits : StorageLimits
+        Persisted total entry ceiling, checked after every admitted child.
+
+    Raises
+    ------
+    ValueError, OSError
+        Foreign directory, nonregular child, entry overflow or metadata failure.
+
+    Notes
+    -----
+    Performs metadata reads only. Checks each child before appending it and never
+    opens, removes, sorts or recursively traverses an artifact.
+    """
+    if directory.name not in {"blobs", "manifests"}:
+        raise ValueError("State root contains a foreign directory")
+    for child in directory.iterdir():
+        if child.is_symlink() or not child.is_file():
+            raise ValueError("State artifact directories must remain flat regular files")
+        result.append(child)
+        if len(result) > limits.maximum_entries:
+            raise ValueError("State root exceeds its persisted entry ceiling")
 
 
 def usage(root: Path, limits: StorageLimits) -> tuple[int, int]:

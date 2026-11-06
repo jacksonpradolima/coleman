@@ -21,6 +21,7 @@ from coleman.state.storage_contracts import (
     CollectionDefinition,
     CollectionManifest,
     CommitRequest,
+    ComponentSpec,
     ExecutionCompatibility,
     MigrationReceipt,
     StateBlobRef,
@@ -184,13 +185,44 @@ def frontiers(definition: CollectionDefinition, values: Values, bindings: Bindin
             if inspected is not None:
                 raise ValueError("Publication-only owner cannot invent a replay frontier")
         else:
-            if not isinstance(item.value, RetainedContinuation) or spec.child is None:
-                raise ValueError("Replay owner requires a complete concrete RetainedContinuation")
-            expected = child_frontier(item.value, child=spec.child)
-            if inspected != expected:
-                raise ValueError("Inspector differs from the actual replay state frontier")
+            expected = _replay_frontier(spec, item, inspected)
             result.append(expected)
     return tuple(sorted(result, key=lambda item: item.child.id))
+
+
+def _replay_frontier(spec: ComponentSpec, item: ComponentValue[Any], inspected: ChildFrontier | None) -> ChildFrontier:
+    """Verify one already-inspected replay owner against its concrete state.
+
+    Parameters
+    ----------
+    spec : ComponentSpec
+        Complete declared replay component and its child identity.
+    item : ComponentValue
+        Validated supplied owner state with the exact caller-selected codec.
+    inspected : ChildFrontier or None
+        Result of the trusted inspector already called by ``frontiers``.
+
+    Returns
+    -------
+    ChildFrontier
+        Standard frontier derived from the complete actual continuation.
+
+    Raises
+    ------
+    ValueError, TypeError
+        Missing concrete continuation/child or a mismatched inspector result.
+
+    Notes
+    -----
+    Revalidates and reads declared state only; calls no inspector, factory,
+    restore operation, RNG or filesystem API.
+    """
+    if not isinstance(item.value, RetainedContinuation) or spec.child is None:
+        raise ValueError("Replay owner requires a complete concrete RetainedContinuation")
+    expected = child_frontier(item.value, child=spec.child)
+    if inspected != expected:
+        raise ValueError("Inspector differs from the actual replay state frontier")
+    return expected
 
 
 def build(  # pylint: disable=too-many-arguments,too-many-positional-arguments

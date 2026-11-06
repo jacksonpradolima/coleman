@@ -81,12 +81,13 @@ def test_collection_declarations_canonicalize_order_but_not_duplicate_or_missing
         )
     )
     assert reordered.to_json() == original.to_json()
+    definition_type = type(original)
     missing = original.model_copy(update={"components": original.components[1:]})
     with pytest.raises(ValueError, match="child|component"):
-        type(original).model_validate(missing)
+        definition_type.model_validate(missing)
     duplicate = original.model_copy(update={"components": (*original.components, original.components[0])})
     with pytest.raises(ValueError, match="unique|duplicate"):
-        type(original).model_validate(duplicate)
+        definition_type.model_validate(duplicate)
 
 
 def test_replay_owner_cannot_hide_delivery_ownership_or_declare_it_twice(state_example):
