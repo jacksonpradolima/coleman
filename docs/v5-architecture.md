@@ -13,14 +13,17 @@ It also provides [source-pinned native ranking semantics and explicit decision c
 without changing the legacy policy mechanisms or automatically enriching runner output.
 The optional [causal replay layer](causal-replay.md) adds bounded delayed-feedback
 processing, explicit information/application frontiers and caller-owned typed
-continuation. It does not supply a learner or a durable commit engine.
-Generic learners, adapters and durable sessions below
+continuation. The [owned-state and recovery foundation](state-recovery.md) adds
+pure concrete snapshots, opt-in bounded replay retention and a separate local
+acknowledgement adapter over complete component collections. It supplies no
+learner or external-effect executor.
+Generic learners, adapters and broader durable execution services below
 remain planned until individually qualified. The original implementation baseline
 is COLEMAN **4.20.0**, commit
 `1edbee874129aa85e26e592d9649826e85e1ac6b`. Examples explicitly identified as
 existing use that source. Proposed namespaces and call sequences below are design
 contracts to qualify in subsequent work, except for the explicitly linked
-implemented contract, objective, native-evidence and replay layers. No v5 release wheel has been published.
+implemented contract, objective, native-evidence, replay and state layers. No v5 release wheel has been published.
 
 Read the [compatibility and migration policy](v5-compatibility.md) alongside this
 specification. Use the [current getting-started guide](getting-started.md) for the
@@ -74,7 +77,9 @@ introduced.
 | Solver | Declared finite/continuous optimization, limits and result certificates/status | Learning, executing the proposal or manufacturing missing inputs |
 | Execution adapter | Work or effects, proposed-to-executed action mapping, outcome receipts and reconciliation limits | A regret guarantee, universal retry safety or automatically observed counterfactuals |
 | Optional bounded replay | Eligible event selection, revision/decision binding, declared processing order and typed continuation | Durable acknowledgement, implicit continuous processing or changing earlier live decisions |
-| Durable session, planned | Persisted acceptance, applied-event deduplication and a coherent committed frontier | Exactly-once physical effects without an executor-specific contract |
+| Direct owned state | Complete concrete component snapshots, actual owned RNG buffers and explicit codec binding | SQLite, runtime scanning or automatic update idempotency |
+| Optional local acknowledged state | Complete component manifests, per-child acceptance frontiers, bounded commit receipts and local recovery | A scheduler, arbitrary source-history compaction or exactly-once physical effects |
+| Broader durable execution service, planned | Classified external effects, reconciliation and application lifecycle | Exactly-once physical effects without an executor-specific contract |
 | Optional storage adapter | Atomic publication, reads, durability and conflict detection under its documented backend assumptions | Authenticating a source or proving an external effect occurred once |
 | Application service | Frozen plans, registered trusted implementations, attempts, cancellation and orchestration | Mandatory dependencies for direct mathematical calls |
 | Transport | CLI/MCP input validation and calls into the shared service | Its own learner, solver or orchestration rules |
@@ -102,14 +107,20 @@ flowchart TD
     Objectives --> Contracts
     DirectLearner --> Contracts
     DirectSolver --> Contracts
-    DirectLearner --> State[Planned owned algorithm state and RNG]
+    DirectLearner --> State[Pure owned algorithm state and RNG]
+    Host --> State
+    Host --> LocalStore[Optional local acknowledged collections]
+    LocalStore --> State
+    LocalStore --> Retained[Opt-in retained replay generation 2]
+    Retained --> Replay
+    LocalStore --> Storage[Existing immutable artifact publication]
     Service[Existing application services with planned generic executor] --> Problem
     Service --> DirectLearner
     Service --> DirectSolver
     Service --> Execution[Planned executor capabilities]
     Service --> Session[Planned optional durable generic session]
     Session --> State
-    Session --> Storage[Existing artifact and checkpoint infrastructure]
+    Session --> Storage
     Evidence[Existing protected evaluation with planned generic protocol] --> Storage
     Transport[Existing CLI and optional MCP] --> Service
     Legacy[Existing native CI facade with planned migration boundary] --> Service
@@ -457,9 +468,23 @@ It refuses stale host state and fails closed after a host-call failure. A host
 may already have mutated, so a failed call is not a successful frontier or an
 automatic rollback. Independent sessions need independent hosts.
 
-The following is the proposed optional durable interaction. A caller may omit the
+The [local state foundation](state-recovery.md) supplies a bounded offline
+checkpoint route. Its owned SQLite transaction checks actual compatibility and
+acknowledged predecessor before callbacks, decodes every component, restores
+fresh staging owners and acknowledges one complete successor only at COMMIT.
+Direct snapshots and in-memory replay remain usable without that adapter.
+
+Retained replay uses explicit ordinal identity, quiescent seals and global D/U;
+the old replay generation remains complete and unchanged. Collections with
+pending labels can be saved normally; each replay component must resolve its
+pending rounds before its quiescent seal. A later codec mapping
+must preserve every acceptance fence and required component state. These local
+guarantees do not implement an external-effect outbox or job scheduler.
+
+The following is the proposed broader durable execution interaction. Its
+executor/reconciliation service is separate future work. A caller may omit the
 session/storage participants and perform direct calls with caller-owned delivery
-responsibility.
+responsibility; the local adapter above admits bounded offline callbacks only.
 
 ```mermaid
 sequenceDiagram

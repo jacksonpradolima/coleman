@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+# Private seeded hooks are shared only within the replay implementation family.
+# pylint: disable=protected-access
 from collections.abc import Iterator
 from contextlib import contextmanager
 from threading import Lock
@@ -32,13 +34,12 @@ from coleman.replay.planning import (
     PendingRound,
     _applications,
     _capacity,
+    _feedback_frontier,
     _frontiers,
     _history_update,
     _instant,
     _opportunity,
     _pending,
-    _producer,
-    _visible,
 )
 from coleman.replay.revisions import validate_feedback_graph
 
@@ -150,6 +151,22 @@ class CausalReplay[S: CoreContract]:
         self._state_type = state_type
         self._lock = Lock()
         self._invalidated = False
+
+    def _validate_state(self, state: ReplayState) -> ReplayState:
+        """Select the unchanged v1 contract unless an explicit profile overrides."""
+        return ReplayState.model_validate(state)
+
+    def _continuation(self, snapshot: S) -> ReplayContinuation[S]:
+        """Compose the explicitly selected complete snapshot generation."""
+        return _continuation_type(self._state_type)(schema_version=1, state=self._state, host_state=snapshot)
+
+    def _state_fingerprint(self) -> str:
+        """Keep the original validating identity path for complete v1 state."""
+        return self._state.fingerprint
+
+    def _same_state(self, candidate: ReplayState) -> bool:
+        """Compare a newly validated candidate with the current owned state."""
+        return candidate.to_json() == self._state.to_json()
 
     def _alive(self) -> None:
         """Prevent a failed host transition from becoming reusable metadata."""
@@ -271,7 +288,7 @@ class CausalReplay[S: CoreContract]:
             checked = _history_update(self._state, history)
             if self._state.history is not None and checked.to_json() == self._state.history.to_json():
                 return self._state
-            self._state = ReplayState.model_validate(self._state.model_copy(update={"history": checked}))
+            self._state = self._validate_state(self._state.model_copy(update={"history": checked}))
             return self._state
 
     def eligible_snapshot(self, cutoff: Timestamp) -> ObservationSnapshot:
@@ -347,7 +364,7 @@ class CausalReplay[S: CoreContract]:
                 schema_version=1,
                 opportunity=checked,
                 snapshot=snapshot,
-                state_fingerprint=self._state.fingerprint,
+                state_fingerprint=self._state_fingerprint(),
                 host_state_fingerprint=self._state.host_fingerprint,
             )
 
@@ -405,7 +422,7 @@ class CausalReplay[S: CoreContract]:
             if retained is not None:
                 return retained
             if (
-                checked.state_fingerprint != self._state.fingerprint
+                checked.state_fingerprint != self._state_fingerprint()
                 or checked.host_state_fingerprint != self._state.host_fingerprint
             ):
                 raise ValueError("Prepared replay decision is stale; prepare again from the current owner")
@@ -449,7 +466,7 @@ class CausalReplay[S: CoreContract]:
                     sequence=self._state.next_sequence,
                     execution=execution,
                 )
-                self._state = ReplayState.model_validate(
+                self._state = self._validate_state(
                     self._state.model_copy(
                         update={"decisions": (*self._state.decisions, record), "host_fingerprint": after.fingerprint}
                     )
@@ -504,26 +521,20 @@ class CausalReplay[S: CoreContract]:
                 if key in old:
                     continue  # Full canonical conflict checking already occurred.
                 self._admission_frontier(value)
-            candidate = ReplayState.model_validate(self._state.model_copy(update={"feedback": combined}))
-            if candidate.to_json() != self._state.to_json():
+            candidate = self._validate_state(self._state.model_copy(update={"feedback": combined}))
+            if not self._same_state(candidate):
                 self._state = candidate
             return self._state
 
     def _admission_frontier(self, feedback: ReplayFeedback) -> None:
         """Distinguish a closed-cohort backfill from a later producer phase."""
-        cutoff = self._state.eligible_through
-        if cutoff is None or not _visible(feedback, cutoff):
-            return
-        producer = _producer(self._state, feedback)
-        if self._state.drains and producer.sequence > self._state.drains[-1].sequence:
-            return
-        raise ValueError("Source-visible feedback backfills an already closed producer cohort")
+        _feedback_frontier(self._state, feedback)
 
     def _same_drain(self, cutoff: Timestamp, processing: Timestamp) -> bool:
         """Recognize an exact closed-drain retry without another host call."""
-        if not self._state.drains:
+        last = self._state._last_drain()
+        if last is None:
             return False
-        last = self._state.drains[-1]
         return (
             last.eligible_through == cutoff
             and last.apply_at == processing
@@ -566,7 +577,7 @@ class CausalReplay[S: CoreContract]:
                 host_after=before,
                 sequence=original.next_sequence + len(records),
             )
-            self._state = ReplayState.model_validate(
+            self._state = self._validate_state(
                 original.model_copy(
                     update={
                         "updates": (*original.updates, *records),
@@ -643,7 +654,7 @@ class CausalReplay[S: CoreContract]:
         """
         with self._operation():
             snapshot = self._verify_host()
-            return _continuation_type(self._state_type)(schema_version=1, state=self._state, host_state=snapshot)
+            return self._continuation(snapshot)
 
     @classmethod
     def from_continuation(

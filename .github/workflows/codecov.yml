@@ -11,7 +11,7 @@ jobs:
   test:
     name: Run ${{ github.event_name }} tests and collect coverage
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -35,7 +35,29 @@ jobs:
           uv sync --frozen --extra ci --extra analytics --extra dev --extra mcp --extra release --group build --no-build --no-install-project
           uv pip install --no-deps --no-build --no-build-isolation --editable .
       - name: Run tests
-        run: uv run --frozen --no-sync --no-build pytest --cov --cov-branch --junitxml=junit.xml -o junit_family=legacy
+        # Keep installed-package modules together. Collect partial coverage here;
+        # the serial completion below enforces the unchanged combined 95% gate.
+        run: |
+          uv run --frozen --no-sync --no-build python -m pytest -n 4 --dist=loadfile \
+            --ignore=tests/corpus/test_installed_public_ci.py \
+            --ignore=tests/corpus/test_installed_westermo.py \
+            --cov --cov-branch --cov-fail-under=0 \
+            --junitxml=junit.xml -o junit_family=legacy
+      - name: Complete installed corpus tests and enforce combined coverage
+        run: |
+          uv run --frozen --no-sync --no-build python -m pytest \
+            tests/corpus/test_installed_public_ci.py \
+            tests/corpus/test_installed_westermo.py \
+            --cov --cov-branch --cov-append --cov-fail-under=95 \
+            --junitxml=junit-installed-corpus.xml -o junit_family=legacy
+          uv run --frozen --no-sync --no-build coverage json -o coverage-final.json
+          uv run --frozen --no-sync --no-build python - <<'PY'
+          import json
+          from pathlib import Path
+          total = json.loads(Path('coverage-final.json').read_text())['totals']['percent_covered']
+          print(f'Exact combined coverage: {total:.8f}% (required 95%)')
+          raise SystemExit(0 if total >= 95.0 else 1)
+          PY
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
         with:
@@ -48,3 +70,5 @@ jobs:
         uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: junit.xml,junit-installed-corpus.xml
+          disable_search: true

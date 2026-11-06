@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+# Private seeded hooks are shared only within the replay implementation family.
+# pylint: disable=protected-access
 from datetime import datetime
 from typing import Literal
 
@@ -10,7 +12,7 @@ from pydantic import TypeAdapter
 from coleman.core.base import CoreImmutable
 from coleman.core.capabilities import validate_feedback
 from coleman.core.identity import Reference
-from coleman.core.primitives import MAX_MEMBERS, Fingerprint, Identifier
+from coleman.core.primitives import Fingerprint, Identifier
 from coleman.core.temporal import Timestamp
 from coleman.observations.contracts import ObservationHistory, ObservationSnapshot
 from coleman.replay.contracts import (
@@ -94,6 +96,43 @@ def _visible(feedback: ReplayFeedback, cutoff: datetime) -> bool:
     return (
         timing is not None and timing.received_at is not None and max(timing.available_at, timing.received_at) <= cutoff
     )
+
+
+def _feedback_frontier(state: ReplayState, feedback: ReplayFeedback, *, producers: ReplayState | None = None) -> None:
+    """Reject a new revision that rewrites an already closed producer cohort.
+
+    Parameters
+    ----------
+    state : ReplayState
+        Actual prior information cutoff and last closed processing phase.
+    feedback : ReplayFeedback
+        Newly admitted revision, whose source and first-receipt clocks determine
+        visibility independently of numeric readiness or eventual application.
+    producers : ReplayState or None, optional
+        Complete candidate inventory for resolving newly appended producers.
+        Defaults to state for live admission; its clocks never replace state's
+        acknowledged boundary during a checkpoint successor comparison.
+
+    Raises
+    ------
+    ValueError
+        Source-visible revision belongs to a closed producer cohort, or no
+        matching producer exists in the supplied validated inventory.
+
+    Notes
+    -----
+    A producer after the last drain may supply feedback at the same instant in
+    a later causal phase. Unknown receipt or future visibility remains pending.
+    This pure check changes no owner, replay clock, file or random state.
+    """
+    cutoff = state.eligible_through
+    if cutoff is None or not _visible(feedback, cutoff):
+        return
+    producer = _producer(state if producers is None else producers, feedback)
+    last = state._last_drain()
+    if last is not None and producer.sequence > last.sequence:
+        return
+    raise ValueError("Source-visible feedback backfills an already closed producer cohort")
 
 
 def _latest_visible(chain: tuple[ReplayFeedback, ...], cutoff: datetime) -> ReplayFeedback | None:
@@ -191,7 +230,7 @@ def _applications(state: ReplayState, cutoff: datetime, processing: datetime) ->
 def _capacity(state: ReplayState, additional: int) -> None:
     """Check the joint retained-record budget before any host mutation."""
     retained = len(state.decisions) + len(state.feedback) + len(state.updates) + len(state.drains)
-    if retained + additional > MAX_MEMBERS:
+    if retained + additional > state._record_limit:
         raise ValueError("Replay inventory exceeds 4096 retained records")
 
 
@@ -226,10 +265,9 @@ def _opportunity(state: ReplayState, opportunity: ReplayOpportunity) -> Observat
         raise ValueError("Causal replay requires explicit decision timing and an admitted source history")
     if request.task != state.policy.stream:
         raise ValueError("Replay request task must match its exact declared stream")
-    if request.round != state.decision_count or state.decision_count >= MAX_MEMBERS:
-        raise ValueError("Replay request.round must count successful decisions within the finite bound")
+    state._validate_ordinal(opportunity)
     _frontiers(state, timing.information_cutoff, timing.decision_at)
-    validate_opportunity(state.policy, state.decisions[0].opportunity if state.decisions else None, opportunity)
+    validate_opportunity(state.policy, state._first_opportunity(), opportunity)
     snapshot = history.as_of(timing.information_cutoff)
     if timing.eligible_input_fingerprint != snapshot.fingerprint:
         raise ValueError("Decision eligible-input fingerprint does not match actual source history.as_of")

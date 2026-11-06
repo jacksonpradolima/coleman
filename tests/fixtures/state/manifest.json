@@ -1,0 +1,51 @@
+{
+  "example_compatibility": {
+    "comment_only_source_sha256": [
+      "ecc050b52493b0a513b235becd1c87866af93003ebd4c1a39bd34930b02072a3",
+      "0046997940ec6c6e0e1fc875b5ecd0c2a81b3b4feada682d2cc9a78a74415f6d"
+    ],
+    "original_ast_sha256": "76b85ee834f205094f897719d46d1cdcd58fcb5f33ed3c785a0a0e218a13e09f",
+    "profile": "python-3.14-full-ast-no-locations-v1"
+  },
+  "example_sha256": "72baee79822b3b68ca440df65f32bde3503b73df6f9d67ccee25e9afa70fd5e3",
+  "fixtures": [
+    {
+      "byte_count": 6807,
+      "file_sha256": "4cc4c42b3e06a7f73ab0e2ae8fbef6fe4e4418f2dab5ba386fe5701c35cb147e",
+      "model_fingerprint": "sha256:d83d0eefa7f55c866bd61b634c8ce42f38f71670fd097afe88f4823d4e58c61c",
+      "path": "v1/python-random-cached.json",
+      "schema_version": 1
+    },
+    {
+      "byte_count": 11445,
+      "file_sha256": "23c9defac4ba3421b8537d80addfcdeb1110b2c31ce25af5d0d5f95b6e6b048c",
+      "model_fingerprint": "sha256:85334fbb159732e84db13c3445f6efc4ef166c1f3b1fdc1f414bfa04387f7249",
+      "path": "v1/host-two-pending.json",
+      "schema_version": 1
+    },
+    {
+      "byte_count": 14723,
+      "file_sha256": "feb0d01bf47c9f8e024f6850a32075cd31e6999e88b3be96b25bdef891f45e27",
+      "model_fingerprint": "sha256:57edb753fa0d34e031096c3fe51ac06317bace20384c61fe20dc40785a36958f",
+      "path": "v2/retained-one-pending.json",
+      "schema_version": 2
+    },
+    {
+      "byte_count": 10749,
+      "file_sha256": "bd42fd15cb822267008f218ff6af756cdfc1adcd834e36e0b80a1b595edcd6ca",
+      "model_fingerprint": "sha256:fb5ee4c05cf7b1afd4ac0dbba3e5dc858a708c5867cab67420701dc5de7ac943",
+      "path": "v2/retained-sealed.json",
+      "schema_version": 2
+    },
+    {
+      "byte_count": 11586,
+      "file_sha256": "f86817a490b925ce0930c60c21c2d7b287d1057fc58f8d61041d978e51f193aa",
+      "model_fingerprint": "sha256:7202daf52b2261af22d065baf2556f7bf65270bf7a9e80dca6a5a37cbc432e51",
+      "path": "v2/retained-known-migration.json",
+      "schema_version": 2
+    }
+  ],
+  "framing": "canonical UTF-8 JSON followed by one file LF; LF excluded from model fingerprint",
+  "profile": "authored-ci-owned-state-canonical-json-v1",
+  "schema_version": 1
+}

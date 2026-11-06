@@ -62,6 +62,12 @@ claiming rollback of physical mutations. A complete caller-owned continuation
 is separate from a durable acknowledged checkpoint; no native pickle migration
 or exactly-once external effect is implied.
 
+The separate [state and recovery API](state.md) provides optional local
+acknowledgements and explicit retained replay generation2. Choose that profile
+at origin; these v1 readers do not accept2 or silently truncate a full trace.
+Forks and live-pending replay-codec migration are refused by the
+retained profile. Direct complete v1 continuation/fork behavior above is unchanged.
+
 The explicit offline identity-execution policy retains the proposal/executed
 binding for simulation. It is not evidence that a real CI job ran. Source clocks,
 origin declarations and fingerprints establish internal consistency of supplied

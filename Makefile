@@ -72,7 +72,7 @@ docstrings: ensure-uv ## Check NumPy parameter coverage of documented public ent
 		coleman/api.py coleman/artifacts.py coleman/results/domain.py \
 		coleman/corpus/materialization.py coleman/spec/io.py coleman/spec/run_id.py coleman/spec/sweep.py coleman/spec/selected_runtime.py \
 		coleman/workflows coleman/application/workflow*.py \
-		coleman/core coleman/testing coleman/objectives coleman/capabilities.py coleman/interchange coleman/native coleman/replay \
+		coleman/core coleman/testing coleman/objectives coleman/capabilities.py coleman/interchange coleman/native coleman/replay coleman/state \
 		coleman/transports/mcp.py coleman/transports/workflow_tools.py
 
 # ——— Testing ——————————————————————————————————————————————
