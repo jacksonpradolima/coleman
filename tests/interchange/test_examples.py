@@ -8,7 +8,11 @@ from typing import cast
 import pytest
 
 from coleman.core.actions import ChoiceAction
-from coleman.core.feedback import ChosenFeedback, FeedbackBatch, FullPanel
+from coleman.core.capabilities import validate_feedback
+from coleman.core.feedback import ChosenFeedback, FeedbackBatch, FeedbackRow, FullPanel, OutcomeValue
+from coleman.core.identity import Reference
+from coleman.core.numeric import ScalarSpec
+from coleman.core.units import UnitSemantics
 from coleman.interchange.codec import wire_fingerprint
 from coleman.testing.decision_contracts import check_decision_contracts
 
@@ -316,3 +320,69 @@ def test_bounded_host_rejects_a_65th_opportunity_before_changing_owned_state(exa
     with pytest.raises(ValueError, match="64"):
         consumer.decide(request)
     assert consumer.export_state().to_json() == before
+
+
+@pytest.mark.parametrize("name", ["learning_only", "mab_only"])
+@pytest.mark.parametrize("diagnostic_id", ["aaa-diagnostic", "zzz-diagnostic"])
+@pytest.mark.parametrize("prepend", [True, False], ids=["prepend", "append"])
+def test_unrelated_diagnostics_preserve_learning_decisions_and_complete_owned_state(
+    examples, name, diagnostic_id, prepend
+):
+    example = examples[name]
+    factory = example.HostLearner if name == "learning_only" else example.HostMAB
+    baseline, enriched = factory(), factory()
+    diagnostic = OutcomeValue(
+        spec=ScalarSpec(
+            dimension=Reference(id=diagnostic_id, version="v1"),
+            semantics=UnitSemantics(unit="1", meaning="unrelated-synthetic-ci-diagnostic-v1"),
+            role="diagnostic",
+            minimum=0,
+            maximum=1,
+        ),
+        value=0.25,
+        status="observed",
+        origin="synthetic",
+        transform=None,
+    )
+
+    def add_diagnostic(row):
+        values = (diagnostic, *row.values) if prepend else (*row.values, diagnostic)
+        result = FeedbackRow(member=row.member, values=values)
+        assert result.values[0].spec.dimension.id == min(diagnostic_id, row.values[0].spec.dimension.id)
+        return result
+
+    cases = example.cases()
+    for index, case in enumerate(cases):
+        expected = baseline.decide(case.request)
+        actual = enriched.decide(case.request)
+        assert actual.to_json() == expected.to_json()
+        batch = _batch(example, baseline, case, index)
+        if isinstance(batch.feedback, FullPanel):
+            observed = FullPanel(rows=tuple(add_diagnostic(row) for row in batch.feedback.rows))
+        else:
+            assert isinstance(batch.feedback, ChosenFeedback)
+            observed = ChosenFeedback(row=add_diagnostic(batch.feedback.row))
+        decorated = FeedbackBatch.model_validate(batch.model_copy(update={"feedback": observed}))
+        decorated = FeedbackBatch.from_json(decorated.to_json())
+        pending = enriched.export_state().pending
+        assert pending is not None
+        before = enriched.export_state().to_json()
+        # Both models and the extra-dimension capability admission succeed before
+        # invoking the real host update; setup rejection cannot mask this check.
+        validate_feedback(pending, decorated, example.capability())
+        assert enriched.export_state().to_json() == before
+        baseline.update(batch)
+        enriched.update(decorated)
+        expected_state, actual_state = baseline.export_state(), enriched.export_state()
+        assert actual_state.to_json() == expected_state.to_json()
+        if name == "learning_only" and index == 0:
+            assert actual_state.totals == (1.0, 0.0)
+        if name == "mab_only":
+            assert actual_state.words == expected_state.words
+            assert actual_state.counts == expected_state.counts
+            assert actual_state.rewards == expected_state.rewards
+    following = type(cases[-1].request).model_validate(
+        cases[-1].request.model_copy(update={"decision_id": "after-diagnostic-panels", "round": len(cases)})
+    )
+    assert enriched.decide(following).to_json() == baseline.decide(following).to_json()
+    assert enriched.export_state().to_json() == baseline.export_state().to_json()

@@ -131,14 +131,24 @@ class HostLearner:
         return proposal
 
     def update(self, batch: FeedbackBatch, /) -> None:
-        """Consume only a complete compatible synthetic loss panel, once pending."""
+        """Consume a complete compatible synthetic loss panel, once pending.
+
+        Notes
+        -----
+        Capability validation checks the required loss dimension/version and its
+        unit/role/bounds. Select that dimension explicitly; canonical ordering
+        may place an admitted unrelated diagnostic before the loss.
+        """
         pending = self._state.pending
         if pending is None:
             raise ValueError("No example decision is pending; raw updates are not delivery retries")
         validate_feedback(pending, batch, capability())
         if not isinstance(batch.feedback, FullPanel) or batch.supersedes is not None:
             raise ValueError("Example consumes only root full-information panels")
-        values = {row.member: row.values[0].value for row in batch.feedback.rows}
+        values = {
+            row.member: next(value.value for value in row.values if value.spec.dimension == LOSS.dimension)
+            for row in batch.feedback.rows
+        }
         additions = tuple(values[member] for member in MEMBERS)
         if any(value is None for value in additions):
             raise ValueError("Unknown losses cannot become zeros")

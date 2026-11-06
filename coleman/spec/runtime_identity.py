@@ -133,15 +133,26 @@ def _dependency_distributions(
         entries[name] = item.version
         visited[name] = frozenset(extras)
         for requirement in _active_requirements(item, extras):
-            dependency = _qualified_dependency(requirement)
-            previous = requested.get(dependency)
-            combined = set(requirement.extras) | (previous or set())
-            if previous is None or previous != combined:
-                requested[dependency] = combined
-                pending.append(dependency)
-            if len(requested) > 4096 or len(combined) > 128:
-                raise ValueError("Installed base dependency inventory exceeds its supported bounds")
+            _include_requirement(requirement, requested, pending)
     return entries
+
+
+def _include_requirement(requirement: Requirement, requested: dict[str, set[str]], pending: list[str]) -> None:
+    """Validate one active requirement and merge its extras into the pending graph.
+
+    Updates ``requested`` and appends to ``pending`` only for a newly required
+    distribution or expanded extra set. Version/metadata errors propagate before
+    those updates; the unchanged inventory bounds are checked after the merge.
+    The caller retains metadata requirement order and marker selection.
+    """
+    dependency = _qualified_dependency(requirement)
+    previous = requested.get(dependency)
+    combined = set(requirement.extras) | (previous or set())
+    if previous is None or previous != combined:
+        requested[dependency] = combined
+        pending.append(dependency)
+    if len(requested) > 4096 or len(combined) > 128:
+        raise ValueError("Installed base dependency inventory exceeds its supported bounds")
 
 
 def _qualified_dependency(requirement: Requirement) -> str:

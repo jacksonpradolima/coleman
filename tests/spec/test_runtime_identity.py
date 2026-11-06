@@ -5,10 +5,12 @@ import hashlib
 import itertools
 import json
 from email.message import Message
+from functools import partial
 from importlib.metadata import Distribution, PackageNotFoundError
 from pathlib import Path
 
 import pytest
+from packaging.requirements import InvalidRequirement
 from packaging.utils import canonicalize_name
 from pydantic import TypeAdapter
 
@@ -437,3 +439,73 @@ def test_legacy_parent_cannot_relax_new_selected_runtime_leaf_contracts(updates)
     data["runtime"] = {**payload(), **updates}
     with pytest.raises(ValueError):
         ExperimentPlan.model_validate(data, strict=False, extra="ignore")
+
+
+def metadata_lookups(monkeypatch):
+    """Observe named metadata acquisition without replacing dependency validation."""
+    observed = []
+    original = legacy.distribution
+
+    def tracing(name):
+        observed.append(canonicalize_name(name))
+        return original(name)
+
+    monkeypatch.setattr(legacy, "distribution", tracing)
+    return observed
+
+
+@pytest.mark.parametrize(
+    "capture", [InstalledRuntime.capture, partial(SelectedInstalledRuntime.capture, extras=("ci",))]
+)
+def test_root_self_requirement_can_activate_its_own_extra_without_looping(monkeypatch, capture):
+    """Qualify a self-referencing root's transitive extra in both generations."""
+    values = {
+        "coleman": MetadataDistribution(
+            "coleman",
+            requires=("coleman[feature]>=1", 'child>=1; extra == "feature"'),
+            extras=("ci", "feature"),
+        ),
+        "child": MetadataDistribution("child"),
+    }
+    install_metadata(monkeypatch, values)
+    runtime = capture()
+    assert {item.name for item in runtime.distributions} == {"coleman", "child"}
+
+
+@pytest.mark.parametrize(
+    "capture", [InstalledRuntime.capture, partial(SelectedInstalledRuntime.capture, extras=("ci",))]
+)
+@pytest.mark.parametrize("malformed", ["not%%%valid", "absent; extra ==="])
+def test_malformed_metadata_is_rejected_before_following_any_requirement(monkeypatch, capture, malformed):
+    """Preserve eager requirement parsing before any valid child is inspected."""
+    values = {
+        "coleman": MetadataDistribution("coleman", requires=("child>=1", malformed), extras=("ci",)),
+        "child": MetadataDistribution("child"),
+    }
+    install_metadata(monkeypatch, values)
+    observed = metadata_lookups(monkeypatch)
+    with pytest.raises(InvalidRequirement):
+        capture()
+    assert observed == ["coleman"]
+
+
+@pytest.mark.parametrize(
+    "requirements,expected_error,expected_message,first_dependency",
+    [
+        (("child>=2", "absent"), ValueError, "does not satisfy", "child"),
+        (("absent", "child>=2"), PackageNotFoundError, "absent", "absent"),
+    ],
+)
+def test_active_requirements_keep_declared_first_failure_order(
+    monkeypatch, requirements, expected_error, expected_message, first_dependency
+):
+    """Keep acquisition errors tied to the first declared active requirement."""
+    values = {
+        "coleman": MetadataDistribution("coleman", requires=requirements),
+        "child": MetadataDistribution("child"),
+    }
+    install_metadata(monkeypatch, values)
+    observed = metadata_lookups(monkeypatch)
+    with pytest.raises(expected_error, match=expected_message):
+        InstalledRuntime.capture()
+    assert observed == ["coleman", first_dependency]

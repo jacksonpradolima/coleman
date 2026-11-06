@@ -155,7 +155,14 @@ class HostMAB:
         return proposal
 
     def update(self, batch: FeedbackBatch, /) -> None:
-        """Update exactly one chosen recipe without receiving another oracle row."""
+        """Update one chosen recipe without receiving another oracle row.
+
+        Notes
+        -----
+        Capability validation checks the required reward dimension/version and
+        its unit/role/bounds. Lookup uses that dimension, so admitted unrelated
+        diagnostics never become reward merely through canonical ordering.
+        """
         pending = self._state.pending
         if pending is None:
             raise ValueError("No sampled decision is pending")
@@ -163,7 +170,9 @@ class HostMAB:
         if not isinstance(batch.feedback, ChosenFeedback) or batch.supersedes is not None:
             raise ValueError("Example accepts root chosen-only feedback")
         index = MEMBERS.index(batch.feedback.row.member)
-        value = batch.feedback.row.values[0].value
+        value = next(
+            outcome.value for outcome in batch.feedback.row.values if outcome.spec.dimension == REWARD.dimension
+        )
         if value is None:
             raise ValueError("Unknown rewards cannot become zeros")
         counts = tuple(count + (coordinate == index) for coordinate, count in enumerate(self._state.counts))
