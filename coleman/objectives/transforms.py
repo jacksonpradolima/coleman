@@ -130,7 +130,11 @@ def _derive(
     numerator = value - lower if definition.direction == "minimize" else upper - value
     exact = numerator / (upper - lower)
     before = checked_fraction(exact)
-    clipping: Clipping = "lower" if exact < 0 else "upper" if exact > 1 else "none"
+    clipping: Clipping = "none"
+    if exact < 0:
+        clipping = "lower"
+    elif exact > 1:
+        clipping = "upper"
     if clipping != "none" and definition.outside == "reject":
         return None, "rejected", "not_evaluated", before
     loss = checked_fraction(max(Fraction(), min(Fraction(1), exact)))

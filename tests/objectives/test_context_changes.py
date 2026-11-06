@@ -130,7 +130,8 @@ def test_optional_context_preserves_existing_request_and_no_preference():
 def test_context_binds_parameters_not_only_the_same_human_reference():
     first, second = request(), request(context(definition(-10.0)))
     assert first.request.to_json() == second.request.to_json()
-    assert first.logical_identity == second.logical_identity and first.fingerprint != second.fingerprint
+    assert first.logical_identity == second.logical_identity
+    assert first.fingerprint != second.fingerprint
     assert len(deduplicate_semantic_requests((first, first))) == 1
     with pytest.raises(ValueError, match="Conflicting"):
         deduplicate_semantic_requests((first, second))

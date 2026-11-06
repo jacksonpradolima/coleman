@@ -263,7 +263,8 @@ def test_distinct_null_states_remain_null_without_scale_or_loss_imputation(statu
     result = application(None, status=status, selection=selected(values=(0.0, 0.0, 0.0)))
     assert result.output.status == status
     assert result.reason == "input_" + status
-    assert result.z is None and result.preclip_loss is None
+    assert result.z is None
+    assert result.preclip_loss is None
     assert result.clipping == "not_evaluated"
 
 
@@ -275,7 +276,8 @@ def test_observed_zero_scale_is_distinct_from_unknown_scale_and_zero_outcome():
     result = application(0.0, selection=selection)
     assert result.output.status == "unavailable"
     assert result.reason == "zero_scale"
-    assert result.raw.status == "observed" and result.raw.value == 0.0
+    assert result.raw.status == "observed"
+    assert result.raw.value == 0.0
 
 
 @pytest.mark.parametrize("field", ["received_at", "mature_at", "available_at"])
@@ -527,7 +529,8 @@ def test_summary_denominators_keep_nulls_noncomputable_and_duplicate_retries_sep
 def test_no_computed_loss_has_null_rates_rather_than_zero_over_zero():
     stats = clipping_statistics((application(None, status="unknown"),), split=ref("protected"))
     assert stats.computed == 0
-    assert stats.lower_rate is None and stats.upper_rate is None
+    assert stats.lower_rate is None
+    assert stats.upper_rate is None
 
 
 def test_summary_conflicts_mixed_groups_empty_and_unbounded_inputs_reject():
@@ -613,7 +616,8 @@ def test_noncomputable_scale_remains_null_without_a_synthetic_feedback_value(val
     raw = OutcomeValue(spec=result.raw.spec, value=0.0, status="observed", origin="synthetic", transform=None)
     output = volatility_outcome(result, raw)
     assert output.origin == "synthetic"
-    assert output.status == "unavailable" and output.value is None
+    assert output.status == "unavailable"
+    assert output.value is None
 
 
 @pytest.mark.parametrize("value", [-0.0, 1.0])

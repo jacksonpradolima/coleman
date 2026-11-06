@@ -74,7 +74,8 @@ def test_actual_ci_scalar_constraints_retain_raw_evidence_and_qualify_baseline()
     assert request.to_json() == before
     assert FiniteFeasibilityResult.from_json(result.to_json()) == result
     qualified = select_fallback(result, _ref("unit"))
-    assert qualified.kind == "baseline" and qualified.member == _ref("unit")
+    assert qualified.kind == "baseline"
+    assert qualified.member == _ref("unit")
     assert FallbackDecision.from_json(qualified.to_json()) == qualified
     assert select_fallback(result, _ref("integration")).reason == "unqualified_baseline"
     assert select_fallback(result, _ref("unit", "v2")).kind == "abstain"
@@ -87,11 +88,13 @@ def test_actual_ci_scalar_constraints_retain_raw_evidence_and_qualify_baseline()
 def test_null_states_and_missing_rows_do_not_fabricate_feasibility(status):
     request = _request((_row("unit", None, status),))
     result = check_finite_feasibility(request)
-    assert result.status == "insufficient_evidence" and not result.feasible_members
+    assert result.status == "insufficient_evidence"
+    assert not result.feasible_members
     by_member = {row.member.id: row for row in result.alternatives}
     assert by_member["unit"].evidence[0].value is not None
     assert by_member["unit"].evidence[0].value.status == status
-    assert by_member["integration"].present is False and not by_member["integration"].evidence
+    assert by_member["integration"].present is False
+    assert not by_member["integration"].evidence
     assert select_fallback(result, _ref("unit")).kind == "abstain"
 
 
@@ -99,7 +102,8 @@ def test_missing_dimension_is_distinct_from_known_zero_and_negative_values():
     missing = FiniteAlternative(member=_ref("unit"), values=())
     result = check_finite_feasibility(_request((missing,)))
     evidence = next(row for row in result.alternatives if row.member.id == "unit").evidence[0]
-    assert evidence.reason == "missing_dimension" and evidence.value is None
+    assert evidence.reason == "missing_dimension"
+    assert evidence.value is None
     zero = check_finite_feasibility(_request((_row(value=0.0),)))
     assert zero.feasible_members == (_ref("unit"),)
     signed = QuantityMeaning(
@@ -142,7 +146,8 @@ def test_valid_conflicting_constraints_are_not_malformed_or_repaired():
 def test_constraint_can_conflict_with_declared_measurement_bounds():
     impossible = _constraint(lower=None, upper=-1.0)
     result = check_finite_feasibility(_request((), constraints=(impossible,)))
-    assert result.status == "infeasible" and result.conflicting_constraints == (impossible.binding,)
+    assert result.status == "infeasible"
+    assert result.conflicting_constraints == (impossible.binding,)
 
 
 def test_schema_units_horizon_and_member_versions_are_never_inferred():

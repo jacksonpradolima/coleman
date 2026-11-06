@@ -555,7 +555,11 @@ def _loss_facts(
     z = checked_fraction(ratio)
     unbounded = (1 - ratio / Fraction.from_float(definition.c)) / 2
     preclip = checked_fraction(unbounded)
-    clipping: Clipping = "lower" if unbounded < 0 else "upper" if unbounded > 1 else "none"
+    clipping: Clipping = "none"
+    if unbounded < 0:
+        clipping = "lower"
+    elif unbounded > 1:
+        clipping = "upper"
     loss = checked_fraction(min(Fraction(1), max(Fraction(0), unbounded)))
     return Scalar(spec=definition.output.spec, value=loss, status="observed"), z, preclip, clipping, "computed"
 

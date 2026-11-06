@@ -43,7 +43,8 @@ def normalized(name="loss"):
 
 def observed_loss(application):
     assert application.status == "applied"
-    assert application.output is not None and application.output.status == "observed"
+    assert application.output is not None
+    assert application.output.status == "observed"
     assert application.output.value is not None
     return application.output.value
 
@@ -139,21 +140,26 @@ def test_independent_affine_signed_zero_threshold_and_clipping(value, expected):
 def test_missing_loss_and_conversion_remain_distinct(status):
     definition = affine()
     result = apply_loss(definition, raw(definition.input, None, status))
-    assert result.status == "missing" and result.preclip_loss is None
+    assert result.status == "missing"
+    assert result.preclip_loss is None
     assert result.output is not None
-    assert result.output.value is None and result.output.status == status
+    assert result.output.value is None
+    assert result.output.status == status
     conversion = ConversionSpec(
         schema_version=1, reference=ref("identity-unit"), lineage=lineage(), input=meaning(), output=meaning()
     )
     receipt = convert_quantity(conversion, raw(conversion.input, None, status))
-    assert receipt.converted.status == status and receipt.converted.value is None
+    assert receipt.converted.status == status
+    assert receipt.converted.value is None
 
 
 def test_reject_and_forged_receipts_do_not_claim_a_completed_loss():
     definition = affine(outside="reject")
     result = apply_loss(definition, raw(definition.input, -7.0))
-    assert result.status == "rejected" and result.output is None
-    assert result.raw.value == -7.0 and result.preclip_loss == 1.2
+    assert result.status == "rejected"
+    assert result.output is None
+    assert result.raw.value == -7.0
+    assert result.preclip_loss == 1.2
     with pytest.raises(ValueError):
         LossApplication.model_validate(result.model_copy(update={"status": "applied"}))
     applied = apply_loss(affine(), raw(meaning(), -2.5))
@@ -171,7 +177,8 @@ def test_identity_preserves_signed_zero_and_outcome_origin():
     for origin in origins:
         original = OutcomeValue(**result.raw.model_dump(), origin=origin, transform=ref("raw-identity"))
         derived = loss_outcome(result, original)
-        assert derived.origin == origin and derived.transform == definition.reference
+        assert derived.origin == origin
+        assert derived.transform == definition.reference
     different = OutcomeValue(
         spec=normalized().spec, value=0.5, status="observed", origin="synthetic", transform=ref("x")
     )
@@ -209,7 +216,8 @@ def test_conversion_catalog_and_receipts_preserve_units_and_raw_bytes():
         schema_version=1, reference=ref("elapsed-conversion"), lineage=lineage(), input=first, output=last
     )
     result = convert_quantity(definition, raw(first, -500.0))
-    assert result.converted.value == -0.5 and result.raw.value == -500.0
+    assert result.converted.value == -0.5
+    assert result.raw.value == -500.0
     assert ConversionReceipt.from_json(result.to_json()).to_json() == result.to_json()
     assert conversion_factor("min", "us") == 60_000_000
     assert conversion_factor("MiB", "byte") == 1024**2
@@ -262,7 +270,8 @@ def test_extreme_arithmetic_rejects_unrepresentable_outputs_and_keeps_valid_span
 
 def test_definition_content_digest_changes_with_parameters_not_bare_reference():
     first, second = affine(), affine(lower=-10.0)
-    assert first.reference == second.reference and first.binding != second.binding
+    assert first.reference == second.reference
+    assert first.binding != second.binding
     assert AffineLoss.from_json(first.to_json()).binding == first.binding
     with pytest.raises(ValueError):
         first.model_copy(update={"lower": float("nan")}).to_json()

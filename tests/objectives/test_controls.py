@@ -105,7 +105,8 @@ def _controls(output=None):
 def test_well_formed_empty_simplex_is_typed_infeasible_not_schema_error():
     for bounds in (_bounds((0.75, 0.75)), _bounds(uppers=(0.25, 0.25))):
         result = check_mixture_intersection(bounds, _origin())
-        assert result.status == "infeasible" and result.reason == "simplex_sum"
+        assert result.status == "infeasible"
+        assert result.reason == "simplex_sum"
         assert MixtureIntersection.from_json(result.to_json()) == result
     with pytest.raises(ValueError, match="lower bound"):
         ExpertBound(member=_ref("a"), lower=0.75, upper=0.5)
@@ -125,7 +126,8 @@ def test_static_and_movement_intersection_is_pure_and_does_not_project():
 
 def test_coordinate_conflict_differs_from_bad_individual_box():
     result = check_mixture_intersection(_bounds((0.8, 0.0)), _origin(), movement=_movement(values=(0.1, 0.1)))
-    assert result.status == "infeasible" and result.reason == "empty_coordinate"
+    assert result.status == "infeasible"
+    assert result.reason == "empty_coordinate"
     assert result.effective[0].lower > result.effective[0].upper
 
 
@@ -137,7 +139,8 @@ def test_interval_net_displacement_uses_period_origin_not_last_emitted_vector():
     assert tuple((item.lower, item.upper) for item in result.effective) == ((0.25, 0.75), (0.25, 0.75))
     assert result.usage is not None
     assert result.usage.interval == _ref("period-1")
-    assert result.origin == current.binding and result.usage.origin.binding == _origin().binding
+    assert result.origin == current.binding
+    assert result.usage.origin.binding == _origin().binding
     with pytest.raises(ValueError, match="usage disagrees"):
         check_mixture_intersection(_bounds(), current, movement=movement, usage=_usage())
 
@@ -154,7 +157,8 @@ def test_interval_accumulated_usage_cannot_reset_or_use_net_displacement_semanti
     with pytest.raises(ValueError, match="below known"):
         check_mixture_intersection(_bounds(), current, movement=movement, usage=_usage())
     exhausted = check_mixture_intersection(_bounds(), _origin(), movement=movement, usage=_usage((0.75, 0.75)))
-    assert exhausted.status == "infeasible" and exhausted.reason == "period_budget"
+    assert exhausted.status == "infeasible"
+    assert exhausted.reason == "period_budget"
 
 
 def test_missing_or_wrong_period_and_version_do_not_silently_reset_allowances():
@@ -304,7 +308,8 @@ def test_required_control_combination_binds_all_definitions_and_explicit_nulls()
         }
     )
     assert MixtureControls.from_json(complete.to_json()) == complete
-    assert complete.output.kind == "l1_movement" and complete.cadence.kind == "interval_clock"
+    assert complete.output.kind == "l1_movement"
+    assert complete.cadence.kind == "interval_clock"
     assert complete.binding != controls.binding
     missing = controls.model_dump()
     del missing["target"]
@@ -317,7 +322,8 @@ def test_numerical_core_simplex_hold_preserves_float_thirds_without_exact_real_c
     bounds = _bounds((0.0, 0.0, 0.0), (1.0, 1.0, 1.0))
     movement = _movement(values=(0.0, 0.0, 0.0))
     result = check_mixture_intersection(bounds, thirds, movement=movement)
-    assert result.status == "feasible" and not result.exact_feasible
+    assert result.status == "feasible"
+    assert not result.exact_feasible
     assert result.numerical_profile == "binary64-simplex-v1"
     assert tuple(item.lower for item in result.effective) == tuple(weight.value for weight in thirds.weights)
     assert all(item.lower == item.upper for item in result.effective)
@@ -329,22 +335,26 @@ def test_numerical_core_simplex_hold_preserves_float_thirds_without_exact_real_c
 def test_sum_tolerance_never_relaxes_empty_coordinate_intervals_or_large_residuals():
     fixed = (0.5, 0.5 - 2**-47)
     result = check_mixture_intersection(_bounds(fixed, fixed), _origin())
-    assert result.status == "infeasible" and not result.exact_feasible
+    assert result.status == "infeasible"
+    assert not result.exact_feasible
     assert result.reason == "simplex_sum"
     close = (0.5, 0.5 - 2**-50)
     admitted = check_mixture_intersection(_bounds(close, close), _origin())
-    assert admitted.status == "feasible" and not admitted.exact_feasible
+    assert admitted.status == "feasible"
+    assert not admitted.exact_feasible
     conflict = check_mixture_intersection(
         _bounds((0.5 + 2**-52, 0.0)), _origin(), movement=_movement(values=(0.0, 0.0))
     )
-    assert conflict.status == "infeasible" and conflict.reason == "empty_coordinate"
+    assert conflict.status == "infeasible"
+    assert conflict.reason == "empty_coordinate"
 
 
 @pytest.mark.parametrize("used", [2**-60, math.ulp(0.0)])
 def test_tiny_original_period_overspend_is_typed_infeasible_after_endpoint_rounding(used):
     movement = _movement("per_interval", "accumulated_absolute", (0.0, 0.0))
     result = check_mixture_intersection(_bounds(), _origin(), movement=movement, usage=_usage((used, used)))
-    assert result.status == "infeasible" and result.reason == "period_budget"
+    assert result.status == "infeasible"
+    assert result.reason == "period_budget"
     assert not result.exact_feasible
     assert all(bound.lower == bound.upper == 0.5 for bound in result.effective)
     assert MixtureIntersection.from_json(result.to_json()) == result
@@ -354,7 +364,8 @@ def test_original_empty_coordinate_is_not_hidden_by_rounding_display_endpoints()
     current = _origin((math.nextafter(0.5, 0.0), 0.5))
     allowance = math.nextafter(2**-54, 0.0)
     result = check_mixture_intersection(_bounds((0.5, 0.0)), current, movement=_movement(values=(allowance, 1.0)))
-    assert result.reason == "empty_coordinate" and result.status == "infeasible"
+    assert result.reason == "empty_coordinate"
+    assert result.status == "infeasible"
     assert result.effective[0].lower == result.effective[0].upper == 0.5
     assert not result.exact_feasible
 

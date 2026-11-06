@@ -269,7 +269,7 @@ class ReleaseInterval(CoreImmutable):
     @model_validator(mode="after")
     def _interval(self) -> Self:
         """Validate explicit boundaries without ambient clock or epoch guesses."""
-        if not self.start < self.end or not self.start <= self.cutoff <= self.release_at <= self.end:
+        if self.start >= self.end or not self.start <= self.cutoff <= self.release_at <= self.end:
             raise ValueError("Release interval requires start <= cutoff <= release <= end and start < end")
         return self
 

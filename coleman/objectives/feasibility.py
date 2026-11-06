@@ -492,10 +492,15 @@ def select_fallback(result: FiniteFeasibilityResult, baseline: Reference | None 
     checked = FiniteFeasibilityResult.model_validate(result)
     candidate = None if baseline is None else Reference.model_validate(baseline)
     accepted = candidate is not None and candidate in checked.feasible_members
+    reason: Literal["feasible_baseline", "no_baseline", "unqualified_baseline"] = "unqualified_baseline"
+    if accepted:
+        reason = "feasible_baseline"
+    elif candidate is None:
+        reason = "no_baseline"
     return FallbackDecision(
         schema_version=1,
         evidence=checked.fingerprint,
         kind="baseline" if accepted else "abstain",
         member=candidate if accepted else None,
-        reason="feasible_baseline" if accepted else "no_baseline" if candidate is None else "unqualified_baseline",
+        reason=reason,
     )

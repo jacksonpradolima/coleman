@@ -27,7 +27,8 @@ def test_versioned_golden_bytes_and_independently_worked_public_meanings():
     manifest = json.loads((directory / "manifest-v1.json").read_text())
     digests = json.loads((directory / "digests-v1.json").read_text())
     payloads = {}
-    assert manifest["schema_version"] == 1 and len(manifest["records"]) == 17
+    assert manifest["schema_version"] == 1
+    assert len(manifest["records"]) == 17
     for row in manifest["records"]:
         wire = (directory / row["file"]).read_bytes().removesuffix(b"\n")
         assert hashlib.sha256(wire).hexdigest() == digests[row["file"]]
@@ -43,24 +44,32 @@ def test_versioned_golden_bytes_and_independently_worked_public_meanings():
     assert converted["definition"]["output"]["spec"]["semantics"]["unit"] == "s"
     assert converted["converted"]["value"] == float(Fraction(-500, 1000)) == -0.5
     affine = payloads["affine-application-v1.json"]
-    assert affine["definition"]["direction"] == "maximize" and affine["raw"]["value"] == -2.5
+    assert affine["definition"]["direction"] == "maximize"
+    assert affine["raw"]["value"] == -2.5
     assert affine["definition"]["bound_basis"] == "modeling_assumption"
-    assert affine["definition"]["lower"] == -5 and affine["definition"]["upper"] == 5
+    assert affine["definition"]["lower"] == -5
+    assert affine["definition"]["upper"] == 5
     assert affine["output"]["value"] == float((Fraction(5) - Fraction(-5, 2)) / 10) == 0.75
-    assert affine["status"] == "applied" and affine["clipping"] == "none"
+    assert affine["status"] == "applied"
+    assert affine["clipping"] == "none"
     identity = payloads["identity-application-v1.json"]
     for value in (identity["raw"]["value"], identity["output"]["value"], identity["preclip_loss"]):
-        assert value == 0 and math.copysign(1, value) == -1
+        assert value == 0
+        assert math.copysign(1, value) == -1
 
     volatility = payloads["volatility-application-v1.json"]
     selection = volatility["selection"]
     frozen = selection["scale"]
     assert [sample["value"]["value"] for sample in frozen["snapshot"]["samples"]] == [-1, 0, 1]
-    assert frozen["definition"]["window"] == 3 and frozen["scale"]["value"] == 1
+    assert frozen["definition"]["window"] == 3
+    assert frozen["scale"]["value"] == 1
     assert sum(Fraction(value) ** 2 for value in (-1, 0, 1)) / 2 == 1
-    assert selection["definition"]["c"] == 2 and volatility["raw"]["value"] == -1
-    assert volatility["z"] == -1 and volatility["output"]["value"] == float((1 - Fraction(-1, 2)) / 2) == 0.75
-    assert volatility["reason"] == "computed" and volatility["clipping"] == "none"
+    assert selection["definition"]["c"] == 2
+    assert volatility["raw"]["value"] == -1
+    assert volatility["z"] == -1
+    assert volatility["output"]["value"] == float((1 - Fraction(-1, 2)) / 2) == 0.75
+    assert volatility["reason"] == "computed"
+    assert volatility["clipping"] == "none"
     cutoff = datetime.fromisoformat(frozen["snapshot"]["training_cutoff"])
     frozen_at = datetime.fromisoformat(frozen["frozen_at"])
     information = datetime.fromisoformat(selection["timing"]["information_cutoff"])
@@ -93,12 +102,15 @@ def test_versioned_golden_bytes_and_independently_worked_public_meanings():
         point["quantity"]["spec"]["dimension"]["id"] for point in payloads["reference-points-v1.json"]["points"]
     } == {"duration", "net"}
     controls = payloads["mixture-controls-l1-v1.json"]
-    assert controls["output"]["kind"] == "l1_movement" and controls["output"]["strength"] == 1.5
+    assert controls["output"]["kind"] == "l1_movement"
+    assert controls["output"]["strength"] == 1.5
     assert controls["output"]["objective_convention"] == "half_squared_plus_full_l1_v1"
-    assert controls["cadence"]["kind"] == "interval_clock" and controls["movement"]["scope"] == "per_interval"
+    assert controls["cadence"]["kind"] == "interval_clock"
+    assert controls["movement"]["scope"] == "per_interval"
     assert controls["target"]["alpha"] == 0.1
     intersection = payloads["mixture-intersection-budget-v1.json"]
-    assert intersection["status"] == "infeasible" and intersection["reason"] == "period_budget"
+    assert intersection["status"] == "infeasible"
+    assert intersection["reason"] == "period_budget"
     assert intersection["exact_feasible"] is False
     assert all(bound["lower"] == bound["upper"] == 0.5 for bound in intersection["effective"])
     assert all(limit["maximum"] == 0 for limit in intersection["movement_definition"]["limits"])
@@ -106,12 +118,16 @@ def test_versioned_golden_bytes_and_independently_worked_public_meanings():
 
     semantic = payloads["semantic-request-v1.json"]
     context = semantic["context"]
-    assert context["controls"] == controls and context["preferences"] == weights
-    assert context["anchor"] == anchor and semantic["request"]["objective"] == context["objective"]["reference"]
+    assert context["controls"] == controls
+    assert context["preferences"] == weights
+    assert context["anchor"] == anchor
+    assert semantic["request"]["objective"] == context["objective"]["reference"]
     change = payloads["semantic-change-v1.json"]
     assert change["previous"]["definition_fingerprint"] == _digest(context)
     assert change["replacement"]["definition_fingerprint"] == _digest({**context, "preferences": None})
-    assert change["effective_round"] == 2 and change["disposition"] == "restart" and change["migration"] is None
+    assert change["effective_round"] == 2
+    assert change["disposition"] == "restart"
+    assert change["migration"] is None
     finite = payloads["finite-request-v1.json"]
     result = payloads["finite-result-v1.json"]
     assert result["request"] == finite
@@ -120,13 +136,15 @@ def test_versioned_golden_bytes_and_independently_worked_public_meanings():
         "unit": 2,
         "integration": 4,
     }
-    assert result["request_fingerprint"] == _digest(finite) and result["status"] == "feasible"
+    assert result["request_fingerprint"] == _digest(finite)
+    assert result["status"] == "feasible"
     assert {row["member"]["id"]: row["status"] for row in result["alternatives"]} == {
         "unit": "feasible",
         "integration": "infeasible",
     }
     fallback = payloads["fallback-v1.json"]
-    assert fallback["kind"] == "baseline" and fallback["member"]["id"] == "unit"
+    assert fallback["kind"] == "baseline"
+    assert fallback["member"]["id"] == "unit"
     assert fallback["evidence"] == _digest(result)
 
 
@@ -303,7 +321,8 @@ print(json.dumps({'modules':len(actual),'objective_goldens':len(manifest['record
     }
     allocation = json.loads(command([str(python), "-I", "allocation.py"], cwd=outside))
     scale_fingerprint = allocation.pop("scale_fingerprint")
-    assert scale_fingerprint.startswith("sha256:") and len(scale_fingerprint) == 71
+    assert scale_fingerprint.startswith("sha256:")
+    assert len(scale_fingerprint) == 71
     assert allocation == {
         "origin": "synthetic",
         "gross_credit": "-2",

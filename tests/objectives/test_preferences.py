@@ -96,7 +96,8 @@ def test_initial_prior_does_not_execute_or_replace_a_baseline():
     before = baseline.model_dump_json()
     no_preference = None
     selected = baseline if no_preference is None else weight_objectives(no_preference, _values())
-    assert selected is baseline and baseline.model_dump_json() == before
+    assert selected is baseline
+    assert baseline.model_dump_json() == before
     assert "feedback" not in prior.model_dump()
 
 
@@ -104,7 +105,8 @@ def test_initial_prior_does_not_execute_or_replace_a_baseline():
 def test_target_strength_is_a_share_fraction_separate_from_penalty(alpha):
     target = DeclaredTargetShare(**_coefficient_fields((0.0, 1.0)), alpha=alpha)
     assert DeclaredTargetShare.from_json(target.to_json()).fingerprint == target.fingerprint
-    assert target.alpha == alpha and target.weights[0].value == 0
+    assert target.alpha == alpha
+    assert target.weights[0].value == 0
 
 
 @pytest.mark.parametrize("alpha", [-0.1, 1.01, True, float("inf"), float("nan"), "0.1"])
@@ -113,10 +115,25 @@ def test_invalid_share_strength_rejects(alpha):
         DeclaredTargetShare(**_coefficient_fields(), alpha=alpha)
 
 
-@pytest.mark.parametrize("values", [(0.0, 0.0), (-0.1, 1.1), (0.2, 0.2), (float("inf"), 0.0)])
+@pytest.mark.parametrize("values", [(0.0, 0.0), (-0.1, 1.1), (0.2, 0.2)])
 def test_invalid_initial_coefficients_are_not_repaired(values):
+    fields = _coefficient_fields(values)
     with pytest.raises(ValueError):
-        InitialPrior(**_coefficient_fields(values))
+        InitialPrior(**fields)
+
+
+def test_nonfinite_initial_coefficients_reject_at_weight_and_prior_boundaries():
+    member = _ref("expert-0")
+    nonfinite = float("inf")
+    with pytest.raises(ValueError, match="finite"):
+        Weight(member=member, value=nonfinite)
+    fields = _coefficient_fields()
+    fields["weights"] = (
+        {"member": member.model_dump(), "value": nonfinite},
+        {"member": _ref("expert-1").model_dump(), "value": 0.0},
+    )
+    with pytest.raises(ValueError, match="finite"):
+        InitialPrior(**fields)
 
 
 def test_coefficient_semantics_and_duplicate_expert_versions_are_explicit():
@@ -158,7 +175,8 @@ def test_missing_subjective_input_never_becomes_zero_even_at_zero_weight(status)
     other_term = ObjectiveWeight(quantity=_meaning("loss-b"), weight=1.0)
     definition = ObjectiveWeights.model_validate({**definition.model_dump(), "terms": (zero_term, other_term)})
     result = weight_objectives(definition, _values(status))
-    assert result.status == "insufficient_evidence" and result.output is None
+    assert result.status == "insufficient_evidence"
+    assert result.output is None
     assert result.inputs[0].status == status
     assert result.inputs[0].value is None
 
@@ -231,7 +249,8 @@ def test_reference_points_and_judgments_retain_units_without_generating_feedback
     assert ReferencePoints.from_json(declaration.to_json()) == declaration
     judgment = HumanJudgment(**_metadata("judgment"), left=_ref("unit"), right=_ref("integration"), relation="left")
     assert HumanJudgment.from_json(judgment.to_json()) == judgment
-    assert "reward" not in judgment.model_dump() and "feedback" not in judgment.model_dump()
+    assert "reward" not in judgment.model_dump()
+    assert "feedback" not in judgment.model_dump()
     with pytest.raises(ValueError):
         HumanJudgment(**_metadata(), left=_ref("unit"), right=_ref("unit", "v2"), relation="tie")
     with pytest.raises(ValueError):

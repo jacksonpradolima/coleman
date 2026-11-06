@@ -146,11 +146,11 @@ class SemanticContext(SemanticDefinition):
             definition = definitions[term.transform.model_dump_json()]
             if _input(definition).model_dump_json() != term.quantity.model_dump_json():
                 raise ValueError("Objective term does not match its transform's exact input meaning")
-            direction = (
-                definition.direction
-                if isinstance(definition, AffineLoss)
-                else ("minimize" if isinstance(definition, IdentityLoss) else "maximize")
-            )
+            direction = "maximize"
+            if isinstance(definition, AffineLoss):
+                direction = definition.direction
+            elif isinstance(definition, IdentityLoss):
+                direction = "minimize"
             if term.direction != direction:
                 raise ValueError("Objective direction disagrees with its loss transformation")
         self._preference_inputs()
@@ -262,26 +262,27 @@ class SemanticRequest(CoreContract):
         """Require a frozen global scale or complete member-indexed choices per loss."""
         universe = {member.model_dump_json() for member in space_members(self.request.space)}
         for definition in self.context.transforms:
-            if not isinstance(definition, SignedVolatilitySpec):
-                continue
-            selections = [
-                item for item in self.context.scale_selections if item.definition.binding == definition.binding
-            ]
-            if not selections:
-                raise ValueError("Signed-volatility semantic requests require preselected scale coverage")
-            global_selections = [item for item in selections if item.member is None]
-            if global_selections:
-                if len(selections) != 1:
-                    raise ValueError("A global scale choice cannot be mixed with additional member/outcome choices")
-                continue
-            members = [item.member.model_dump_json() for item in selections if item.member is not None]
-            if len(members) != len(set(members)) or set(members) != universe:
-                raise ValueError("Scale selections must cover the exact member universe once")
-            if (
-                selections[0].scale.definition.scope == "shared"
-                and len({item.scale.fingerprint for item in selections}) != 1
-            ):
-                raise ValueError("Shared per-member scale selections must reuse the same frozen scale")
+            if isinstance(definition, SignedVolatilitySpec):
+                self._loss_scale_coverage(definition, universe)
+
+    def _loss_scale_coverage(self, definition: SignedVolatilitySpec, universe: set[str]) -> None:
+        """Qualify one loss's global or complete member-indexed frozen selection."""
+        selections = [item for item in self.context.scale_selections if item.definition.binding == definition.binding]
+        if not selections:
+            raise ValueError("Signed-volatility semantic requests require preselected scale coverage")
+        global_selections = [item for item in selections if item.member is None]
+        if global_selections:
+            if len(selections) != 1:
+                raise ValueError("A global scale choice cannot be mixed with additional member/outcome choices")
+            return
+        members = [item.member.model_dump_json() for item in selections if item.member is not None]
+        if len(members) != len(set(members)) or set(members) != universe:
+            raise ValueError("Scale selections must cover the exact member universe once")
+        if (
+            selections[0].scale.definition.scope == "shared"
+            and len({item.scale.fingerprint for item in selections}) != 1
+        ):
+            raise ValueError("Shared per-member scale selections must reuse the same frozen scale")
 
     def _members(self) -> None:
         """Reject expert controls applied to another universe or action capability."""
