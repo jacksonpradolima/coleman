@@ -1,0 +1,19 @@
+{
+  "affine-application-v1.json": "271679aea9fa1106130d915977dd3a242c8014d1b8cf3bfba37b90781e5ffec8",
+  "clipping-statistics-v1.json": "e5320c9b0b518ef3b4dc540e9f59d4a40b7de373ca7846714c0cedef5fa38a0e",
+  "conversion-receipt-v1.json": "f1a54c815974852efc358f58dc182947e20260df184330c3cd1f4681e2fec506",
+  "fallback-v1.json": "0d9f738428aa338cd81d6c1bfdd1ca903f18ba3f1992cf07bc2c5514766f0960",
+  "finite-request-v1.json": "67ba576b1f356d05cfe6c820be566e8ff988e0c88c81a5ff3bc2cdecb30f76d4",
+  "finite-result-v1.json": "7b734c4629db1b79043efa8f9416d8147a95c13d7600e096c71b3460ff716d09",
+  "human-judgment-v1.json": "f7405ae2eceb3f77f1e6dea394d5585a5615413dd9c5fea05ad917df46fc84df",
+  "identity-application-v1.json": "ecad8b83c754c4c2ef909972eef719b03e53df3f69421b4769b41c2cbeb38984",
+  "mixture-controls-l1-v1.json": "86b84d329b2920a7bafc8c3e8bc71febcb664d3f94e99f3cf02af83330ce1dfd",
+  "mixture-intersection-budget-v1.json": "58add3ca2eae7925d4dbd0e630555d7f592f95f30087a0e488dec64ae1105fab",
+  "objective-weights-v1.json": "391878abf1b69a71d25852297d2205bd1c64a42e33b250d28d65433d6ffa3ad1",
+  "preference-evaluation-v1.json": "05468580abb55e81d5b9d1b236a9027019caea05dcead2f2ef3971e1128920e9",
+  "reference-points-v1.json": "f78185a17cc0497a6402f6bd2c2bb7d65b5cf1d65ddd883ec865a36d0ec911b8",
+  "semantic-change-v1.json": "34bc7b78e44f91e1eb2cb18bef991855052f8c6b3eb8ebe316c43c812d6b7cd6",
+  "semantic-request-v1.json": "a7332b0393bb7a50962d59d730531f0e8317e9ec290edf344fa5037074adb9ab",
+  "static-quadratic-anchor-v1.json": "b9b132556cfe6aec5f567020c1379d0c25792c8ef7ffb3c673dd852028fd6c27",
+  "volatility-application-v1.json": "2209cd04b02ba6197cc2ebf1970f13dbad6afbb97f1ec434ef5f8c6b2cee6e99"
+}

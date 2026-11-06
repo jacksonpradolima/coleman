@@ -8,13 +8,14 @@ experiment without constructing a CI environment.
 
 **Status:** this page specifies the v5 architecture. The v5 integration source
 now implements [generic decision contracts and direct-use protocols](decision-contracts.md)
-in a lightweight core. Generic learners, adapters and durable sessions below
+in a lightweight core, together with [explicit objective and loss mappings](objectives.md).
+Generic learners, adapters and durable sessions below
 remain planned until individually qualified. The original implementation baseline
 is COLEMAN **4.20.0**, commit
 `1edbee874129aa85e26e592d9649826e85e1ac6b`. Examples explicitly identified as
 existing use that source. Proposed namespaces and call sequences below are design
 contracts to qualify in subsequent work, except for the explicitly linked
-implemented contract layer. No v5 release wheel has been published.
+implemented contract and objective layers. No v5 release wheel has been published.
 
 Read the [compatibility and migration policy](v5-compatibility.md) alongside this
 specification. Use the [current getting-started guide](getting-started.md) for the
@@ -49,6 +50,11 @@ receives a checked result. The [contract guide](decision-contracts.md) now publi
 the direct structural protocol signatures and an executable CI contract cycle.
 The actual generic learning methods remain separate implementation work.
 
+Use the [objective guide](objectives.md) to keep raw outcomes, physical resources,
+bounded losses and user-declared preferences distinct. Its conversion, loss and
+causal-scale operations are directly callable; declaring mixture controls does
+not implement the later controlled learner or a durable session.
+
 ## Components and responsibility
 
 Each boundary has one purpose. Application code can compose stages using ordinary
@@ -58,6 +64,7 @@ introduced.
 | Boundary | Owns | Does not implicitly own |
 | --- | --- | --- |
 | Problem adapter | Domain observations, available actions, objectives, feasibility and feedback mapping | Algorithm state, a transport or scientific admission |
+| Objective and loss definitions | Quantity interpretations, explicit conversions, causal scales, preferences and constraint declarations | A learner update, durable acceptance or real-world efficacy |
 | Learner adapter | Supported decision/update capabilities, algorithm statistics, RNG and state codec | Workspace construction, durable delivery deduplication or external effects |
 | Solver | Declared finite/continuous optimization, limits and result certificates/status | Learning, executing the proposal or manufacturing missing inputs |
 | Execution adapter | Work or effects, proposed-to-executed action mapping, outcome receipts and reconciliation limits | A regret guarantee, universal retry safety or automatically observed counterfactuals |
@@ -80,6 +87,8 @@ flowchart TD
     Host --> DirectSolver[Planned solver boundary reusing existing finite solvers]
     Host --> Problem[Planned typed problem adapters including CI]
     Problem --> Contracts[Implemented generic contracts and capability validation]
+    Problem --> Objectives[Explicit objective definitions and pure loss mappings]
+    Objectives --> Contracts
     DirectLearner --> Contracts
     DirectSolver --> Contracts
     DirectLearner --> State[Planned owned algorithm state and RNG]

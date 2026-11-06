@@ -1,0 +1,90 @@
+{
+  "records": [
+    {
+      "class": "ConversionReceipt",
+      "file": "conversion-receipt-v1.json",
+      "module": "coleman.objectives.units"
+    },
+    {
+      "class": "LossApplication",
+      "file": "affine-application-v1.json",
+      "module": "coleman.objectives.transforms"
+    },
+    {
+      "class": "LossApplication",
+      "file": "identity-application-v1.json",
+      "module": "coleman.objectives.transforms"
+    },
+    {
+      "class": "VolatilityApplication",
+      "file": "volatility-application-v1.json",
+      "module": "coleman.objectives.volatility"
+    },
+    {
+      "class": "ClippingStats",
+      "file": "clipping-statistics-v1.json",
+      "module": "coleman.objectives.volatility"
+    },
+    {
+      "class": "SemanticRequest",
+      "file": "semantic-request-v1.json",
+      "module": "coleman.objectives.context"
+    },
+    {
+      "class": "SemanticChange",
+      "file": "semantic-change-v1.json",
+      "module": "coleman.objectives.changes"
+    },
+    {
+      "class": "MixtureControls",
+      "file": "mixture-controls-l1-v1.json",
+      "module": "coleman.objectives.controls"
+    },
+    {
+      "class": "ObjectiveWeights",
+      "file": "objective-weights-v1.json",
+      "module": "coleman.objectives.preferences"
+    },
+    {
+      "class": "StaticQuadraticAnchor",
+      "file": "static-quadratic-anchor-v1.json",
+      "module": "coleman.objectives.preferences"
+    },
+    {
+      "class": "ReferencePoints",
+      "file": "reference-points-v1.json",
+      "module": "coleman.objectives.preferences"
+    },
+    {
+      "class": "HumanJudgment",
+      "file": "human-judgment-v1.json",
+      "module": "coleman.objectives.preferences"
+    },
+    {
+      "class": "FiniteFeasibilityRequest",
+      "file": "finite-request-v1.json",
+      "module": "coleman.objectives.feasibility"
+    },
+    {
+      "class": "FiniteFeasibilityResult",
+      "file": "finite-result-v1.json",
+      "module": "coleman.objectives.feasibility"
+    },
+    {
+      "class": "FallbackDecision",
+      "file": "fallback-v1.json",
+      "module": "coleman.objectives.feasibility"
+    },
+    {
+      "class": "PreferenceEvaluation",
+      "file": "preference-evaluation-v1.json",
+      "module": "coleman.objectives.preferences"
+    },
+    {
+      "class": "MixtureIntersection",
+      "file": "mixture-intersection-budget-v1.json",
+      "module": "coleman.objectives.controls"
+    }
+  ],
+  "schema_version": 1
+}
