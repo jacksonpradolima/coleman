@@ -278,8 +278,11 @@ limit is not permission to discard pending or previously applied identities.
 The caller may publish one complete continuation envelope with the existing
 [immutable artifact writer](api/artifacts.md). That local publication does not
 create a generic durable acknowledgement, a multi-store transaction or
-exactly-once external effects. The durable session and composed checkpoint
-foundation remain separate work.
+exactly-once external effects. Use the separate [owned-state recovery foundation](state-recovery.md)
+for complete locally acknowledged component collections. Its opt-in retained
+replay is generation2: original v1 traces stay complete and unchanged. Quiescent
+seals preserve global counters and expire old producer ordinals explicitly;
+they never silently remove pending labels or compact source histories.
 
 ## Preserve existing histories and scientific limits
 

@@ -1,0 +1,640 @@
+{
+  "fixture_schema_version": 1,
+  "evidence": "authored_synthetic_ci",
+  "refill_profile": "stdlib-random-getrandbits32/CPython3.14",
+  "units": {
+    "loss_quarters": "one_quarter_of_dimensionless_loss",
+    "priority": "dimensionless_synthetic_priority_not_probability",
+    "virtual_seconds": "s",
+    "actual_seconds": "s"
+  },
+  "children": [
+    {
+      "child": "recipe-00",
+      "decisions": 2,
+      "updates": 1,
+      "pending": 1,
+      "loss_quarters": 0,
+      "resolved_loss_quarters": 1,
+      "cadence": 1,
+      "priority": 3,
+      "first_refill_word": 625644691,
+      "path": [
+        "A",
+        "A"
+      ],
+      "virtual_seconds": 6
+    },
+    {
+      "child": "recipe-01",
+      "decisions": 3,
+      "updates": 2,
+      "pending": 1,
+      "loss_quarters": 3,
+      "resolved_loss_quarters": 6,
+      "cadence": 1,
+      "priority": 6,
+      "first_refill_word": 2496029389,
+      "path": [
+        "A",
+        "A",
+        "B"
+      ],
+      "virtual_seconds": 13
+    },
+    {
+      "child": "recipe-02",
+      "decisions": 4,
+      "updates": 1,
+      "pending": 3,
+      "loss_quarters": 2,
+      "resolved_loss_quarters": 6,
+      "cadence": 2,
+      "priority": 7,
+      "first_refill_word": 636390476,
+      "path": [
+        "A",
+        "A",
+        "B",
+        "A"
+      ],
+      "virtual_seconds": 18
+    },
+    {
+      "child": "recipe-03",
+      "decisions": 2,
+      "updates": 2,
+      "pending": 0,
+      "loss_quarters": 3,
+      "resolved_loss_quarters": 3,
+      "cadence": 1,
+      "priority": 10,
+      "first_refill_word": 4204988241,
+      "path": [
+        "A",
+        "A"
+      ],
+      "virtual_seconds": 6
+    },
+    {
+      "child": "recipe-04",
+      "decisions": 3,
+      "updates": 1,
+      "pending": 2,
+      "loss_quarters": 0,
+      "resolved_loss_quarters": 3,
+      "cadence": 1,
+      "priority": 11,
+      "first_refill_word": 4123000827,
+      "path": [
+        "A",
+        "A",
+        "B"
+      ],
+      "virtual_seconds": 13
+    },
+    {
+      "child": "recipe-05",
+      "decisions": 4,
+      "updates": 2,
+      "pending": 2,
+      "loss_quarters": 3,
+      "resolved_loss_quarters": 6,
+      "cadence": 2,
+      "priority": 14,
+      "first_refill_word": 3771407979,
+      "path": [
+        "A",
+        "A",
+        "B",
+        "B"
+      ],
+      "virtual_seconds": 18
+    },
+    {
+      "child": "recipe-06",
+      "decisions": 2,
+      "updates": 1,
+      "pending": 1,
+      "loss_quarters": 2,
+      "resolved_loss_quarters": 5,
+      "cadence": 1,
+      "priority": 15,
+      "first_refill_word": 3052363376,
+      "path": [
+        "A",
+        "A"
+      ],
+      "virtual_seconds": 6
+    },
+    {
+      "child": "recipe-07",
+      "decisions": 3,
+      "updates": 2,
+      "pending": 1,
+      "loss_quarters": 3,
+      "resolved_loss_quarters": 4,
+      "cadence": 1,
+      "priority": 18,
+      "first_refill_word": 1058631966,
+      "path": [
+        "A",
+        "A",
+        "B"
+      ],
+      "virtual_seconds": 13
+    },
+    {
+      "child": "recipe-08",
+      "decisions": 4,
+      "updates": 1,
+      "pending": 3,
+      "loss_quarters": 0,
+      "resolved_loss_quarters": 6,
+      "cadence": 2,
+      "priority": 19,
+      "first_refill_word": 560580121,
+      "path": [
+        "A",
+        "A",
+        "B",
+        "B"
+      ],
+      "virtual_seconds": 18
+    },
+    {
+      "child": "recipe-09",
+      "decisions": 2,
+      "updates": 2,
+      "pending": 0,
+      "loss_quarters": 3,
+      "resolved_loss_quarters": 3,
+      "cadence": 1,
+      "priority": 22,
+      "first_refill_word": 1200800002,
+      "path": [
+        "A",
+        "A"
+      ],
+      "virtual_seconds": 6
+    },
+    {
+      "child": "recipe-10",
+      "decisions": 3,
+      "updates": 1,
+      "pending": 2,
+      "loss_quarters": 2,
+      "resolved_loss_quarters": 5,
+      "cadence": 1,
+      "priority": 23,
+      "first_refill_word": 4012624555,
+      "path": [
+        "A",
+        "A",
+        "B"
+      ],
+      "virtual_seconds": 13
+    },
+    {
+      "child": "recipe-11",
+      "decisions": 4,
+      "updates": 2,
+      "pending": 2,
+      "loss_quarters": 3,
+      "resolved_loss_quarters": 6,
+      "cadence": 2,
+      "priority": 26,
+      "first_refill_word": 3552670516,
+      "path": [
+        "A",
+        "A",
+        "B",
+        "A"
+      ],
+      "virtual_seconds": 18
+    },
+    {
+      "child": "recipe-12",
+      "decisions": 2,
+      "updates": 1,
+      "pending": 1,
+      "loss_quarters": 0,
+      "resolved_loss_quarters": 1,
+      "cadence": 1,
+      "priority": 27,
+      "first_refill_word": 2066938555,
+      "path": [
+        "A",
+        "A"
+      ],
+      "virtual_seconds": 6
+    },
+    {
+      "child": "recipe-13",
+      "decisions": 3,
+      "updates": 2,
+      "pending": 1,
+      "loss_quarters": 3,
+      "resolved_loss_quarters": 6,
+      "cadence": 1,
+      "priority": 30,
+      "first_refill_word": 131234100,
+      "path": [
+        "A",
+        "A",
+        "B"
+      ],
+      "virtual_seconds": 13
+    },
+    {
+      "child": "recipe-14",
+      "decisions": 4,
+      "updates": 1,
+      "pending": 3,
+      "loss_quarters": 2,
+      "resolved_loss_quarters": 6,
+      "cadence": 2,
+      "priority": 31,
+      "first_refill_word": 1034810088,
+      "path": [
+        "A",
+        "A",
+        "B",
+        "A"
+      ],
+      "virtual_seconds": 18
+    },
+    {
+      "child": "recipe-15",
+      "decisions": 2,
+      "updates": 2,
+      "pending": 0,
+      "loss_quarters": 3,
+      "resolved_loss_quarters": 3,
+      "cadence": 1,
+      "priority": 34,
+      "first_refill_word": 3847871410,
+      "path": [
+        "A",
+        "A"
+      ],
+      "virtual_seconds": 6
+    },
+    {
+      "child": "recipe-16",
+      "decisions": 3,
+      "updates": 1,
+      "pending": 2,
+      "loss_quarters": 0,
+      "resolved_loss_quarters": 3,
+      "cadence": 1,
+      "priority": 35,
+      "first_refill_word": 3527703737,
+      "path": [
+        "A",
+        "A",
+        "B"
+      ],
+      "virtual_seconds": 13
+    },
+    {
+      "child": "recipe-17",
+      "decisions": 4,
+      "updates": 2,
+      "pending": 2,
+      "loss_quarters": 3,
+      "resolved_loss_quarters": 6,
+      "cadence": 2,
+      "priority": 38,
+      "first_refill_word": 1031234678,
+      "path": [
+        "A",
+        "A",
+        "B",
+        "A"
+      ],
+      "virtual_seconds": 18
+    },
+    {
+      "child": "recipe-18",
+      "decisions": 2,
+      "updates": 1,
+      "pending": 1,
+      "loss_quarters": 2,
+      "resolved_loss_quarters": 5,
+      "cadence": 1,
+      "priority": 39,
+      "first_refill_word": 3053645595,
+      "path": [
+        "A",
+        "A"
+      ],
+      "virtual_seconds": 6
+    },
+    {
+      "child": "recipe-19",
+      "decisions": 3,
+      "updates": 2,
+      "pending": 1,
+      "loss_quarters": 3,
+      "resolved_loss_quarters": 4,
+      "cadence": 1,
+      "priority": 42,
+      "first_refill_word": 3978483442,
+      "path": [
+        "A",
+        "A",
+        "B"
+      ],
+      "virtual_seconds": 13
+    },
+    {
+      "child": "recipe-20",
+      "decisions": 4,
+      "updates": 1,
+      "pending": 3,
+      "loss_quarters": 0,
+      "resolved_loss_quarters": 6,
+      "cadence": 2,
+      "priority": 43,
+      "first_refill_word": 2211641671,
+      "path": [
+        "A",
+        "A",
+        "B",
+        "B"
+      ],
+      "virtual_seconds": 18
+    },
+    {
+      "child": "recipe-21",
+      "decisions": 2,
+      "updates": 2,
+      "pending": 0,
+      "loss_quarters": 3,
+      "resolved_loss_quarters": 3,
+      "cadence": 1,
+      "priority": 46,
+      "first_refill_word": 374957032,
+      "path": [
+        "A",
+        "A"
+      ],
+      "virtual_seconds": 6
+    },
+    {
+      "child": "recipe-22",
+      "decisions": 3,
+      "updates": 1,
+      "pending": 2,
+      "loss_quarters": 2,
+      "resolved_loss_quarters": 5,
+      "cadence": 1,
+      "priority": 47,
+      "first_refill_word": 2190512831,
+      "path": [
+        "A",
+        "A",
+        "B"
+      ],
+      "virtual_seconds": 13
+    },
+    {
+      "child": "recipe-23",
+      "decisions": 4,
+      "updates": 2,
+      "pending": 2,
+      "loss_quarters": 3,
+      "resolved_loss_quarters": 6,
+      "cadence": 2,
+      "priority": 50,
+      "first_refill_word": 224899942,
+      "path": [
+        "A",
+        "A",
+        "B",
+        "A"
+      ],
+      "virtual_seconds": 18
+    },
+    {
+      "child": "recipe-24",
+      "decisions": 2,
+      "updates": 1,
+      "pending": 1,
+      "loss_quarters": 0,
+      "resolved_loss_quarters": 1,
+      "cadence": 1,
+      "priority": 51,
+      "first_refill_word": 4126521921,
+      "path": [
+        "A",
+        "A"
+      ],
+      "virtual_seconds": 6
+    },
+    {
+      "child": "recipe-25",
+      "decisions": 3,
+      "updates": 2,
+      "pending": 1,
+      "loss_quarters": 3,
+      "resolved_loss_quarters": 6,
+      "cadence": 1,
+      "priority": 54,
+      "first_refill_word": 3865720627,
+      "path": [
+        "A",
+        "A",
+        "B"
+      ],
+      "virtual_seconds": 13
+    },
+    {
+      "child": "recipe-26",
+      "decisions": 4,
+      "updates": 1,
+      "pending": 3,
+      "loss_quarters": 2,
+      "resolved_loss_quarters": 6,
+      "cadence": 2,
+      "priority": 55,
+      "first_refill_word": 2459198373,
+      "path": [
+        "A",
+        "A",
+        "B",
+        "B"
+      ],
+      "virtual_seconds": 18
+    },
+    {
+      "child": "recipe-27",
+      "decisions": 2,
+      "updates": 2,
+      "pending": 0,
+      "loss_quarters": 3,
+      "resolved_loss_quarters": 3,
+      "cadence": 1,
+      "priority": 58,
+      "first_refill_word": 191451571,
+      "path": [
+        "A",
+        "A"
+      ],
+      "virtual_seconds": 6
+    },
+    {
+      "child": "recipe-28",
+      "decisions": 3,
+      "updates": 1,
+      "pending": 2,
+      "loss_quarters": 0,
+      "resolved_loss_quarters": 3,
+      "cadence": 1,
+      "priority": 59,
+      "first_refill_word": 4037415649,
+      "path": [
+        "A",
+        "A",
+        "B"
+      ],
+      "virtual_seconds": 13
+    },
+    {
+      "child": "recipe-29",
+      "decisions": 4,
+      "updates": 2,
+      "pending": 2,
+      "loss_quarters": 3,
+      "resolved_loss_quarters": 6,
+      "cadence": 2,
+      "priority": 62,
+      "first_refill_word": 2517270746,
+      "path": [
+        "A",
+        "A",
+        "B",
+        "A"
+      ],
+      "virtual_seconds": 18
+    },
+    {
+      "child": "recipe-30",
+      "decisions": 2,
+      "updates": 1,
+      "pending": 1,
+      "loss_quarters": 2,
+      "resolved_loss_quarters": 5,
+      "cadence": 1,
+      "priority": 63,
+      "first_refill_word": 2232429276,
+      "path": [
+        "A",
+        "A"
+      ],
+      "virtual_seconds": 6
+    },
+    {
+      "child": "recipe-31",
+      "decisions": 3,
+      "updates": 2,
+      "pending": 1,
+      "loss_quarters": 3,
+      "resolved_loss_quarters": 4,
+      "cadence": 1,
+      "priority": 66,
+      "first_refill_word": 1354783835,
+      "path": [
+        "A",
+        "A",
+        "B"
+      ],
+      "virtual_seconds": 13
+    }
+  ],
+  "totals": {
+    "decisions": 95,
+    "updates": 48,
+    "pending": 47,
+    "loss_quarters": 64,
+    "resolved_loss_quarters": 142,
+    "cadence": 42,
+    "virtual_seconds": 389,
+    "actual_seconds": 351,
+    "actual_count_b": 25,
+    "actual_switches": 8
+  },
+  "next_bits": {
+    "recipe-00": [
+      1,
+      1,
+      1,
+      0,
+      0,
+      1
+    ],
+    "recipe-01": [
+      1,
+      0,
+      1,
+      1,
+      0
+    ],
+    "recipe-02": [
+      0,
+      1,
+      1,
+      0
+    ],
+    "recipe-15": [
+      1,
+      0,
+      1,
+      0,
+      0,
+      1
+    ],
+    "recipe-31": [
+      1,
+      1,
+      0,
+      1,
+      1
+    ]
+  },
+  "long_run": {
+    "child": "recipe-00",
+    "decisions": 4352,
+    "updates": 4352,
+    "loss_quarters": 6528,
+    "cadence": 2176,
+    "count_b": 2270,
+    "switches": 2178,
+    "spent_seconds": 21952,
+    "backend_refills": 136,
+    "remaining_bits": 3,
+    "next_bits": [
+      0,
+      0,
+      0,
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    "profile": "direct-retained-small-tails-before-explicit-durable-handoff",
+    "direct_rounds_per_compaction": 1,
+    "direct_compactions": 4352,
+    "restore_frontiers": [
+      2048,
+      4096
+    ],
+    "durable_initialization_decisions": 4352,
+    "durable_post_initialization_rounds": 2,
+    "durable_final_generation": 2
+  }
+}

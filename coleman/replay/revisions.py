@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+# Private seeded hooks are shared only within the replay implementation family.
+# pylint: disable=protected-access
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import TypeAdapter
@@ -17,7 +20,7 @@ from coleman.core.feedback import (
     OutcomeValue,
 )
 from coleman.core.identity import Reference
-from coleman.core.primitives import canonical_json
+from coleman.core.primitives import MAX_MEMBERS, canonical_json
 from coleman.core.temporal import Timestamp
 
 if TYPE_CHECKING:
@@ -499,9 +502,14 @@ def _coordinate_reason(value: ReplayFeedback, capability: Capability) -> Feedbac
     return None if any(item.status == "observed" for item in values) else "no_observed_value"
 
 
-def _complete_drain(state: ReplayState, drain: ReplayDrain, updates: list[ReplayUpdateRecord]) -> None:
+def _complete_drain(
+    state: ReplayState,
+    drain: ReplayDrain,
+    updates: list[ReplayUpdateRecord],
+    index: _FeedbackIndex | None = None,
+) -> None:
     """Reconstruct every unconsumed ready round, including omitted-update attacks."""
-    expected = _expected_drain(state, drain, drain.sequence - len(updates))
+    expected = _expected_drain(state, drain, drain.sequence - len(updates), index)
     actual = [
         (
             item.application.eligible_at,
@@ -530,28 +538,36 @@ def _drain_producers(state: ReplayState, drain: ReplayDrain) -> dict[tuple[str, 
 
 
 def _expected_drain(
-    state: ReplayState, drain: ReplayDrain, boundary: int
+    state: ReplayState, drain: ReplayDrain, boundary: int, index: _FeedbackIndex | None = None
 ) -> list[tuple[Timestamp, int, tuple[str, str, str], str]]:
     """Reconstruct one bounded closed cohort using the same pure readiness facts."""
     consumed = _prior_consumed(state, boundary)
-    producers = _drain_producers(state, drain)
+    producers = _drain_producers(state, drain) if index is None else index.producers
     expected = []
-    for chain in feedback_chains(state.feedback):
+    chains = feedback_chains(state.feedback) if index is None else index.chains
+    for chain in chains:
         if feedback_key(chain[0]) in consumed:
             continue
         producer = producers.get((chain[0].lineage.model_dump_json(), chain[0].batch.decision_fingerprint))
-        if producer is not None:
-            candidate = _drain_candidate(chain, producer, state.policy.capability, drain)
+        if producer is not None and producer.sequence < drain.sequence:
+            candidate = _drain_candidate(chain, producer, state.policy.capability, drain, checked=index is not None)
             if candidate is not None:
                 expected.append(candidate)
     return sorted(expected)
 
 
 def _drain_candidate(
-    chain: tuple[ReplayFeedback, ...], producer: ReplayDecisionRecord, capability: Capability, drain: ReplayDrain
+    chain: tuple[ReplayFeedback, ...],
+    producer: ReplayDecisionRecord,
+    capability: Capability,
+    drain: ReplayDrain,
+    *,
+    checked: bool = False,
 ) -> tuple[Timestamp, int, tuple[str, str, str], str] | None:
     """Select source visibility before separately requiring clock/value readiness."""
-    selected = latest_visible(chain, drain.eligible_through)
+    selected = (
+        _latest_checked(chain, drain.eligible_through) if checked else latest_visible(chain, drain.eligible_through)
+    )
     if selected is None:
         return None
     eligible = feedback_eligible_at(selected, producer.executed)
@@ -608,3 +624,80 @@ def _application_counts(value: ReplayApplication) -> None:
         raise ValueError("Application declared logical delay differs from successful decision count")
     if value.update_count_before >= value.decision_count_before:
         raise ValueError("Completed updates cannot exceed producing decision opportunities")
+
+
+def _validate_complete_state(state: ReplayState, *, indexed: bool = False) -> None:
+    """Share complete reconstruction without invoking decorated validators twice."""
+    from coleman.replay.contracts import _state_inventory, _state_trace  # pylint: disable=import-outside-toplevel
+
+    _inventory_limits(state)
+    _state_inventory(state)
+    _state_trace(state, _feedback_index(state) if indexed else None)
+    checked = validate_feedback_graph(state.feedback, state.decisions, state.policy.capability)
+    if tuple(value.to_json() for value in checked) != tuple(value.to_json() for value in state.feedback):
+        raise ValueError("State feedback graph must be in canonical logical/revision order")
+    _state_applications(state)
+
+
+def _inventory_limits(state: ReplayState) -> None:
+    """Count all retained records and supplied coordinates without silent eviction."""
+    from coleman.replay.contracts import outcome_coordinates  # pylint: disable=import-outside-toplevel
+
+    count = len(state.decisions) + len(state.feedback) + len(state.updates) + len(state.drains)
+    if count > state._record_limit:
+        raise ValueError("Replay inventory exceeds 4096 retained records")
+    values = sum(len(outcome_coordinates(item.batch.feedback)) for item in state.feedback)
+    if values > MAX_MEMBERS * 64:
+        raise ValueError("Replay inventory exceeds its bounded supplied-value budget")
+
+
+def _update_drain_order(drain: ReplayDrain, updates: list[ReplayUpdateRecord]) -> None:
+    """Order eligibility clocks first, with deterministic stable producer ties."""
+    order = []
+    for update in updates:
+        application = update.application
+        if application.apply_at != drain.apply_at or application.eligible_at > drain.eligible_through:
+            raise ValueError("Accepted update is outside its explicit information/processing drain")
+        order.append(
+            (application.eligible_at, application.executed.proposal.request.round, application.feedback.logical_key)
+        )
+    if order != sorted(order):
+        raise ValueError("Drain updates must order eligible time first, then producer and logical key")
+
+
+def _closed_drain(
+    state: ReplayState,
+    drain: ReplayDrain,
+    updates: list[ReplayUpdateRecord],
+    index: _FeedbackIndex | None = None,
+) -> None:
+    """Check one explicit processing cohort against its actual update order."""
+    _complete_drain(state, drain, updates, index)
+    if drain.update_count_after - drain.update_count_before != len(updates):
+        raise ValueError("Drain completed count differs from its actual update cohort")
+    if not updates:
+        return
+    if drain.host_before != updates[0].host_before or drain.host_after != updates[-1].host_after:
+        raise ValueError("Drain boundary snapshots differ from its actual updates")
+    _update_drain_order(drain, updates)
+
+
+@dataclass(frozen=True)
+class _FeedbackIndex:
+    """Reuse fully checked facts only during one retained-state reconstruction."""
+
+    chains: tuple[tuple[ReplayFeedback, ...], ...]
+    producers: dict[tuple[str, str], ReplayDecisionRecord]
+
+
+def _feedback_index(state: ReplayState) -> _FeedbackIndex:
+    """Validate the whole graph and compute each actual execution digest once."""
+    return _FeedbackIndex(
+        chains=feedback_chains(state.feedback),
+        producers={(item.lineage.model_dump_json(), item.executed.fingerprint): item for item in state.decisions},
+    )
+
+
+def _latest_checked(chain: tuple[ReplayFeedback, ...], cutoff: Timestamp) -> ReplayFeedback | None:
+    """Select from an already validated chain; public ingress still revalidates."""
+    return next((value for value in reversed(chain) if _source_visible(value, cutoff)), None)

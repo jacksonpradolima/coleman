@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+# Private seeded hooks are shared only within the replay implementation family.
+# pylint: disable=protected-access
 import json
 from dataclasses import dataclass, field
-from typing import Annotated, Literal, Self
+from typing import TYPE_CHECKING, Annotated, Literal, Self
 
 from pydantic import Field, model_validator
 
@@ -27,6 +29,11 @@ from coleman.core.temporal import Timestamp
 from coleman.objectives.bindings import DefinitionBinding
 from coleman.objectives.context import SemanticContext, SemanticRequest
 from coleman.observations.contracts import ObservationHistory, ObservationSnapshot
+
+if TYPE_CHECKING:
+    from coleman.replay.revisions import _FeedbackIndex
+
+from coleman.replay.revisions import _closed_drain
 
 MAX_REPLAY_RECORDS = MAX_MEMBERS
 MAX_REPLAY_EVENTS = MAX_REPLAY_RECORDS
@@ -594,6 +601,18 @@ def _prefix(stream: Reference, records: tuple[ReplayDecisionRecord | ReplayUpdat
     )
 
 
+@dataclass(frozen=True)
+class _ReplaySeed:
+    """Supply an explicit validated prefix; default values preserve v1."""
+
+    decision_count: int = 0
+    update_count: int = 0
+    next_sequence: int = 0
+    host: str | None = None
+    drain: ReplayDrain | None = None
+    first: ReplayOpportunity | None = None
+
+
 class ReplayState(CoreContract):
     """Retain bounded immutable delivery metadata separately from host state.
 
@@ -637,19 +656,32 @@ class ReplayState(CoreContract):
     @model_validator(mode="after")
     def _state(self) -> Self:
         """Check complete retained evidence before accepting a continuation."""
-        _state_inventory(self)
-        _state_trace(self)
-        # Graph helpers import only contract types lazily, never an engine/store.
-        from coleman.replay.revisions import (  # pylint: disable=import-outside-toplevel
-            _state_applications,
-            validate_feedback_graph,
-        )
+        from coleman.replay.revisions import _validate_complete_state  # pylint: disable=import-outside-toplevel
 
-        checked = validate_feedback_graph(self.feedback, self.decisions, self.policy.capability)
-        if tuple(value.to_json() for value in checked) != tuple(value.to_json() for value in self.feedback):
-            raise ValueError("State feedback graph must be in canonical logical/revision order")
-        _state_applications(self)
+        _validate_complete_state(self)
         return self
+
+    def _seed(self) -> _ReplaySeed:
+        """Use zero-based reconstruction for the unchanged complete v1 trace."""
+        return _ReplaySeed()
+
+    @property
+    def _record_limit(self) -> int:
+        """Return the retained inventory ceiling, never a silent eviction rule."""
+        return MAX_REPLAY_RECORDS
+
+    def _first_opportunity(self) -> ReplayOpportunity | None:
+        """Find stable producing semantics in the explicit prefix or tail."""
+        return self._seed().first or (self.decisions[0].opportunity if self.decisions else None)
+
+    def _last_drain(self) -> ReplayDrain | None:
+        """Find the actual latest closed phase, including an explicit prefix."""
+        return self.drains[-1] if self.drains else self._seed().drain
+
+    def _validate_ordinal(self, opportunity: ReplayOpportunity) -> None:
+        """Keep the original finite v1 new-opportunity contract."""
+        if opportunity.request.round != self.decision_count or self.decision_count >= MAX_MEMBERS:
+            raise ValueError("Replay request.round must count successful decisions within the finite bound")
 
     @property
     def decision_count(self) -> int:
@@ -703,7 +735,6 @@ class ReplayState(CoreContract):
 
 def _state_inventory(state: ReplayState) -> None:
     """Validate bounded inventory and recompute previously selected source views."""
-    _inventory_limits(state)
     if state.history is None:
         if state.decisions:
             raise ValueError("Emitted decisions require their complete retained source history")
@@ -711,16 +742,6 @@ def _state_inventory(state: ReplayState) -> None:
     _history_identity(state.history, state.policy.source)
     for decision in state.decisions:
         _decision_source(state, decision, state.history)
-
-
-def _inventory_limits(state: ReplayState) -> None:
-    """Count all retained records and supplied coordinates without silent eviction."""
-    count = len(state.decisions) + len(state.feedback) + len(state.updates) + len(state.drains)
-    if count > MAX_REPLAY_RECORDS:
-        raise ValueError("Replay inventory exceeds 4096 retained records")
-    values = sum(len(outcome_coordinates(item.batch.feedback)) for item in state.feedback)
-    if values > MAX_REPLAY_VALUES:
-        raise ValueError("Replay inventory exceeds its bounded supplied-value budget")
 
 
 def _history_identity(history: ObservationHistory, source: Reference) -> None:
@@ -733,7 +754,7 @@ def _decision_source(state: ReplayState, decision: ReplayDecisionRecord, history
     """Verify one source view and actual decision against its retained contract."""
     from coleman.replay.revisions import validate_opportunity  # pylint: disable=import-outside-toplevel
 
-    first = state.decisions[0].opportunity if state.decisions else None
+    first = state._first_opportunity()
     validate_opportunity(state.policy, first, decision.opportunity)
     timing = decision.opportunity.request.timing
     if timing is None or history.as_of(timing.information_cutoff).to_json() != decision.snapshot.to_json():
@@ -741,19 +762,20 @@ def _decision_source(state: ReplayState, decision: ReplayDecisionRecord, history
     validate_decision(decision.executed.proposal, state.policy.capability)
 
 
-def _state_trace(state: ReplayState) -> None:
+def _state_trace(state: ReplayState, index: _FeedbackIndex | None = None) -> None:
     """Reconcile exact causal order, counts, host transitions and lineage boundary."""
     records = sorted((*state.decisions, *state.updates, *state.drains), key=lambda item: item.sequence)
     _record_order(state, records)
     _trace_counts(state, records)
     _trace_frontiers(state)
-    _trace_drains(state, records)
+    _trace_drains(state, records, index)
     _lineage_records(state, records)
 
 
 def _record_order(state: ReplayState, records: list[ReplayDecisionRecord | ReplayUpdateRecord | ReplayDrain]) -> None:
     """Require one contiguous causal sequence and canonical per-family order."""
-    if [item.sequence for item in records] != list(range(len(records))):
+    start = state._seed().next_sequence
+    if [item.sequence for item in records] != list(range(start, start + len(records))):
         raise ValueError("Replay causal sequences must be unique, contiguous and zero-based")
     if len({item.logical_identity for item in state.decisions}) != len(state.decisions):
         raise ValueError("Replay retains more than one decision at a logical opportunity")
@@ -770,7 +792,7 @@ def _lineage_records(
     boundary = 0 if parent is None else parent.next_sequence
     if any(item.lineage != state.policy.lineage for item in records if item.sequence >= boundary):
         raise ValueError("New causal records must retain the active replay lineage")
-    if parent is not None:
+    if parent is not None and state._seed().next_sequence == 0:
         _parent_prefix(state, records, parent)
 
 
@@ -812,7 +834,8 @@ class _TraceCursor:
 
 def _trace_counts(state: ReplayState, records: list[ReplayDecisionRecord | ReplayUpdateRecord | ReplayDrain]) -> None:
     """Reconstruct counters from genuine causal record order without host execution."""
-    cursor = _TraceCursor()
+    seed = state._seed()
+    cursor = _TraceCursor(decision_count=seed.decision_count, update_count=seed.update_count, host=seed.host)
     for item in records:
         if isinstance(item, ReplayDrain):
             _cursor_drain(cursor, item)
@@ -872,7 +895,7 @@ def _cursor_drain(cursor: _TraceCursor, item: ReplayDrain) -> None:
 
 def _trace_frontiers(state: ReplayState) -> None:
     """Validate explicit closed-drain clocks rather than inferring from receipts."""
-    previous: ReplayDrain | None = None
+    previous = state._seed().drain
     for item in state.drains:
         if previous is not None:
             _monotone_drains(previous, item)
@@ -890,17 +913,21 @@ def _monotone_drains(previous: ReplayDrain, current: ReplayDrain) -> None:
         raise ValueError("Replay information and processing frontiers must advance independently")
 
 
-def _trace_drains(state: ReplayState, records: list[ReplayDecisionRecord | ReplayUpdateRecord | ReplayDrain]) -> None:
+def _trace_drains(
+    state: ReplayState,
+    records: list[ReplayDecisionRecord | ReplayUpdateRecord | ReplayDrain],
+    index: _FeedbackIndex | None = None,
+) -> None:
     """Require explicit closed update blocks and producing decision boundaries."""
     pending: list[ReplayUpdateRecord] = []
-    last: ReplayDrain | None = None
-    clock: Timestamp | None = None
+    last = state._seed().drain
+    clock = None if last is None else last.apply_at
     for item in records:
         if isinstance(item, ReplayUpdateRecord):
             pending.append(item)
         elif isinstance(item, ReplayDrain):
             _drain_clock(item, clock)
-            _closed_drain(state, item, pending)
+            _closed_drain(state, item, pending, index)
             pending = []
             last = item
             clock = item.apply_at
@@ -926,34 +953,6 @@ def _decision_boundary(record: ReplayDecisionRecord, drain: ReplayDrain | None, 
         raise ValueError("Decision state frontier differs from its information/processing boundary")
     if drain.decision_count != record.decision_index or drain.update_count_after != record.update_count_before:
         raise ValueError("Decision state frontier differs from its completed decision/update-count boundary")
-
-
-def _closed_drain(state: ReplayState, drain: ReplayDrain, updates: list[ReplayUpdateRecord]) -> None:
-    """Check one explicit processing cohort against its actual update order."""
-    from coleman.replay.revisions import _complete_drain  # pylint: disable=import-outside-toplevel
-
-    _complete_drain(state, drain, updates)
-    if drain.update_count_after - drain.update_count_before != len(updates):
-        raise ValueError("Drain completed count differs from its actual update cohort")
-    if not updates:
-        return
-    if drain.host_before != updates[0].host_before or drain.host_after != updates[-1].host_after:
-        raise ValueError("Drain boundary snapshots differ from its actual updates")
-    _update_drain_order(drain, updates)
-
-
-def _update_drain_order(drain: ReplayDrain, updates: list[ReplayUpdateRecord]) -> None:
-    """Order eligibility clocks first, with deterministic stable producer ties."""
-    order = []
-    for update in updates:
-        application = update.application
-        if application.apply_at != drain.apply_at or application.eligible_at > drain.eligible_through:
-            raise ValueError("Accepted update is outside its explicit information/processing drain")
-        order.append(
-            (application.eligible_at, application.executed.proposal.request.round, application.feedback.logical_key)
-        )
-    if order != sorted(order):
-        raise ValueError("Drain updates must order eligible time first, then producer and logical key")
 
 
 class ReplayContinuation[S: CoreContract](CoreContract):

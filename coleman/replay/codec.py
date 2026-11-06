@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import cast
 
 from coleman.core.base import CoreContract
+from coleman.core.reading import _depth as _json_depth
+from coleman.core.reading import bounded_json_bytes
 from coleman.replay.contracts import ReplayContinuation, ReplayFeedback, ReplayState
 
 DEFAULT_MAXIMUM_BYTES = 16 * 1024**2
@@ -12,42 +14,13 @@ MAXIMUM_DEPTH = 64
 
 
 def _bounded(payload: str | bytes, maximum_bytes: int) -> bytes:
-    """Bound built-in UTF-8 bytes and lexical nesting before recursive parsing."""
-    # Counts and bytes must not invoke arbitrary conversion callbacks.
-    # pylint: disable=unidiomatic-typecheck
-    if type(maximum_bytes) is not int or maximum_bytes <= 0:
-        raise ValueError("Replay maximum_bytes requires a positive integer")
-    if type(payload) not in {str, bytes}:
-        raise TypeError("Replay reader requires built-in str or bytes, not a path")
-    if not payload or len(payload) > maximum_bytes:
-        raise ValueError("Replay payload is empty or exceeds maximum_bytes")
-    encoded = payload.encode("utf-8") if isinstance(payload, str) else payload
-    if len(encoded) > maximum_bytes:
-        raise ValueError("Replay UTF-8 bytes exceed maximum_bytes")
-    _depth(encoded.decode("utf-8"))
-    return encoded
+    """Preserve exact v1 ingress diagnostics through the shared bounded leaf."""
+    return bounded_json_bytes(payload, maximum_bytes, label="Replay")
 
 
 def _depth(text: str) -> None:
-    """Check containers iteratively while ignoring literal/escaped string data."""
-    depth = 0
-    quoted = escaped = False
-    changes = {"[": 1, "{": 1, "]": -1, "}": -1}
-    for character in text:
-        if quoted:
-            if escaped:
-                escaped = False
-            elif character == "\\":
-                escaped = True
-            elif character == '"':
-                quoted = False
-            continue
-        if character == '"':
-            quoted = True
-            continue
-        depth += changes.get(character, 0)
-        if not 0 <= depth <= MAXIMUM_DEPTH:
-            raise ValueError("Replay JSON container depth is invalid or exceeds 64")
+    """Retain the exact legacy lexical-depth helper without another parser."""
+    _json_depth(text, "Replay")
 
 
 def read_replay_state(payload: str | bytes, *, maximum_bytes: int = DEFAULT_MAXIMUM_BYTES) -> ReplayState:

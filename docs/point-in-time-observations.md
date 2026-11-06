@@ -265,6 +265,12 @@ eligible updates, preserves live decisions after corrections and keeps decision
 and completed-update counts separate. It reuses these histories without
 changing their readers or inventing missing receipt/maturity facts.
 
+For continuation across process interruption, [owned-state recovery](state-recovery.md)
+keeps complete component state and an explicit acknowledged frontier. Its
+optional quiescent replay seals retain this source history and reject newly
+backfilled facts available at/below the sealed information floor. They do not
+compact source revision chains or fabricate missing parents.
+
 Use these availability boundaries in [protected evaluation](protected-evaluation.md) or [shadow
 evaluation](prospective-shadow.md). The [glossary](glossary.md) distinguishes source availability
 from first receipt.

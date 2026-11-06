@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+# Private seeded hooks are shared only within the replay implementation family.
+# pylint: disable=protected-access
 from datetime import datetime
 from typing import Literal
 
@@ -10,7 +12,7 @@ from pydantic import TypeAdapter
 from coleman.core.base import CoreImmutable
 from coleman.core.capabilities import validate_feedback
 from coleman.core.identity import Reference
-from coleman.core.primitives import MAX_MEMBERS, Fingerprint, Identifier
+from coleman.core.primitives import Fingerprint, Identifier
 from coleman.core.temporal import Timestamp
 from coleman.observations.contracts import ObservationHistory, ObservationSnapshot
 from coleman.replay.contracts import (
@@ -191,7 +193,7 @@ def _applications(state: ReplayState, cutoff: datetime, processing: datetime) ->
 def _capacity(state: ReplayState, additional: int) -> None:
     """Check the joint retained-record budget before any host mutation."""
     retained = len(state.decisions) + len(state.feedback) + len(state.updates) + len(state.drains)
-    if retained + additional > MAX_MEMBERS:
+    if retained + additional > state._record_limit:
         raise ValueError("Replay inventory exceeds 4096 retained records")
 
 
@@ -226,10 +228,9 @@ def _opportunity(state: ReplayState, opportunity: ReplayOpportunity) -> Observat
         raise ValueError("Causal replay requires explicit decision timing and an admitted source history")
     if request.task != state.policy.stream:
         raise ValueError("Replay request task must match its exact declared stream")
-    if request.round != state.decision_count or state.decision_count >= MAX_MEMBERS:
-        raise ValueError("Replay request.round must count successful decisions within the finite bound")
+    state._validate_ordinal(opportunity)
     _frontiers(state, timing.information_cutoff, timing.decision_at)
-    validate_opportunity(state.policy, state.decisions[0].opportunity if state.decisions else None, opportunity)
+    validate_opportunity(state.policy, state._first_opportunity(), opportunity)
     snapshot = history.as_of(timing.information_cutoff)
     if timing.eligible_input_fingerprint != snapshot.fingerprint:
         raise ValueError("Decision eligible-input fingerprint does not match actual source history.as_of")
