@@ -1,0 +1,52 @@
+{
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "7fc94d260ba77782c12260986ce094871240283fcd1d9f93b3aff8ffdc8b4c58"
+    },
+    {
+      "path": "catalog-lookups.json",
+      "sha256": "4ecd301a64d94c7103dd327da1c165088d997c2c48d6490557ce1d38f4edd018"
+    },
+    {
+      "path": "catalog-source-evidence.json",
+      "sha256": "c15f3e488f68520ee709dd1ba620b06695ac94718a1745aff29e49646081242e"
+    },
+    {
+      "path": "contextual-decision.json",
+      "sha256": "a091c81d4c5794017b3987984c208ba0b6984b08212968f6704551c3a92b1995"
+    },
+    {
+      "path": "exp3-decision.json",
+      "sha256": "d535daa618b62db231178ab1b0bf9162a8d58a46b4a9560e807dc12da4f70e2d"
+    },
+    {
+      "path": "fixture-producer.json",
+      "sha256": "081f27a429136ede76abcd840f2634fd15bb0cf1caf7e8f04afbb46f773b6c14"
+    },
+    {
+      "path": "legacy-ci-inputs.json",
+      "sha256": "a7551095f241c8bd34b7ba62fa04e0117c84bdfbd4e47aabaf13fc9f0028276a"
+    },
+    {
+      "path": "legacy-dispatch.json",
+      "sha256": "c45d6d5b9e4dc814ce168272212e43be30fd4e7db6a8382d0dd0b63d43eb0626"
+    },
+    {
+      "path": "source-preservation.json",
+      "sha256": "f052e248fcdbc6ec0b90c47b84f96d4f07f322e47834502b0a9ff719032aa669"
+    },
+    {
+      "path": "window-decision.json",
+      "sha256": "7e5520bf2aa0b4c54b8fd3fe3d64ca6d1b76fa718b505db45ef7e32fd77764a3"
+    }
+  ],
+  "original_capture_sha256": {
+    "comparison_v2": "267f146c34158e80416d1f9ef7adcf35abdac320a527b4e219cfb22625293a4f",
+    "dispatch_v2": "6e9fe754f482e6f7646cfae2c6eb089445aaef2fe2e3f0299926dea9b22fb04c",
+    "frrmab_controls": "242bae177ac098a747cedd54390f5be65370f909c9ab39698df248100733d28e",
+    "noneditable_v4_v2": "f58e0640d544d9e950d1342b97b20ba1814d8905279770798bae684c85ba6f77"
+  },
+  "schema_version": 1,
+  "source_revision": "1edbee874129aa85e26e592d9649826e85e1ac6b"
+}

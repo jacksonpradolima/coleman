@@ -9,13 +9,15 @@ experiment without constructing a CI environment.
 **Status:** this page specifies the v5 architecture. The v5 integration source
 now implements [generic decision contracts and direct-use protocols](decision-contracts.md)
 in a lightweight core, together with [explicit objective and loss mappings](objectives.md).
+It also provides [source-pinned native ranking semantics and explicit decision capture](native-policy-semantics.md)
+without changing the legacy policy mechanisms or automatically enriching runner output.
 Generic learners, adapters and durable sessions below
 remain planned until individually qualified. The original implementation baseline
 is COLEMAN **4.20.0**, commit
 `1edbee874129aa85e26e592d9649826e85e1ac6b`. Examples explicitly identified as
 existing use that source. Proposed namespaces and call sequences below are design
 contracts to qualify in subsequent work, except for the explicitly linked
-implemented contract and objective layers. No v5 release wheel has been published.
+implemented contract, objective and native-evidence layers. No v5 release wheel has been published.
 
 Read the [compatibility and migration policy](v5-compatibility.md) alongside this
 specification. Use the [current getting-started guide](getting-started.md) for the
@@ -73,6 +75,7 @@ introduced.
 | Application service | Frozen plans, registered trusted implementations, attempts, cancellation and orchestration | Mandatory dependencies for direct mathematical calls |
 | Transport | CLI/MCP input validation and calls into the shared service | Its own learner, solver or orchestration rules |
 | Evaluator | Frozen estimands, eligibility, dependence units, comparisons and stated uncertainty | Converting arbitrary scores into calibrated probabilities or causal effects |
+| Native semantic evidence | Source-pinned legacy definitions and an explicitly captured pre-evaluation ranking | A generic learner, completed feedback, a propensity, a state checkpoint or automatic historical enrichment |
 
 Capability-required pending decision information must have one declared owner.
 For a direct MAB it may live in the learner or an explicit caller-supplied decision
@@ -102,6 +105,13 @@ flowchart TD
     Evidence[Existing protected evaluation with planned generic protocol] --> Storage
     Transport[Existing CLI and optional MCP] --> Service
     Legacy[Existing native CI facade with planned migration boundary] --> Service
+    Host --> NativeCapture[Explicit native choose-and-freeze CI edge]
+    NativeCapture --> NativeRuntime[Unchanged native agent and policy]
+    NativeCapture --> NativeDefinitions[Pure native semantic definitions and frozen DTOs]
+    NativeDefinitions --> Contracts
+    Host --> NativePublication[Optional native evidence publication]
+    NativePublication --> NativeDefinitions
+    NativePublication --> Storage
 ```
 
 Here an arrow means a call or dependency toward the component used. Storage,
@@ -165,9 +175,11 @@ A fallback is applied only when declared and feasible; its execution is recorded
 
 ### What the native policy code actually does
 
-The existing native public names describe ranking adaptations. They are retained
-at the legacy boundary until their individual migration disposition is qualified.
-They do not qualify generic methods through their names.
+The existing native public names describe ranking adaptations. The
+[native semantics catalog](native-policy-semantics.md#the-37-native-ranking-mechanisms)
+retains all 37 names with exact agent routes, constructor defaults, feedback,
+counter units, RNG/lifetime limits, source pins and explicit migration
+dispositions. These definitions do not qualify generic methods through a name.
 
 | Source observation at the 4.20 baseline | Architectural consequence |
 | --- | --- |
@@ -180,9 +192,20 @@ They do not qualify generic methods through their names.
 | [`RNFailReward`](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman/reward/rnfail.py) emits a ranking-aligned zero/one learning vector from detected failure ranks | An unscheduled test's zero learning credit must not become an observed passing verdict in a generic dataset |
 | [`bounded_reward()`](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman/policy/mab/shared.py) transforms out-of-range values and maps nonfinite input to zero | Preserve legacy behavior under its version; generic contracts reject nonfinite values and require an explicit versioned transform |
 
-The full native policy audit covers all 37 configuration names. This architecture
-issue neither repairs their mathematics nor rewrites historical outputs. New
-sampled-action learners have distinct capability identities and qualification.
+The bounded four-build factory recipe completes 34 names and retains three
+explicit failures: SlMAB, SWLinTS and SWContextualEpsilonGreedy. The new capture
+edge refuses these unsupported factory routes before choosing; raw factory
+behavior is unchanged. SlidingWindowUCB's mean fallback and shared multi-window
+policy state are explicit. FRRMAB retains a restricted variability envelope,
+without a universal fixed-seed trace guarantee.
+
+`coleman.native.semantics` and `coleman.native.decisions` depend on the lightweight
+core, not the native policy package. `coleman.native.capture` checks the explicit
+CI capability and wraps exactly one actual choose before evaluation. Optional
+publication uses the existing artifact writer. `Environment` is unchanged;
+ordinary runner output and historical files do not acquire these records
+automatically. No native algorithm, reward formula or old artifact is rewritten.
+New sampled-action learners have distinct capability identities and qualification.
 
 For comparison, full-information expert weighting requires the complete eligible
 loss vector; the original Hedge formulation distinguishes mixture allocation and

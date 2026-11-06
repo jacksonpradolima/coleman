@@ -30,13 +30,13 @@ LinUCBPolicy
 SWLinUCBPolicy
     Variation of LinUCBPolicy using a sliding window approach.
 CombinatorialUCBPolicy
-    Combinatorial policy that prioritizes a top-k subset via UCB scores.
+    Full UCB ranking; the legacy subset-size splice does not change its order.
 CombinatorialThompsonPolicy
-    Combinatorial policy that prioritizes a top-k subset via Thompson sampling.
+    Full sampled-score ranking; the legacy subset-size splice is order-neutral.
 DuelingUCBPolicy
-    Dueling/ranking policy based on pairwise UCB-style preference estimates.
+    Ranking using pair counters derived from the agent's own emitted order.
 PairwiseThompsonRankingPolicy
-    Dueling/ranking policy based on pairwise Thompson preference sampling.
+    Sampled pair-score ranking updated from its own emitted order.
 PortfolioUCBPolicy
     Meta-policy that selects among candidate policies online using UCB.
 
@@ -49,10 +49,15 @@ Notes
 - LinUCB and SWLinUCB are contextual bandits. They choose actions not just based on past rewards,
   but also considering the current context. SWLinUCB adds a sliding window mechanism to LinUCB,
   giving more weight to recent actions.
-- Combinatorial policies prioritize a strong subset first (top-k) while preserving
-    compatibility with full-ranking execution.
-- Dueling/ranking policies learn pairwise preferences and derive a global priority order.
-- Portfolio meta-policies select which policy to use online based on recent performance.
+- Native policies emit full CI rankings; names do not certify the feedback,
+  sampled-choice or regret assumptions of the cited algorithms. EXP3-family
+  scores are sorted rather than used to sample one executed action.
+- Combinatorial methods return ``ordered[:k] + ordered[k:]``; changing k alone
+  does not select a subset or alter the complete order.
+- Dueling methods update pairs from their own order, not observed duels.
+- Portfolio children share agent credit; they are not independent virtual books.
+- The source-pinned ``coleman.native.semantics`` catalog describes all native
+  routes, counters, RNG ownership and migration limits without changing them.
 
 References
 ----------

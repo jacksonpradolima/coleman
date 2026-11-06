@@ -23,9 +23,9 @@ class DuelingUCBPolicy(Policy):
 
     What it is
     ----------
-    A dueling/ranking bandit policy that learns preferences through pairwise
-    comparisons between actions, then induces a global ranking from these
-    preferences using Copeland-like aggregation.
+    Derives Copeland-style scores from pair counters updated using its own
+    emitted ranking. No observed duel or relative CI outcome enters those
+    counters. Original dueling-bandit feedback/regret guarantees are not claimed.
 
     Parameters
     ----------

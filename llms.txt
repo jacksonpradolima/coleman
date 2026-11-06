@@ -23,6 +23,7 @@ parallel execution, and extensibility via hooks and namespaced custom config.
 - docs/api/evaluation.md
 - docs/api/experiment-api.md
 - docs/api/materialization.md
+- docs/api/native.md
 - docs/api/policy.md
 - docs/api/results.md
 - docs/api/reward.md
@@ -74,6 +75,7 @@ parallel execution, and extensibility via hooks and namespaced custom config.
 - docs/lrts-stage-views.md
 - docs/lrts.md
 - docs/maintainability.md
+- docs/native-policy-semantics.md
 - docs/objectives.md
 - docs/observability.md
 - docs/operational-pilot.md
@@ -250,9 +252,10 @@ Follow the linked guide for a complete example and the evidence it supports.
 
 ## MAB policies available
 
-**37 selectable policies** cover simple comparators, confidence bounds, Bayesian
-sampling, changing histories, contextual features, subsets, pairwise rankings and
-policy portfolios. These are the actual native configuration names:
+**37 native configuration names** cover simple comparators, confidence bounds, Bayesian
+scores, changing histories, contextual features and portfolio-style ranking
+recipes. These are the actual native configuration names; their names describe
+families rather than certifying sampled-action or feedback guarantees:
 
 | Family | Available policies |
 | --- | --- |
@@ -268,6 +271,13 @@ policy portfolios. These are the actual native configuration names:
 
 Use the [policy guide](docs/policies.md) to understand the families, reward choices,
 required parameters and contextual feature availability. The
+[native behavior audit](docs/native-policy-semantics.md) explains what all 37
+recipes actually consume and emit, their factory/window restrictions, and how to
+retain versioned pre-evaluation rankings without treating scores as probabilities.
+Three legacy factory routes need the documented explicit window-agent construction;
+the audit preserves those limits alongside the 34 successful factory recipes.
+This new audit API requires the reviewed source wheel; the published v4 runner
+keeps its existing behavior. The
 [constructor reference](docs/api/policy.md) gives the exact API; configuration packs
 cover a subset of the policies. The [baseline workflow](docs/comparable-baselines.md)
 adds history-based heuristic comparators under a declared common protocol.
@@ -1116,6 +1126,59 @@ side effects, errors and concurrency limits.
 
 
 
+### FILE: docs/api/native.md
+
+# Native ranking semantics and decision evidence
+
+Use the [CI decision walkthrough](../native-policy-semantics.md) for complete
+input, capture, evaluation and output examples. These APIs belong to the
+unreleased v5 integration source, separately from the existing
+[native policy classes](policy.md) and [generic core contracts](core-contracts.md).
+
+`coleman.native` has a doc-only initializer. The catalog and frozen DTOs require
+only the base installation. `coleman.native.capture` is the explicit CI edge and
+requires the `ci` extra before loading native implementations. Publication uses
+the existing `ArtifactWriter`; it does not run an algorithm or create a checkpoint.
+
+## Inspect exact source-pinned definitions
+
+The catalog covers all 37 native aliases and six reward definitions. A lookup
+returns data, including unsupported factory routes; it does not instantiate or
+repair a recipe. Native `theory_status="not_claimed"` is independent of route
+support. A stronger generic use such as sampled choice is refused explicitly.
+
+::: coleman.native.semantics
+
+## Declare and retain the pre-evaluation decision
+
+The host supplies stable IDs, expected observation round and fingerprints of
+separately retained inputs, configuration and producer evidence. A pure DTO
+constructor validates declarations; it is not an execution attestation. The
+actual chooser wrapper below captures the call it performs.
+
+::: coleman.native.decisions
+
+## Choose once and freeze immediately
+
+Call this in place of an ordinary `agent.choose()`, with exclusive host ownership
+of the native agent and any shared policy/RNG. Evaluate `list(record.ranking)`
+and observe through the original native interfaces afterwards. `Environment`
+does not add this record automatically. Choice can mutate state even if later
+validation fails; capture has no rollback or retry deduplication.
+
+::: coleman.native.capture.choose_and_freeze_native
+
+## Read and publish immutable evidence
+
+Retain a returned record to retry publication. Identical publication is
+idempotent; different bytes at the same logical key conflict. Reader byte limits,
+version rejection and artifact completion do not imply a joint transaction with
+native evaluation, observations or checkpoints.
+
+::: coleman.native.publication
+
+
+
 ### FILE: docs/api/policy.md
 
 # Policy
@@ -1263,6 +1326,12 @@ understand their scope before composing a host-owned learner or solver.
 [scenarios](api/scenarios.md) and [native evaluation](api/evaluation.md) describe
 the existing runtime. Use [extensions and parallelism](extensibility.md) for lifecycle
 and worker-state guidance.
+
+The integration source adds [native semantic definitions and frozen decision evidence](api/native.md)
+without changing these runtime classes. Follow the
+[native CI decision walkthrough](native-policy-semantics.md) to inspect all 37
+policy names, capture one actual choice before evaluation, and interpret the
+retained artifact's limits.
 
 ## Retain source and result evidence
 
@@ -10819,6 +10888,441 @@ none substitutes for observed performance under a declared workload.
 
 
 
+### FILE: docs/native-policy-semantics.md
+
+# Understand a native CI policy decision
+
+COLEMAN's native policies turn test history into a complete test ranking. The
+native semantics catalog lets you inspect the mechanism behind each of the
+**37 configuration names**, choose the right comparison, and retain the actual
+ranking before evaluating it. It preserves the existing CI algorithms while
+making their feedback, state and interpretation explicit.
+
+This guide describes the **unreleased v5 integration source**. Catalog inspection
+uses the base installation; running native agents requires its `ci` extra. Use
+the [component installation guide](core-installation.md) for a reviewed source
+wheel. These APIs are not present in the published v4.20.0 wheel.
+
+For ordinary experiments, start with [policies and rewards](policies.md) and
+[configuration](configuration.md). Use this page when a comparison or integration
+needs to know what was chosen, which native semantics applied, and what the
+retained evidence can support.
+
+## Follow one CI decision
+
+Consider a synthetic CI build with three tests and a **3-second execution
+budget**. Durations and verdicts are supplied replay data; future verdicts are
+used by the evaluator after ranking, never as pre-decision policy features.
+
+| Native test name | Recorded duration (s) | Synthetic replay verdict | Meaning |
+| --- | ---: | ---: | --- |
+| `unit` | 1.0 | 0 | Passing test in the replay source |
+| `integration` | 2.0 | 1 | Failing test in the replay source |
+| `system` | 3.0 | 1 | Failing test in the replay source |
+
+The host also retains its policy/reward configuration, input data and producer
+inventory. It assigns stable run, execution and decision identifiers, then
+declares their content digests in a `NativeDecisionContext`. The observation
+counter is the expected `agent.t` **before** evaluation, in accepted-observation
+steps. It is neither elapsed time nor a source-availability timestamp.
+
+```mermaid
+flowchart TD
+    input["Retained CI input, configuration and producer inventory"] --> context["Prepare native decision context"]
+    context --> capture["choose_and_freeze_native: one real choose"]
+    capture --> frozen["Immutable pre-evaluation ranking and semantic definitions"]
+    frozen --> evaluate["Existing bandit evaluates the frozen ranking"]
+    evaluate --> observe["Native agent observes the metric once"]
+    frozen --> publish["Optional immutable artifact publication"]
+    publish --> retry["Retry the same retained record"]
+    observe --> next["Prepare the next logical decision"]
+```
+
+Replace the host's ordinary `agent.choose()` with `choose_and_freeze_native`.
+Calling both would make two choices. The wrapper checks the declared built-in
+agent/policy/reward route and round, calls the actual chooser once, and copies its
+complete returned order immediately. It does not evaluate, observe, reset, reseed
+or publish. An ordinary `Environment` run is unchanged and does **not** acquire
+these records automatically.
+
+### Run the complete cycle
+
+The following example uses the actual native EXP3 ranking adaptation, RNFail
+reward, verdict-based metric and bandit. The first choice is the ordinary
+agent-local initial shuffle; subsequent choices use the native policy. A
+producer inventory here deliberately records only the listed facts. Retaining
+its digest does not make it a complete dependency or source attestation.
+
+```python
+import importlib.metadata
+import platform
+import sys
+from pathlib import Path
+
+from coleman.agent import RewardAgent
+from coleman.artifacts import ArtifactWriter
+from coleman.bandit import EvaluationMetricBandit
+from coleman.core.identity import Reference
+from coleman.core.primitives import canonical_json, fingerprint
+from coleman.evaluation import NAPFDVerdictMetric
+from coleman.native.capture import choose_and_freeze_native
+from coleman.native.decisions import NativeDecisionContext, native_binding
+from coleman.native.publication import (
+    publish_native_decision,
+    read_native_decision,
+)
+from coleman.policy.mab.adversarial import EXP3Policy
+from coleman.reward import RNFailReward
+
+arms = [
+    {
+        "Name": name,
+        "Duration": duration,
+        "CalcPrio": 0,
+        "LastRun": "",
+        "NumRan": 0,
+        "NumErrors": verdict,
+        "Verdict": verdict,
+        "LastResults": "",
+    }
+    for name, duration, verdict in (
+        ("unit", 1.0, 0),
+        ("integration", 2.0, 1),
+        ("system", 3.0, 1),
+    )
+]
+configuration = {
+    "policy": "EXP3",
+    "gamma": 0.2,
+    "reward": "RNFail",
+    "agent_seed": 17,
+    "available_time_seconds": 3.0,
+}
+producer = {
+    "coleman": importlib.metadata.version("coleman"),
+    "python": sys.version,
+    "platform": platform.platform(),
+    "inventory_scope": "package version, interpreter and platform only",
+}
+
+root = Path("native-ci-evidence")
+root.mkdir(exist_ok=True)
+for name, payload in (
+    ("input.json", arms),
+    ("configuration.json", configuration),
+    ("producer.json", producer),
+):
+    (root / name).write_text(canonical_json(payload), encoding="utf-8")
+
+metric = NAPFDVerdictMetric()
+metric.update_available_time(configuration["available_time_seconds"])
+bandit = EvaluationMetricBandit(arms, metric)
+agent = RewardAgent(EXP3Policy(gamma=0.2), RNFailReward(), seed=17)
+agent.update_bandit(bandit)
+context = NativeDecisionContext(
+    schema_version=1,
+    run=Reference(id="ci.example", version="1"),
+    execution_id="execution-1",
+    decision_id="build-1",
+    purpose="evaluation_ranking",
+    expected_round=agent.t,
+    binding=native_binding("EXP3", "RNFail", route="factory"),
+    configuration_fingerprint=fingerprint(configuration),
+    input_fingerprint=fingerprint(arms),
+    producer_fingerprint=fingerprint(producer),
+    policy_state_group=None,
+)
+
+record = choose_and_freeze_native(agent, context=context)
+result = bandit.pull(list(record.ranking))
+agent.observe(result)
+
+path = publish_native_decision(record, ArtifactWriter(root))
+restored = read_native_decision(path.read_bytes())
+assert restored.to_json() == record.to_json()
+assert publish_native_decision(record, ArtifactWriter(root)) == path
+
+print("ranking:", record.ranking)
+print("phase:", record.phase)
+print("scheduled:", result.scheduled_testcases)
+print("unscheduled:", result.unscheduled_testcases)
+print("RNFail credits:", agent.last_reward)
+print("NAPFD:", result.fitness)
+print("APFDc:", result.cost)
+print("observation round:", record.observation_round, "->", agent.t)
+print("logical identity:", record.logical_identity)
+print("content fingerprint:", record.fingerprint)
+print("complete record:", path)
+```
+
+The synthetic example produces the following ranking, scheduling and learning
+output in the qualified local environment:
+
+```text
+ranking: ('unit', 'integration', 'system')
+phase: initial_shuffle
+scheduled: ['unit', 'integration']
+unscheduled: ['system']
+RNFail credits: [0.0, 1.0, 0.0]
+NAPFD: 0.25
+APFDc: 0.3333333333333333
+observation round: 0 -> 1
+```
+
+The printed logical identity identifies the declared CI decision. Its separate
+content fingerprint also binds the retained producer inventory and catalog;
+changing those facts changes that digest. Use your actual printed values rather
+than copying a fingerprint from another environment.
+
+The artifact contains the **complete** canonical record, including the selected
+policy, route and reward definitions with their source pins. The separate input,
+configuration and producer files are retained alongside it. They are host-owned
+evidence, not automatically authenticated or jointly committed with the record.
+
+### Interpret every part of the output
+
+| Output | Meaning and limits |
+| --- | --- |
+| `schema_version` | Record generation `1`; required independently of the native semantic version |
+| `context` | Stable run/execution/decision coordinates, purpose, expected round, full semantic binding and declared retained-artifact digests |
+| `candidates` | Current native action-table names in their original order |
+| `ranking` | The exact returned full permutation, highest priority first; no sorting, trimming, deduplication or generic-ID conversion |
+| `observation_round` / `observation_semantics` | Actual pre-observe count with unit `step` and meaning `coleman.native.accepted_observation_count.v1` |
+| `window_size` | Actual agent history window in observation/build steps, or explicit `null` for a non-window route |
+| `phase` | `initial_shuffle` or `policy_ranking`; contextual agents use their policy even at round zero |
+| `sampling` | `status="not_recorded"`, `value=null` and a reason; native scores do not supply the actual joint ranking probability |
+| `loss` | `status="not_defined"`, `value=null` and a reason; no automatic `1 - reward` conversion |
+| `logical_identity` | Derived stable publication key for this run/execution/decision; different content under the same key conflicts |
+| `fingerprint` | Derived content digest over COLEMAN canonical JSON v1; ranking order and declared semantics affect it |
+| Metric and RNFail output | Later evaluation/update facts printed separately; they are **not** fields of this pre-evaluation record |
+
+A zero RNFail credit is a real native learning value. It can mean that a test
+was unscheduled; it does not prove an observed pass. An undefined loss and an
+unrecorded sampling mass are explicit absences, distinct from numerical zero.
+NAPFD and APFDc are prioritization-quality metrics, with higher values preferred;
+the legacy metric attribute `cost` holds APFDc, not physical execution cost.
+
+## Inspect the catalog without running a policy
+
+```python
+from coleman.native.semantics import get_native_policy, get_native_reward
+
+policy = get_native_policy("EXP3")
+reward = get_native_reward("RNFail")
+print(policy.semantic_ref)
+print(policy.constructor)
+print(policy.action_definition)
+print(policy.counter_definition)
+print(policy.routes)
+print(reward.formula)
+print(reward.semantics)
+```
+
+`list_native_policies()` and `list_native_rewards()` return immutable typed
+definitions. Reading the bundled catalog performs local resource I/O on first
+use, without importing native algorithms, optional CI dependencies, transports
+or telemetry. Entries retain exact constructor defaults, required parameters,
+parameter units, feedback, RNG, tie behavior, reset/discovery/retirement rules
+and public source references. These declarations do not instantiate classes or
+turn their recorded constraints into a new universal constructor validator.
+
+Every entry has `theory_status="not_claimed"`. A supported native route means
+that its stated legacy mechanism is admitted; it is not proof of its namesake
+paper's assumptions or regret guarantee. For example,
+`get_native_policy("EXP3", use="sampled_choice")` refuses that stronger generic
+interpretation explicitly.
+
+## The 37 native ranking mechanisms
+
+The table describes the actual configured runner/factory path, **after any
+ordinary agent warmup**. Most rows use `RewardAgent`: its reward vector updates
+all ranked names, while `ActionAttempts` increases by rank weights from `1` to
+`1e-12`. That counter measures weighted exposure, not chosen-arm pulls.
+Contextual and window routes have their own feedback/state rules below.
+
+The bounded synthetic qualification uses four builds, three tests with recorded
+durations 1/2/3 seconds, RNFail, a 3-second budget, explicit contextual inputs and
+configured factory windows. **34 names complete this recipe; three fail their
+actual factory route.** This establishes the stated mechanism/profile, not
+effectiveness across CI repositories or every parameter combination. The catalog
+pins the underlying public [4.20.0 source](https://github.com/jacksonpradolima/coleman/tree/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman).
+
+| Native name | Ranking and update actually used | Factory disposition |
+| --- | --- | --- |
+| `Random` | Shuffle the complete list; inherited reward updates still run | Preserved |
+| `Greedy` | Descending native mean score; inherited chooser still consumes uniform draws | Preserved |
+| `EpsilonGreedy` | Per-name random promotion, then a complete score order | Preserved |
+| `DecayEpsilonGreedy` | The per-name promotion threshold decays with the observation counter | Preserved |
+| `OptimisticGreedy` | Greedy order with an optimistic score for zero-exposure rows | Preserved |
+| `EpsilonDecreasing` | One coin selects either a whole-list shuffle or descending scores | Preserved |
+| `UCB` | Native mean plus a confidence-style bonus using rank-weighted exposure | Preserved |
+| `UCB1` | Native mean plus an exposure/observation-count term with exponent `1/c` | Preserved |
+| `UCB2` | Geometric-epoch-inspired score; no chosen-arm epoch-holding protocol | Preserved |
+| `KLUCB` | 32-step numerical KL-index bisection using bounded native means and weighted exposure | Preserved |
+| `UCBTuned` | Welford mean/variance statistics updated for every current name | Preserved |
+| `UCBV` | Variance-plus-scale bonus over those all-name statistics | Preserved |
+| `MOSSUCB` | MOSS-style index using native weighted exposure | Preserved |
+| `ThompsonSampling` | Draw one Beta score per name; update every current name from bounded native value deltas | Preserved |
+| `BayesianUCB` | Rank Beta mean plus `c` times its standard deviation; same all-name updates | Preserved |
+| `BootstrappedThompson` | Choose one bootstrap head for the whole ranking; Poisson-weighted all-name credit updates | Preserved |
+| `Softmax` | Sort exponentiated scores; no draw from the resulting preferences | Preserved |
+| `Pursuit` | Sort maintained preferences; move them toward the empirical argmax on credit | Preserved |
+| `PHE` | Rank with binomial pseudo-successes; update all current names from bounded deltas | Preserved |
+| `EXP3` | Sort mixed exponential weights; importance-style updates apply to every current name | Preserved |
+| `EXP3IX` | Inherit that sorting, with an offset-denominator exponential update | Preserved |
+| `SlidingWindowUCB` | Factory constructs ordinary `RewardAgent`; credit falls back to mean ranking and ignores requested windows | Preserved fallback; manual window route is distinct |
+| `DiscountedUCB` | Discount retained per-name counts/sums each credit call, then update all current names | Preserved |
+| `ChangeDetectionUCB` | Compare halves of per-name credit history and conditionally discard older statistics | Preserved; no detector error guarantee claimed |
+| `FRRMAB` | Rank grouped window reward/history; multiple factory windows share one policy/cache | Restricted: ties, retired names and repeat variability |
+| `SlMAB` | Class requires window history, but factory supplies ordinary `RewardAgent` | Refused by capture: factory observe lacks `history` |
+| `LinUCB` | Rank linear confidence scores; all-name matrix updates consume cumulative native values | Preserved contextual route |
+| `SWLinUCB` | Discount contextual scores by window frequency; matrices retain earlier updates and are shared across factory windows | Preserved; not a finite-window refit |
+| `LinTS` | Sample a linear coefficient per name; use the same cumulative contextual update | Preserved contextual route |
+| `SWLinTS` | Class requires a window contextual agent, but factory supplies ordinary `ContextualAgent` | Refused by capture: factory class mismatch |
+| `ContextualEpsilonGreedy` | One coin chooses full shuffle or linear-score order; cumulative contextual updates | Preserved contextual route |
+| `SWContextualEpsilonGreedy` | Window-frequency contextual class receives the wrong factory agent type | Refused by capture: factory class mismatch |
+| `CombinatorialUCB` | Return `ordered[:k] + ordered[k:]`, the same complete UCB order for every valid `k` | Preserved full ranking; no subset action |
+| `CombinatorialThompson` | The same full-list concatenation after Beta-score sorting | Preserved full ranking; no subset action |
+| `DuelingUCB` | Rank pair estimates; pair wins/counts come from its own previous order | Preserved; no observed duel feedback |
+| `PairwiseThompsonRanking` | Sample pair preferences; update pair pseudo-counts from its own order | Preserved non-durable recipe; ordinary pickle unsupported |
+| `PortfolioUCB` | Select a candidate ranking policy using recent changes in native total value; children share the same agent | Preserved ranking selector; not independent learners or a mixture |
+
+Consult each typed entry's `routes`, `migration` and `guidance` before capture.
+An explicitly constructed window agent is a separate `manual-window` binding;
+it does not repair or relabel the factory path. The unrestricted old classes and
+factory behavior remain unchanged.
+
+### Six reward definitions
+
+The catalog separately describes `RNFail`, `TimeRank`, `APFDc`, `TopKRNFail`,
+`DiscountedFailure` and `ReciprocalRank`: exact formula, input fields, constructor
+defaults, dimensionless credit meaning and coverage. A reward's configured name
+and native `get_name()` spelling are retained separately. Use the
+[reward API](api/reward.md) for actual evaluation classes. None of these names
+defines a generic bounded loss or an observation-availability rule.
+
+## Check the differences with small calculations
+
+For **EXP3** with two equal weights and `gamma=0.2`, the native internal scores
+are `(0.5, 0.5)`. Its post-warmup chooser sorts them; it does not draw one action
+with those masses. With bounded value deltas `(1, 1)`, both weights multiply by
+`exp(0.2)`. A chosen-only importance-weighted estimator would require an actual
+draw, its probability and only the chosen feedback. Those are different inputs.
+See the pinned [native implementation](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman/policy/mab/adversarial.py).
+
+For a **combinatorial** native order `[a, b, c]`, `k=1` returns
+`[a] + [b, c]`, while `k=2` returns `[a, b] + [c]`. Both produce `[a, b, c]`.
+The evaluator's later budget selection is separate from choosing a subset.
+For the **dueling** classes, keeping the produced order fixed while reversing
+the measured failure outcomes leaves the pairwise credit update unchanged:
+that update reads order positions, not an observed pair preference.
+
+For a one-dimensional **contextual** update with `x=1`, initial `A=1, b=0`
+and successive build credits `1, 0`, ordinary contextual cumulative values
+are `1, 1`. The native update gives `A=3, b=2`. An update using only each new
+build's credit would give `b=1`; the catalog records the former semantics.
+
+Several native methods update from the change in each name's cumulative value.
+Their legacy `bounded_reward` keeps finite values in `[0, 1]`, maps nonfinite
+values to zero, and maps other finite values through `0.5 * (tanh(value) + 1)`.
+Thus an out-of-range negative delta can become positive fractional credit.
+This retained transform is separate from [explicit v5 loss mappings](objectives.md):
+it does not preserve nonfinite input as missingness or establish a calibrated
+probability. The pinned [shared helper](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman/policy/mab/shared.py)
+defines the exact native behavior.
+
+## Own the state and know what a retry means
+
+The ordinary first-round shuffle uses the agent's NumPy generator. Native policy
+draws share a separate module-global generator. Greedy can consume that shared
+generator despite ranking only by scores. A seed alone does not retain all
+state, backend tie behavior or dependencies, and repeated seeds are not
+independent CI observations.
+
+`agent.reset()` zeros current native values, attempts, scores and the observation
+counter. It retains names, the policy object and its internal state, the agent
+RNG and caches; window history is not universally cleared. Some policy dictionaries
+retain retired names, while contextual re-entry overwrites that name's matrices.
+Construct a complete fresh recipe when independent native lifetimes are required.
+FRRMAB and SWLinUCB factory window cohorts share policy state: separate window
+labels do not establish independent experiments.
+
+In the authored FRRMAB controls, four predetermined fresh-process runs produced
+four distinct mathematical traces **within each** of the baseline and integration
+revisions under the same declared seed/hash-seed/thread/dependency envelope.
+Those diagnostic launches used Python `-I`, which ignores `PYTHONHASHSEED`:
+the requested hash seed was recorded, but Python hash randomization was not
+controlled in that observation.
+That observation does not identify one sole cause or establish a regression.
+The retained route makes no stronger single-trace determinism promise. If cached
+retired names violate the current-candidate permutation, capture refuses that
+emission instead of silently filtering or repairing it.
+
+The host needs exclusive ownership of the agent, shared policy cohort and RNG
+during capture. The wrapper is a state-changing operation, not a thread-safe or
+idempotent execution API. Validation happens before choice where possible, but
+a chooser or final validation can fail **after** state/RNG changes. No rollback
+or checkpoint is implied; abandon that lifetime or use its separately qualified
+recovery route. `purpose="forecast"` also performs a real choice and may consume
+RNG or overwrite caches. Give it a separate decision ID and retain the evaluated
+record first.
+
+### Publish evidence without claiming completed execution
+
+Immutable publication uses a fixed native-record family and hashed logical key
+under the caller-owned `ArtifactWriter` root. Identical bytes at the same key
+are an idempotent retry; changed content raises `NativeDecisionConflictError`.
+Retry publication of the **retained record**, without choosing or observing again.
+The publication boundary uses the existing immutable artifact writer; a temporary
+file is not a completed record.
+
+Readers apply an explicit positive byte bound (8 MiB by default), reject duplicate
+JSON keys, unknown/coerced schema versions and invalid nested definitions, and
+preserve native name strings and order. The format is COLEMAN canonical JSON v1,
+not RFC 8785. The in-memory reader is bounded, not streaming. A larger complete
+ranking requires a deliberately larger bound, never truncation.
+The caller must also bound file/network acquisition when reading an untrusted
+source; passing a bounded reader an already unbounded `read_bytes()` result does
+not bound that earlier allocation. The example reads its own local artifact.
+
+This file is not an executable checkpoint or a transaction spanning choice,
+evaluation, observation, native results and RNG state. The 37-name ranking recipe
+does not qualify checkpoint recovery for all 37 policies. One actual ordinary
+`LocalCheckpointStore` check of a freshly chosen `PairwiseThompsonRanking` agent
+fails with `pickle.PicklingError`, leaving no completed progress marker; its local
+defaultdict lambda is not picklable. A matching DuelingUCB constructor-state
+control saves and loads, which still does not certify every later state. Existing
+[durable workflows](durable-experiments.md) have their own narrower recovery
+contract and supported policy set.
+
+Old native results remain readable with their native schemas. Missing semantic
+records stay missing: readers do not backfill a historical loss, propensity,
+source clock, state snapshot or verified choose event from a policy name.
+
+## Relate the implementation to the literature
+
+The [original TCPCI study](https://doi.org/10.1109/TSE.2020.2992428)
+(*IEEE Transactions on Software Engineering*) motivates adaptive ranking in CI.
+The later infrastructure makes these mechanisms easier to configure, compare
+and inspect. Mathematical guarantees still depend on each method's actual
+action, observation and update contract.
+
+| Primary source | Boundary to check in an implementation |
+| --- | --- |
+| Auer et al., [*The Nonstochastic Multiarmed Bandit Problem*](https://homepages.math.uic.edu/~lreyzin/papers/auer02.pdf), *SIAM Journal on Computing*, 2002 | Actual randomized arm selection and the corresponding chosen-payoff estimator; native EXP3 sorting does not supply these facts |
+| Li et al., [*A Contextual-Bandit Approach to Personalized News Article Recommendation*](https://arxiv.org/abs/1003.0146), WWW 2010 | Contextual action selection and feedback; native cumulative all-name targets have their own interpretation |
+| Chen et al., [*Combinatorial Multi-Armed Bandit: General Framework and Applications*](https://proceedings.mlr.press/v28/chen13a.html), ICML 2013 | Super-arm selection, component observations and an explicit optimization oracle; a full-list concatenation is insufficient |
+| Zoghi et al., [*Relative Upper Confidence Bound for the K-Armed Dueling Bandit Problem*](https://proceedings.mlr.press/v32/zoghi14.html), ICML 2014 | Observed relative feedback about pairs; deriving wins from one's own order does not establish that input |
+
+These papers explain the distinctions; their results are not efficacy or regret
+evidence for the native adaptations. New generic sampled-choice, subset,
+full-information mixture and pairwise methods require separate implementation
+identities and independent qualification. Use [generic decision contracts](decision-contracts.md)
+and [objective mappings](objectives.md) when composing such a problem, and the
+[compatibility guide](v5-compatibility.md) when continuing existing experiments.
+
+
+
 ### FILE: docs/objectives.md
 
 # Turn outcomes into explicit objectives
@@ -11875,22 +12379,32 @@ belong in the corresponding reward branch of `algorithm`; some windowed methods
 also require `window_sizes`. Use the [configuration reference](configuration.md)
 and [constructor API](api/policy.md) for the exact fields. A configuration pack
 is a preset for a subset of these names, not the complete policy inventory.
+The [native decision walkthrough](native-policy-semantics.md) explains the actual
+37 mechanisms, their factory dispositions and an explicit pre-evaluation record
+available in the unreleased v5 integration source. Three named windowed factory
+routes need explicit refusal rather than being advertised as successful recipes.
 
 | Family | Native configuration names | What changes in the ranking |
 | --- | --- | --- |
 | Random and greedy | `Random`, `Greedy`, `EpsilonGreedy`, `DecayEpsilonGreedy`, `OptimisticGreedy`, `EpsilonDecreasing` | Start with random order, exploit accumulated value, or vary explicit exploration |
 | Confidence-based | `UCB`, `UCB1`, `UCB2`, `KLUCB`, `UCBTuned`, `UCBV`, `MOSSUCB` | Combine accumulated value with different exploration/confidence constructions |
-| Bayesian and stochastic | `ThompsonSampling`, `BayesianUCB`, `BootstrappedThompson`, `Softmax`, `Pursuit`, `PHE` | Sample, randomize or update selection preferences using the observed feedback |
-| Adversarial | `EXP3`, `EXP3IX` | Use exponential-weight exploration mechanisms |
+| Bayesian and stochastic | `ThompsonSampling`, `BayesianUCB`, `BootstrappedThompson`, `Softmax`, `Pursuit`, `PHE` | Rank sampled scores, posterior scores or maintained preferences; Softmax and Pursuit sort preferences without sampling them |
+| Adversarial-inspired ranking | `EXP3`, `EXP3IX` | Sort exponential-weight scores and update all current names using native reward deltas |
 | Changing-history | `SlidingWindowUCB`, `DiscountedUCB`, `ChangeDetectionUCB`, `FRRMAB`, `SlMAB` | Adapt the use of older feedback through windows, discounting, detected changes or rank-based credit |
 | Contextual | `LinUCB`, `SWLinUCB`, `LinTS`, `SWLinTS`, `ContextualEpsilonGreedy`, `SWContextualEpsilonGreedy` | Condition a test's score on configured feature vectors |
-| Combinatorial | `CombinatorialUCB`, `CombinatorialThompson` | Prioritize a subset while retaining the native full-ranking interface |
-| Dueling/ranking | `DuelingUCB`, `PairwiseThompsonRanking` | Build a ranking using pairwise preference estimates |
-| Portfolio | `PortfolioUCB` | Select among declared candidate policies online |
+| Combinatorial-inspired ranking | `CombinatorialUCB`, `CombinatorialThompson` | Return the complete score order; the native `ordered[:k] + ordered[k:]` operation selects no subset |
+| Dueling-inspired ranking | `DuelingUCB`, `PairwiseThompsonRanking` | Rank pair estimates updated from the policy's own previous order, without observed pairwise preferences |
+| Policy portfolio | `PortfolioUCB` | Select candidate ranking policies sharing one underlying agent and its native values |
 
 The policy families expose different hypotheses to test. Keep their actual native
 reward/update and feedback contracts visible: sharing an algorithm name does not
 establish the regret guarantee or feedback model of the original publication.
+The actual factory paths for `SlMAB`, `SWLinTS` and
+`SWContextualEpsilonGreedy` select agents missing the required window capability.
+`SlidingWindowUCB` takes a mean-ranking fallback and ignores factory windows.
+The [catalog and migration guidance](native-policy-semantics.md#the-37-native-ranking-mechanisms)
+distinguish these paths from separately constructed window agents. Existing raw
+behavior is preserved; the explicit capture API refuses incompatible routes.
 
 ## Connect a policy to its research
 
@@ -16476,13 +16990,15 @@ experiment without constructing a CI environment.
 **Status:** this page specifies the v5 architecture. The v5 integration source
 now implements [generic decision contracts and direct-use protocols](decision-contracts.md)
 in a lightweight core, together with [explicit objective and loss mappings](objectives.md).
+It also provides [source-pinned native ranking semantics and explicit decision capture](native-policy-semantics.md)
+without changing the legacy policy mechanisms or automatically enriching runner output.
 Generic learners, adapters and durable sessions below
 remain planned until individually qualified. The original implementation baseline
 is COLEMAN **4.20.0**, commit
 `1edbee874129aa85e26e592d9649826e85e1ac6b`. Examples explicitly identified as
 existing use that source. Proposed namespaces and call sequences below are design
 contracts to qualify in subsequent work, except for the explicitly linked
-implemented contract and objective layers. No v5 release wheel has been published.
+implemented contract, objective and native-evidence layers. No v5 release wheel has been published.
 
 Read the [compatibility and migration policy](v5-compatibility.md) alongside this
 specification. Use the [current getting-started guide](getting-started.md) for the
@@ -16540,6 +17056,7 @@ introduced.
 | Application service | Frozen plans, registered trusted implementations, attempts, cancellation and orchestration | Mandatory dependencies for direct mathematical calls |
 | Transport | CLI/MCP input validation and calls into the shared service | Its own learner, solver or orchestration rules |
 | Evaluator | Frozen estimands, eligibility, dependence units, comparisons and stated uncertainty | Converting arbitrary scores into calibrated probabilities or causal effects |
+| Native semantic evidence | Source-pinned legacy definitions and an explicitly captured pre-evaluation ranking | A generic learner, completed feedback, a propensity, a state checkpoint or automatic historical enrichment |
 
 Capability-required pending decision information must have one declared owner.
 For a direct MAB it may live in the learner or an explicit caller-supplied decision
@@ -16569,6 +17086,13 @@ flowchart TD
     Evidence[Existing protected evaluation with planned generic protocol] --> Storage
     Transport[Existing CLI and optional MCP] --> Service
     Legacy[Existing native CI facade with planned migration boundary] --> Service
+    Host --> NativeCapture[Explicit native choose-and-freeze CI edge]
+    NativeCapture --> NativeRuntime[Unchanged native agent and policy]
+    NativeCapture --> NativeDefinitions[Pure native semantic definitions and frozen DTOs]
+    NativeDefinitions --> Contracts
+    Host --> NativePublication[Optional native evidence publication]
+    NativePublication --> NativeDefinitions
+    NativePublication --> Storage
 ```
 
 Here an arrow means a call or dependency toward the component used. Storage,
@@ -16632,9 +17156,11 @@ A fallback is applied only when declared and feasible; its execution is recorded
 
 ### What the native policy code actually does
 
-The existing native public names describe ranking adaptations. They are retained
-at the legacy boundary until their individual migration disposition is qualified.
-They do not qualify generic methods through their names.
+The existing native public names describe ranking adaptations. The
+[native semantics catalog](native-policy-semantics.md#the-37-native-ranking-mechanisms)
+retains all 37 names with exact agent routes, constructor defaults, feedback,
+counter units, RNG/lifetime limits, source pins and explicit migration
+dispositions. These definitions do not qualify generic methods through a name.
 
 | Source observation at the 4.20 baseline | Architectural consequence |
 | --- | --- |
@@ -16647,9 +17173,20 @@ They do not qualify generic methods through their names.
 | [`RNFailReward`](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman/reward/rnfail.py) emits a ranking-aligned zero/one learning vector from detected failure ranks | An unscheduled test's zero learning credit must not become an observed passing verdict in a generic dataset |
 | [`bounded_reward()`](https://github.com/jacksonpradolima/coleman/blob/1edbee874129aa85e26e592d9649826e85e1ac6b/coleman/policy/mab/shared.py) transforms out-of-range values and maps nonfinite input to zero | Preserve legacy behavior under its version; generic contracts reject nonfinite values and require an explicit versioned transform |
 
-The full native policy audit covers all 37 configuration names. This architecture
-issue neither repairs their mathematics nor rewrites historical outputs. New
-sampled-action learners have distinct capability identities and qualification.
+The bounded four-build factory recipe completes 34 names and retains three
+explicit failures: SlMAB, SWLinTS and SWContextualEpsilonGreedy. The new capture
+edge refuses these unsupported factory routes before choosing; raw factory
+behavior is unchanged. SlidingWindowUCB's mean fallback and shared multi-window
+policy state are explicit. FRRMAB retains a restricted variability envelope,
+without a universal fixed-seed trace guarantee.
+
+`coleman.native.semantics` and `coleman.native.decisions` depend on the lightweight
+core, not the native policy package. `coleman.native.capture` checks the explicit
+CI capability and wraps exactly one actual choose before evaluation. Optional
+publication uses the existing artifact writer. `Environment` is unchanged;
+ordinary runner output and historical files do not acquire these records
+automatically. No native algorithm, reward formula or old artifact is rewritten.
+New sampled-action learners have distinct capability identities and qualification.
 
 For comparison, full-information expert weighting requires the complete eligible
 loss vector; the original Hedge formulation distinguishes mixture allocation and
@@ -17027,6 +17564,11 @@ This step does not publish v5, migrate executable checkpoints or complete the
 planned TCPCI adapter. [Component installation](core-installation.md) describes
 the explicit base, CI and analytical dependency profiles in the integration source.
 
+The integration source also provides a [complete native semantics catalog and explicit pre-evaluation capture](native-policy-semantics.md).
+This additive evidence route preserves the original algorithms, names and raw
+result readers. It does not automatically wrap `Environment`, backfill old rows,
+turn rankings into sampled actions or qualify every policy's checkpoint state.
+
 ## Choose an execution route
 
 Use a **pinned v4 environment** to continue an existing executable experiment or
@@ -17090,7 +17632,7 @@ not imply automatic binary or pickle compatibility.
 | `coleman.runner.RunnerExtension`, `run_experiment`, `run_experiment_with_extension`, documented Scalene/parallelism helper and source extension points | **Shimmed/deprecated.** Retain the bounded native orchestration boundary. New problem, learner and executor protocols have separate responsibilities. | Exact callbacks, worker ownership and importable source subclasses remain available in pinned v4. A v5 adapter must document callback mappings and test sequential/process execution; no promise covers arbitrary monkey-patching. See [extensions](extensibility.md). |
 | `coleman.hooks`: `HookContext`, `ExecutionResult`, `DatasetResult`, `RunResult`, `RunnerHook`, functional adapters and documented lifecycle dispatch | **Shimmed/deprecated.** Preserve native plugin call shapes, configured deterministic order, coordinator/worker ownership, path-based worker loading and `fail_fast` behavior. Hook payload `duration_seconds` remains seconds; context `budget_value` retains its declared budget mode. | Pinned v4 preserves the original lifecycle and trusted class/function loading. A v5 TCPCI shim must qualify these callbacks in sequential and process modes. New generic executor events use a separate typed contract; the hook `RunResult` is not `coleman.api.RunResult`. See [hook configuration](configuration.md#hook-context-and-payloads). |
 | `coleman.agent`, `coleman.bandit`, `coleman.environment`/`environment_base`, `coleman.scenarios` and loader/virtual classes; action/history/bandit schemas | **Shimmed/deprecated.** Keep these as legacy ranking/application interfaces; do not make them generic algorithm base classes. | Pinned v4 is the route for custom subclasses whose state or constructor depends on the existing runtime. The v5 TCPCI adapter must publish its supported source-extension subset and reject unmapped capabilities. See [native API index](api-reference.md#extend-native-behavior). |
-| `coleman.policy` and its documented subpackage classes/configuration names, including ranking adaptations of EXP3, contextual, combinatorial, dueling and PortfolioUCB policies | **Intentionally breaking** when introducing mathematically corrected generic semantics. A new sampled-action or mixture learner gets explicit capabilities and implementation identity; an old ranking name does not confer that contract. | Exact ranking semantics and policy names remain reproducible in pinned v4. The policy audit and TCPCI migration work must identify every retained legacy mapping, correction and refusal. Never silently turn a deterministic ranking into an action probability or a financial portfolio. See [policies](policies.md). |
+| `coleman.policy` and its documented subpackage classes/configuration names, including ranking adaptations of EXP3, contextual, combinatorial, dueling and PortfolioUCB policies | **Intentionally breaking** when introducing mathematically corrected generic semantics. The additive `coleman.native` catalog identifies preserved legacy recipes, exact factory/manual routes and explicit refusals. A new sampled-action or mixture learner gets its own capabilities and implementation identity. | Pinned v4 preserves the original mechanism and its actual RNG, tie and lifetime limits, including restricted FRRMAB repeatability. The [37-name inventory](native-policy-semantics.md#the-37-native-ranking-mechanisms) records 34 completing factory recipes and three failures, not a universal success or replay guarantee. Raw policy behavior is unchanged; the explicit capture facade refuses unsupported interpretations and routes. See [policies](policies.md). |
 | `coleman.reward`: base `Reward`, RNFail, TimeRank, APFDc, top-k, discounted-failure and reciprocal-rank rewards; `coleman.evaluation` native metric exports | **Shimmed/deprecated.** Preserve native reward/metric meanings at the TCPCI boundary. New loss transforms and objectives require explicit units, bounds and transform identity. | Pinned v4 reproduces the original credit assignment and metric arithmetic. Reward, ranking score, probability and inference remain separate. See [reward API](api/reward.md) and [native evaluation API](api/evaluation.md). |
 | `coleman.budget`, documented native selection resolution and duration/verdict/context input conventions | **Shimmed/deprecated.** Preserve explicitly qualified legacy semantics. Strict new adapters may reject inputs accepted or coerced by the unrestricted legacy loader, and must say so. | Pinned v4 preserves loader behavior, including its documented null-duration handling. Do not relabel zero substituted by a loader as a measured zero. Native `BuildId`, `Name`, `Duration`, `Verdict`, `CalcPrio` and `LastRun` are domain columns, not generic core fields. |
 | `coleman` CLI: `run`, `sweep`, `validate`, `analyze`, `application`, `workflow`; documented `python -m coleman.corpus` source commands | **Shimmed/deprecated.** Keep existing commands at their application/adapter boundary; add generic routes explicitly. No transport-owned algorithm logic. | Pinned v4 supports its exact command grammar, file layouts and error/exit behavior. Generic requests must not be accepted as arbitrary native config or plugin imports. See [CLI API](api/cli.md), [datasets](datasets.md) and [durable workflows](durable-experiments.md). |
@@ -17111,6 +17653,7 @@ observations or make a checkpoint safe to execute.
 | Native Parquet rows, Hive partitions and ranking hashes/top-k; embedded DuckDB and ClickHouse `coleman_results` | **Retained.** Keep native columns, units, nullability and metric meaning; use explicit new tables/contracts for generic facts. | Old results remain readable with their native schema. Runtime metadata and shard filenames need not be byte-identical across reruns. No synthetic DomainRecord or missing provenance is generated by reading old rows. See [results and storage](observability.md#choose-result-storage). |
 | `ResultsSink`, `NullSink`, `ParquetSink`, `DuckDBSink`, optional `ClickHouseSink`, catalog views, `ResultsWriter` and monitor collection | **Retained** at the persistence/integration boundary. New core algorithms do not consume sink row dictionaries. | Parquet local recovery has a specific checkpoint-ownership contract. DuckDB/ClickHouse append behavior does not acquire that guarantee. Null sinks discard native rows; both NullSink and ClickHouse explicitly refuse domain-record operations. |
 | `DomainRecord`, `Measurement`, `LearningReward`, `ResultProvenance`, canonical JSON/fingerprint/comparability helpers and local domain sidecars | **Retained.** Keep version 1 readers, explicit units/semantics and logical-key/content-digest distinction. | Sidecars are additive to native facts, not joint transactions with them. Legacy runs without a sidecar remain absent. Unknown versions/corrupt keys reject. Zero, negative permitted values, null, unavailable and not-applicable retain distinct meanings. See [domain results](domain-results.md). |
+| Additive `FrozenNativeDecision` evidence in the v5 integration source | **Retained as a new versioned contract**, separate from old native rows and generic decisions. Its explicit chooser wrapper retains one actual pre-evaluation ranking and complete selected semantic definitions. | Old results stay readable and absent metadata stays absent. The record declares sampling `not_recorded` and loss `not_defined`; no inferred probability, bounded loss, source clock or executable state is backfilled. Same-key identical publication is idempotent; changed bytes conflict. Choice itself is stateful and not retry-idempotent. See [native evidence](api/native.md). |
 | `ArtifactWriter.path_for`, mutable atomic JSON/CSV exports, immutable text/stream publication and `manifest.json` | **Retained.** Preserve the distinct mutable and immutable contracts. | Mutable exports remain single-writer. Immutable identical publication is idempotent; conflicting bytes reject. Complete-last receipts are contract-specific; a run directory or operational manifest is not universal completion evidence. See [artifact API](api/artifacts.md). |
 | `spec.resolved.json`, `provenance.json`, configuration-derived native run directories | **Readable-only** as historical evidence; the corresponding API remains the native shim. | Preserve original bytes and recorded redactions. A resolved spec is not a fingerprint of all input data. Re-execution requires the original dependency/input evidence or a new run identity. Portable redacted provenance remains a declared derivative. |
 | `CheckpointStore`, `LocalCheckpointStore`, `NullCheckpointStore`; `CheckpointPayload`, `.pkl` files and progress markers | **Intentionally breaking** at a generic learner/session state boundary. No automatic unpickle, conversion or adoption into generic state. | Resume trusted native state in the pinned v4 producer/runtime and its original trusted root. A v5 native codec route needs explicit compatibility checks and interruption evidence; absence of that proof means refusal, not reseeding or a fresh run labeled resume. |
@@ -17249,10 +17792,12 @@ must not publish a completion receipt. Do not overwrite old artifacts, invent
 units, infer missing provenance, or rewrite a negative/inconclusive outcome to
 make a migration appear successful.
 
-The policy audit, TCPCI adapter, package/import qualification and final release
-qualification own these proofs. Until they pass, continue executable historical
-work in its pinned v4 environment and treat the corresponding v5 route as
-planned.
+The native catalog and explicit capture/publication route document their own
+bounded qualification; they do not complete the generic TCPCI adapter or all
+native checkpoint proofs. The adapter and final release qualification must
+retain that distinction. Continue executable historical work in its pinned v4
+environment wherever the corresponding v5 execution/recovery route remains
+unqualified.
 
 
 

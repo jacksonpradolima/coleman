@@ -1,8 +1,8 @@
 """Combinatorial bandit policies.
 
-These policies emphasize selecting a high-value subset first, while still
-returning a full ordering of available actions for compatibility with the
-agent interface.
+These preserved CI adaptations emit a full ordering. Their subset-size splice
+``ordered[:k] + ordered[k:]`` is order-neutral; it neither selects an executed
+subset nor establishes combinatorial semi-bandit feedback or regret guarantees.
 """
 
 from __future__ import annotations
@@ -19,19 +19,18 @@ from ..mab.shared import DeltaRewardMixin, action_names, bounded_reward, safe_me
 
 
 class CombinatorialUCBPolicy(Policy):
-    """Subset-first UCB ranking for combinatorial action selection.
+    """Preserved full UCB ranking with an order-neutral subset-size parameter.
 
     What it is
     ----------
-    A combinatorial bandit policy that focuses on selecting a strong subset of
-    actions first (top-k), instead of assuming all actions are equally relevant
-    at every step. It still returns a full ordering for compatibility with the
-    current agent contract.
+    Ranks every current test using native weighted attempts and cumulative
+    credit. Changing subset_size alone leaves the complete order unchanged.
+    The cited combinatorial action/feedback guarantees are not claimed.
 
     Parameters
     ----------
     subset_size : int, optional
-        Number of actions to prioritize as the subset head.
+        Positive count used by the order-neutral legacy splice.
     c : float, optional
         Exploration strength for the UCB bonus.
 
@@ -85,18 +84,19 @@ class CombinatorialUCBPolicy(Policy):
 
 
 class CombinatorialThompsonPolicy(Policy, DeltaRewardMixin):
-    """Subset-first Thompson ranking using independent Beta posteriors.
+    """Preserved sampled-score full ranking using per-name Beta state.
 
     What it is
     ----------
-    A combinatorial bandit policy that samples action quality from per-action
-    posteriors and prioritizes a top-k subset before the remaining actions.
-    This preserves exploration while emphasizing a smaller candidate set.
+    Samples a score per current name, sorts every name and applies an
+    order-neutral subset splice. The emitted action is a complete ranking,
+    not a sampled subset; native zero credit is not an observed failure/pass.
+    The cited combinatorial semi-bandit guarantees are not claimed.
 
     Parameters
     ----------
     subset_size : int, optional
-        Number of actions to place at the front of the ranking.
+        Positive count used by the order-neutral legacy splice.
     alpha_prior : float, optional
         Prior alpha parameter for each action.
     beta_prior : float, optional
