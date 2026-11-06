@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import sqlite3
 import sys
 import time
 from collections.abc import Iterable
@@ -19,6 +20,9 @@ from coleman.core.primitives import canonical_json, fingerprint
 from coleman.state.components import ComponentBinding, ComponentValue
 from coleman.state.local import LocalStateStore
 from coleman.state.storage_contracts import CommitIntent, CommitKind, CommitRequest
+
+# Test process observation is separate from the persisted SQLite wait allowance.
+PROCESS_OBSERVATION_SECONDS = 600
 
 
 class DirectCheckpoint[H: CoreContract, D: CoreContract](CoreContract):
@@ -59,7 +63,7 @@ def log(path, event):
         os.fsync(stream.fileno())
 
 
-def wait(path, *, seconds=60):
+def wait(path, *, seconds=PROCESS_OBSERVATION_SECONDS):
     deadline = time.monotonic() + seconds
     while not path.exists():
         if time.monotonic() >= deadline:
@@ -176,6 +180,38 @@ def summary(store, bindings, compatibility):
     }
 
 
+def observe_contention(store, request, bindings, callback, compatibility, diagnostic):
+    """Observe finite acquisition failure while another process owns SQLite.
+
+    Only the documented pre-callback busy/deadline outcomes qualify. A corrupt
+    database, a different SQL error, any owner call or an unexpected acceptance
+    fails this process. The caller explicitly retries the original request only
+    after the parent observes the winning process's committed completion.
+    """
+    started = time.monotonic()
+    try:
+        store.commit_transition(request, bindings, callback, compatibility=compatibility)
+    except sqlite3.OperationalError as error:
+        if error.sqlite_errorcode != sqlite3.SQLITE_BUSY:
+            raise
+        outcome, code = "sqlite_busy", error.sqlite_errorcode
+    except TimeoutError as error:
+        if str(error) != "Local state ownership/commit contention exceeded its finite wait allowance":
+            raise
+        outcome, code = "ownership_timeout", None
+    else:
+        raise AssertionError("A contender was accepted while the other writer still held ownership")
+    if diagnostic.exists():
+        raise AssertionError("Acquisition failure invoked a loser factory, restore, export or transition")
+    return {
+        "outcome": outcome,
+        "sqlite_errorcode": code,
+        "lock_wait_seconds": store.limits.lock_wait_seconds,
+        "elapsed_seconds": time.monotonic() - started,
+        "callbacks": [],
+    }
+
+
 def transition(root, *, fault=None, actor="attempt", divergent=False):
     example = load_example()
     _, original = example.collection_layout(tuple(range(32)))
@@ -220,6 +256,16 @@ def transition(root, *, fault=None, actor="attempt", divergent=False):
     def callback(stage):
         log(diagnostic, "actual-transition")
         complete_pending(example, stage, bindings)
+
+    if fault == "contend":
+        (root.parent / "loser-ready").write_text("metadata handle opened before the competing writer")
+        wait(root.parent / "start-contention")
+        observed = observe_contention(store, request, bindings, callback, compatibility, diagnostic)
+        observed_path = root.parent / "loser-busy.json"
+        temporary = observed_path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(observed, sort_keys=True))
+        temporary.replace(observed_path)
+        wait(root.parent / "retry-loser")
 
     try:
         receipt = store.commit_transition(request, bindings, callback, compatibility=compatibility)

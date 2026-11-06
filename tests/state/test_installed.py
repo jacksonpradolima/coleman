@@ -5,6 +5,7 @@ import json
 import os
 import re
 import shutil
+import sqlite3
 import subprocess
 import time
 from pathlib import Path
@@ -14,6 +15,8 @@ import pytest
 from tests.installed_support import build_install_offline_wheel
 
 ROOT = Path(__file__).parents[2]
+# Bound process observation on slower CI hosts separately from SQLite's 30s wait.
+PROCESS_OBSERVATION_SECONDS = 600
 
 
 @pytest.fixture(scope="module")
@@ -49,7 +52,7 @@ def installed_state(tmp_path_factory):
     return virtual / "bin/python", outside, environment
 
 
-def invoke(installed, arguments, *, expected=0, timeout=240):
+def invoke(installed, arguments, *, expected=0, timeout=PROCESS_OBSERVATION_SECONDS):
     python, outside, environment = installed
     result = subprocess.run(
         [str(python), "-I", "-B", *arguments],
@@ -176,7 +179,7 @@ def test_real_process_death_recovers_only_the_sqlite_acknowledged_complete32_col
         assert final["host_state"]["cadence_count"] == initial["host_state"]["cadence_count"]
 
 
-def wait_for(path, process, *, timeout=180):
+def wait_for(path, process, *, timeout=PROCESS_OBSERVATION_SECONDS):
     deadline = time.monotonic() + timeout
     while not path.exists():
         if process.poll() is not None:
@@ -198,36 +201,53 @@ def test_actual_two_writer_processes_have_one_callback_winner_and_zero_callback_
     shutil.copytree(pending_store, root)
     shutil.copyfile(pending_store.parent / "initial-head.json", case / "initial-head.json")
     base = [str(python), "-I", "-B", str(outside / "driver.py"), "transition", str(root)]
-    winner = subprocess.Popen(
-        base + ["hold-lock", "winner"],
-        cwd=outside,
-        env=environment,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
+    winner = None
     loser = None
     try:
-        wait_for(case / "lock-held", winner)
+        # Open both clients before contention; the loser's first actual commit
+        # must exhaust the persisted finite wait while the winner is held.
         loser = subprocess.Popen(
-            base + ["none", "loser", "divergent" if divergent else "identical"],
+            base + ["contend", "loser", "divergent" if divergent else "identical"],
             cwd=outside,
             env=environment,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
         )
-        wait_for(case / "loser-attempt", loser)
+        wait_for(case / "loser-ready", loser)
+        winner = subprocess.Popen(
+            base + ["hold-lock", "winner"],
+            cwd=outside,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        wait_for(case / "lock-held", winner)
+        (case / "start-contention").write_text("attempt the original intent under actual writer contention")
+        wait_for(case / "loser-busy.json", loser)
+        contention = json.loads((case / "loser-busy.json").read_text())
+        assert contention["outcome"] in {"sqlite_busy", "ownership_timeout"}
+        if contention["outcome"] == "sqlite_busy":
+            assert contention["sqlite_errorcode"] == sqlite3.SQLITE_BUSY
+        else:
+            assert contention["sqlite_errorcode"] is None
+        assert contention["lock_wait_seconds"] == 30.0
+        assert contention["elapsed_seconds"] > 0.0
+        assert contention["callbacks"] == []
+        assert not (case / "loser-calls.log").exists()
         assert winner.poll() is None
         (case / "release-lock").write_text("release the actual SQLite owner")
-        winner_output, winner_error = winner.communicate(timeout=120)
-        loser_output, loser_error = loser.communicate(timeout=120)
+        winner_output, winner_error = winner.communicate(timeout=PROCESS_OBSERVATION_SECONDS)
         assert winner.returncode == 0, winner_output + winner_error
+        (case / "retry-loser").write_text("retry the same intent after acknowledged winner completion")
+        loser_output, loser_error = loser.communicate(timeout=PROCESS_OBSERVATION_SECONDS)
         assert loser.returncode == 0, loser_output + loser_error
         assert json.loads(winner_output)["status"] == "new"
         loser_result = json.loads(loser_output)
         if divergent:
             assert "rejected" in loser_result
+            assert "conflicts" in loser_result["rejected"]
         else:
             assert loser_result["status"] == "retained"
         assert not (case / "loser-calls.log").exists()
