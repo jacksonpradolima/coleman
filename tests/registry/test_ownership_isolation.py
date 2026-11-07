@@ -230,8 +230,9 @@ def test_staged_roots_cannot_alias_retained_live_roots_before_restore(role):
         staged["a"] = live["b"]  # Even another child's new resource ID cannot hide it.
     else:
         setattr(fresh, role, getattr(live["b"], role))
+    staged_roots = inspect_roots(declaration, staged).roots
     with pytest.raises(ValueError, match="retained live root"):
-        guard.check_partial(inspect_roots(declaration, staged).roots)
+        guard.check_partial(staged_roots)
     assert fresh.restore_calls == 0
     assert {name: owner.export_state().to_json() for name, owner in live.items()} == before
 
@@ -246,11 +247,12 @@ def test_post_restore_replacement_is_rechecked_before_adaptive_callback(source):
     guard.check(inspect_roots(declaration, staged))
     staged["a"].restore_state(snapshots["a"])
     staged["a"].cache = live["b"].cache if source == "retained" else staged["b"].cache
-    callbacks = []
+    inventory = inspect_roots(declaration, staged)
+    reached_adaptive_work = False
     with pytest.raises(ValueError, match="alias"):
-        guard.check(inspect_roots(declaration, staged))
-        callbacks.append(staged["a"].decide(4))
-    assert callbacks == []
+        guard.check(inventory)
+        reached_adaptive_work = True
+    assert not reached_adaptive_work
     assert {name: owner.export_state() for name, owner in live.items()} == snapshots
 
 
@@ -262,5 +264,6 @@ def test_guard_keeps_strong_references_to_live_roots_even_after_host_replacement
     live["a"].weights = list(original)
     staged = {"a": ToyRecipe()}
     staged["a"].weights = original
+    staged_roots = inspect_roots(declaration, staged).roots
     with pytest.raises(ValueError, match="retained live root"):
-        guard.check_partial(inspect_roots(declaration, staged).roots)
+        guard.check_partial(staged_roots)

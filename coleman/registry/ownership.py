@@ -479,12 +479,18 @@ class DeclaredRootGuard:
                 raise ValueError("Root inventory contains a duplicate or different declared resource binding")
             keys.add(key)
             if claim.access == "immutable_bytes":
-                if type(item.root) is bytes:
-                    immutable_bytes += len(item.root)
-                if immutable_bytes > self.limits.maximum_bytes:
-                    raise ValueError("Declared immutable resource bytes exceed the selected byte capacity")
-                _check_bytes(item, self.limits.maximum_bytes)
+                immutable_bytes = _check_immutable_root(item, immutable_bytes, self.limits.maximum_bytes)
         return roots
+
+
+def _check_immutable_root(item: RootBinding, consumed: int, maximum_bytes: int) -> int:
+    """Charge cumulative immutable bytes before validating one declared root."""
+    if type(item.root) is bytes:
+        consumed += len(item.root)
+    if consumed > maximum_bytes:
+        raise ValueError("Declared immutable resource bytes exceed the selected byte capacity")
+    _check_bytes(item, maximum_bytes)
+    return consumed
 
 
 def _check_bytes(item: RootBinding, maximum_bytes: int) -> None:

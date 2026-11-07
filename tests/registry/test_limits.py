@@ -35,22 +35,26 @@ def test_actual_bytes_counts_fact_and_producer_caps_refuse_without_eviction():
     original = history(count=1)
     exact_bytes = len(original.to_json().encode("utf-8"))
     admit_bytes(original, RegistryLimits(maximum_bytes=exact_bytes))
+    smaller_bytes = RegistryLimits(maximum_bytes=exact_bytes - 1)
     with pytest.raises(ValueError, match="maximum_bytes"):
-        admit_bytes(original, RegistryLimits(maximum_bytes=exact_bytes - 1))
+        admit_bytes(original, smaller_bytes)
     for limits in (RegistryLimits(maximum_definitions=1), RegistryLimits(maximum_bytes=128)):
+        candidate = original.model_dump() | {"limits": limits}
         with pytest.raises(ValueError):
-            RegistryState.model_validate(original.model_dump() | {"limits": limits})
+            RegistryState.model_validate(candidate)
     limited = RegistryState.model_validate(original.model_dump() | {"limits": RegistryLimits(maximum_facts=1)})
     before = limited.to_json()
     assert limited.append(limited.facts[0]) == limited
+    another_fact = fact(limited, name="B")
     with pytest.raises(ValueError, match="capacity"):
-        limited.append(fact(limited, name="B"))
+        limited.append(another_fact)
     assert limited.to_json() == before
     limited = RegistryState.model_validate(original.model_dump() | {"limits": RegistryLimits(maximum_producers=1)})
     sealed = seal_request(limited, registered_request(limited))
     assert seal_request(sealed, registered_request(limited)) == sealed
+    another_request = registered_request(sealed, 1, "opportunity-1")
     with pytest.raises(ValueError, match="producer capacity"):
-        seal_request(sealed, registered_request(sealed, 1, "opportunity-1"))
+        seal_request(sealed, another_request)
     assert len(sealed.producers) == 1
 
 
@@ -66,8 +70,9 @@ def test_bounded_readers_reject_duplicate_keys_depth_future_versions_and_wrong_k
     ):
         with pytest.raises((ValueError, UnicodeError)):
             reader(payload)
+    unsupported = object()
     with pytest.raises(TypeError):
-        reader(object())
+        reader(unsupported)
 
 
 def test_leaf_writer_and_both_readers_share_the_hard_byte_ceiling():
@@ -105,8 +110,9 @@ def test_prefix_work_is_admitted_before_hashes_and_equal_prefixes_are_cached_onc
     assert RegistryState.model_validate(state.model_dump()) == state
     assert calls == [2]
     calls.clear()
+    insufficient_work = state.model_dump() | {"limits": RegistryLimits(maximum_prefix_work=1)}
     with pytest.raises(ValueError, match="maximum_prefix_work"):
-        RegistryState.model_validate(state.model_dump() | {"limits": RegistryLimits(maximum_prefix_work=1)})
+        RegistryState.model_validate(insufficient_work)
     assert not calls
     invalid = state.model_dump()
     for producer in invalid["producers"]:
@@ -124,8 +130,10 @@ def test_new_contracts_keep_unknown_field_policy_and_do_not_offer_relaxed_reader
         LifecycleFact: state.facts[0],
         RegistryState: state,
     }[contract]
+    unknown = sample.model_dump() | {"untyped_metadata": {"hidden": "value"}}
     with pytest.raises(ValueError):
-        contract.model_validate(sample.model_dump() | {"untyped_metadata": {"hidden": "value"}})
+        contract.model_validate(unknown)
+    serialized = sample.to_json()
     for changes in ({"strict": False}, {"extra": "allow"}):
         with pytest.raises(ValueError):
-            contract.model_validate_json(sample.to_json(), **changes)
+            contract.model_validate_json(serialized, **changes)

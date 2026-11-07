@@ -107,8 +107,9 @@ def test_actual_existing_replay_prepares_and_emits_the_unchanged_registered_core
     assert RegisteredReplayOpportunity.from_json(bound.to_json()) == bound
     data = json.loads(bound.to_json())
     data["schema_version"] = 2
+    serialized = json.dumps(data)
     with pytest.raises(ValueError):
-        RegisteredReplayOpportunity.from_json(json.dumps(data))
+        RegisteredReplayOpportunity.from_json(serialized)
 
 
 @pytest.mark.parametrize("delivery", ["synchronous", "delayed"])
@@ -190,9 +191,11 @@ def test_unchanged_active_contract_survives_new_round_and_full_snapshot_identity
 def test_wrong_inner_request_rejects_before_any_replay_or_host_call():
     state = history(count=2, clock="timed")
     first, second = registered(state), registered(state, 1)
+    second_opportunity = opportunity(second)
+    selected_policy = policy(state)
     with pytest.raises(ValueError, match="exact original core request"):
         RegisteredReplayOpportunity(
-            schema_version=1, registered=first, opportunity=opportunity(second), policy=policy(state), first=None
+            schema_version=1, registered=first, opportunity=second_opportunity, policy=selected_policy, first=None
         )
 
 
@@ -218,11 +221,14 @@ def context(version="v1"):
 def test_specialist_declaration_keeps_existing_semantic_context_freeze():
     state = history(count=2, clock="timed")
     first, second = registered(state), registered(state, 1)
+    second_opportunity = opportunity(second, context("v2"))
+    selected_policy = policy(state, specialists=True)
+    first_opportunity = opportunity(first, context())
     with pytest.raises(ValueError, match="semantic-definition"):
         RegisteredReplayOpportunity(
             schema_version=1,
             registered=second,
-            opportunity=opportunity(second, context("v2")),
-            policy=policy(state, specialists=True),
-            first=opportunity(first, context()),
+            opportunity=second_opportunity,
+            policy=selected_policy,
+            first=first_opportunity,
         )

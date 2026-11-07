@@ -153,8 +153,9 @@ def test_sleeping_member_has_no_row_but_active_unavailable_remains_null_and_reje
     missing = feedback(active, (0.25, None))
     assert missing.batch.feedback.rows[1].values[0].value is None
     assert missing.batch.feedback.rows[1].values[0].status == "unavailable"
+    selected_capability = capability()
     with pytest.raises(ValueError):
-        missing.validate_for(active, capability())
+        missing.validate_for(active, selected_capability)
     missing.validate_for(active, capability(requires_observed=False))
     omitted = FullPanel(rows=(missing.batch.feedback.rows[0],))
     incomplete = RegisteredFeedback.model_validate(
@@ -164,7 +165,7 @@ def test_sleeping_member_has_no_row_but_active_unavailable_remains_null_and_reje
         }
     )
     with pytest.raises(ValueError, match="Full panel"):
-        incomplete.validate_for(active, capability())
+        incomplete.validate_for(active, selected_capability)
 
 
 def test_retired_and_restarted_delayed_feedback_always_joins_original_outer_producer_and_epoch():
@@ -175,8 +176,9 @@ def test_retired_and_restarted_delayed_feedback_always_joins_original_outer_prod
     delayed.validate_for(original, capability())
     assert next(row.state_epoch for row in original.request.snapshot.members if row.member.id == "B") == ref("B:e0")
     assert next(row.state_epoch for row in replacement.request.snapshot.members if row.member.id == "B") == ref("B:e1")
+    selected_capability = capability()
     with pytest.raises(ValueError, match="outer producer"):
-        delayed.validate_for(replacement, capability())
+        delayed.validate_for(replacement, selected_capability)
     bad_inner = RegisteredFeedback.model_validate(
         delayed.model_dump()
         | {
@@ -184,7 +186,7 @@ def test_retired_and_restarted_delayed_feedback_always_joins_original_outer_prod
         }
     )
     with pytest.raises(ValueError, match="executed decision"):
-        bad_inner.validate_for(original, capability())
+        bad_inner.validate_for(original, selected_capability)
 
 
 def test_empty_active_uses_existing_abstain_and_no_fabricated_full_panel_or_update():
@@ -209,8 +211,9 @@ def test_exact_retry_and_conflicting_round_outer_recipes_and_sealed_fact_admissi
     assert original.request.logical_identity == later_same_id.request.logical_identity
     with pytest.raises(ValueError, match="Conflicting registered retry"):
         seal_request(sealed, later_same_id)
+    retrospective = fact(sealed, name="B")
     with pytest.raises(ValueError, match="prospectively"):
-        sealed.append(fact(sealed, name="B"))
+        sealed.append(retrospective)
     next_state = sealed.append(fact(sealed, name="B", round_number=1))
     assert seal_request(next_state, original) == next_state
     with pytest.raises(ValueError, match="sealed producing snapshot"):
@@ -242,21 +245,13 @@ def test_wrong_task_epoch_space_or_snapshot_rejects_before_host_work():
         {"space": ChoiceSpace(feasible_set=ref("public-space"), members=original.snapshot.active)},
         {"space": ChoiceSpace(feasible_set=original.snapshot.feasible_set("public-space"), members=(ref("A"),))},
     ):
+        candidate = original.model_dump() | {"request": original.request.model_dump() | changes}
         with pytest.raises(ValueError):
-            RegistryRequest.model_validate(
-                original.model_dump()
-                | {
-                    "request": original.request.model_dump() | changes,
-                }
-            )
+            RegistryRequest.model_validate(candidate)
     timed = registered_request(history(count=1, clock="timed"))
+    without_timing = timed.model_dump() | {"request": timed.request.model_dump() | {"timing": None}}
     with pytest.raises(ValueError, match="timing"):
-        RegistryRequest.model_validate(
-            timed.model_dump()
-            | {
-                "request": timed.request.model_dump() | {"timing": None},
-            }
-        )
+        RegistryRequest.model_validate(without_timing)
     changed = execution(registered_request(history(count=2), 1, "other-opportunity"))
     with pytest.raises(ValueError, match="exact original core request"):
         RegisteredExecution(schema_version=1, request=original, executed=changed.executed)
@@ -284,8 +279,10 @@ def test_recipe_binding_matches_active_expert_and_never_conflates_action_epoch()
         {"objective": ref("wrong-objective")},
         {"expert": state.catalogue.resolve("expert", ref("B")).binding},
     ):
+        candidate_recipe = RecipeBinding.model_validate(recipe.model_dump() | change)
+        candidate = original.model_dump() | {"recipes": (candidate_recipe,)}
         with pytest.raises(ValueError, match="exact active expert"):
-            registered_request(state, recipes=(RecipeBinding.model_validate(recipe.model_dump() | change),))
+            RegistryRequest.model_validate(candidate)
     values = state.model_dump(mode="json")
     for leaf in values["catalogue"]["definitions"]:
         leaf["kind"] = "action"
@@ -354,5 +351,6 @@ def test_restored_seals_cannot_rewind_an_already_accepted_scheduled_future_prefi
             "fact_count": 1,
             "history_fingerprint": history(count=1).history_fingerprint,
         }
+        candidate = sealed.model_dump() | {"producers": (*sealed.producers, rewind)}
         with pytest.raises(ValueError, match="fact_count|Same-round"):
-            RegistryState.model_validate(sealed.model_dump() | {"producers": (*sealed.producers, rewind)})
+            RegistryState.model_validate(candidate)

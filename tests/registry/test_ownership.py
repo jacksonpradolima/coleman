@@ -117,10 +117,13 @@ def test_ownership_rejects_missing_coerced_and_future_versions(schema):
 
 def test_ownership_wire_rejects_unknown_and_duplicate_fields():
     declaration, _ = independent_case()
+    original = declaration.to_json()
+    unknown = original[:-1] + ',"unknown":null}'
     with pytest.raises(ValueError):
-        OwnershipDeclaration.from_json(declaration.to_json()[:-1] + ',"unknown":null}')
+        OwnershipDeclaration.from_json(unknown)
+    duplicate = '{"schema_version":1,' + original[1:]
     with pytest.raises(ValueError, match="Duplicate"):
-        OwnershipDeclaration.from_json('{"schema_version":1,' + declaration.to_json()[1:])
+        OwnershipDeclaration.from_json(duplicate)
 
 
 @pytest.mark.parametrize("role", ["weights", "rng", "predictor", "cache"])
@@ -128,8 +131,9 @@ def test_distinct_wrappers_reject_actual_mutable_aliases(role):
     declaration, inventory = independent_case()
     first = next(item.root for item in inventory.roots if item.claim.resource.id == "a-" + role)
     aliased = swap_root(inventory, "b-" + role, first)
+    guard = DeclaredRootGuard(declaration)
     with pytest.raises(ValueError, match="alias"):
-        DeclaredRootGuard(declaration).check(aliased)
+        guard.check(aliased)
 
 
 def test_equal_values_and_equal_seeds_are_accepted_only_with_distinct_roots():
@@ -139,8 +143,10 @@ def test_equal_values_and_equal_seeds_are_accepted_only_with_distinct_roots():
     second = next(item.root for item in inventory.roots if item.claim.resource.id == "b-rng")
     assert first is not second
     assert first.getstate() == second.getstate()
+    guard = DeclaredRootGuard(declaration)
+    aliased = swap_root(inventory, "b-rng", first)
     with pytest.raises(ValueError, match="alias"):
-        DeclaredRootGuard(declaration).check(swap_root(inventory, "b-rng", first))
+        guard.check(aliased)
 
 
 def test_root_custom_equality_and_hash_are_never_used():
@@ -171,8 +177,10 @@ def test_actual_recipe_requires_exact_child_epoch_target_bounds_cadence_binding(
         changed = definition("wrong-" + field)
     assert changed != value
     actual = RecipeBinding.model_validate(original.model_copy(update={field: changed}))
+    guard = DeclaredRootGuard(declaration)
+    candidate = replace(inventory, recipes=(actual, inventory.recipes[1]))
     with pytest.raises(ValueError, match="binding"):
-        DeclaredRootGuard(declaration).check(replace(inventory, recipes=(actual, inventory.recipes[1])))
+        guard.check(candidate)
 
 
 @pytest.mark.parametrize("change", ["missing", "duplicate", "different", "list"])
@@ -190,8 +198,10 @@ def test_root_inventory_is_exact_complete_and_bounded(change):
         )
     else:
         roots = list(inventory.roots)
+    guard = DeclaredRootGuard(declaration)
+    candidate = replace(inventory, roots=roots)
     with pytest.raises(ValueError, match="resource|bounded"):
-        DeclaredRootGuard(declaration).check(replace(inventory, roots=roots))
+        guard.check(candidate)
 
 
 def test_declaration_requires_complete_exact_named_state_owners():
@@ -239,18 +249,21 @@ def test_explicit_verified_immutable_canonical_bytes_can_be_shared():
 @pytest.mark.parametrize("root", [([1, 2],), SimpleNamespace(frozen=True), b'{"x": 1}', b"[NaN]"])
 def test_frozen_containers_and_unverified_bytes_are_not_immutable_profiles(root):
     declaration, inventory = immutable_case(root)
+    guard = DeclaredRootGuard(declaration)
     with pytest.raises(ValueError, match="bytes|fingerprint"):
-        DeclaredRootGuard(declaration).check(inventory)
+        guard.check(inventory)
 
 
 def test_equal_byte_values_do_not_hide_conflicting_resource_root_identity():
     declaration, inventory = immutable_case()
     last = inventory.roots[-1]
     separate = bytes(bytearray(last.root))
-    assert separate == last.root and separate is not last.root
+    assert separate == last.root
+    assert separate is not last.root
     altered = replace(inventory, roots=(*inventory.roots[:-1], RootBinding(last.claim, separate)))
+    guard = DeclaredRootGuard(declaration)
     with pytest.raises(ValueError, match="conflicting live roots"):
-        DeclaredRootGuard(declaration).check(altered)
+        guard.check(altered)
 
 
 @pytest.mark.parametrize("payload", [b'{"x": 1}', b"[NaN]", b"[" * 65 + b"0" + b"]" * 65])
@@ -270,15 +283,19 @@ def test_correct_byte_digest_does_not_replace_canonical_finite_and_depth_checks(
         else item
         for item in inventory.roots
     )
+    guard = DeclaredRootGuard(altered)
+    candidate = replace(inventory, roots=roots)
     with pytest.raises(ValueError):
-        DeclaredRootGuard(altered).check(replace(inventory, roots=roots))
+        guard.check(candidate)
 
 
 def test_enclosing_owner_and_nested_mutable_role_require_distinct_roots_in_this_profile():
     declaration, inventory = independent_case()
     owner = next(item.root for item in inventory.roots if item.claim.resource.id == "a-owner")
+    guard = DeclaredRootGuard(declaration)
+    aliased = swap_root(inventory, "a-predictor", owner)
     with pytest.raises(ValueError, match="alias"):
-        DeclaredRootGuard(declaration).check(swap_root(inventory, "a-predictor", owner))
+        guard.check(aliased)
 
 
 def shared_case():
@@ -388,22 +405,26 @@ def test_mutable_predictor_sharing_requires_exact_writer_and_consumers(change):
             ),
         )
     )
+    candidate = declaration.model_copy(update={"shared_predictors": clauses})
     with pytest.raises(ValueError, match="sharing|consumers"):
-        OwnershipDeclaration.model_validate(declaration.model_copy(update={"shared_predictors": clauses}))
+        OwnershipDeclaration.model_validate(candidate)
 
 
 def test_same_named_shared_predictor_cannot_resolve_to_two_real_roots():
     declaration, inventory, _ = shared_case()
     last = inventory.roots[-1]
     actual = replace(inventory, roots=(*inventory.roots[:-1], RootBinding(last.claim, dict(last.root))))
+    guard = DeclaredRootGuard(declaration)
     with pytest.raises(ValueError, match="conflicting live roots"):
-        DeclaredRootGuard(declaration).check(actual)
+        guard.check(actual)
 
 
 def test_selected_resource_and_actual_byte_capacities_refuse_without_callbacks():
     declaration, _ = independent_case()
+    resource_limits = RegistryLimits(maximum_resources=1)
     with pytest.raises(ValueError, match="capacity"):
-        DeclaredRootGuard(declaration, limits=RegistryLimits(maximum_resources=1))
-    declaration, inventory = immutable_case()
+        DeclaredRootGuard(declaration, limits=resource_limits)
+    declaration, _ = immutable_case()
+    byte_limits = RegistryLimits(maximum_bytes=1)
     with pytest.raises(ValueError, match="byte capacity"):
-        DeclaredRootGuard(declaration, limits=RegistryLimits(maximum_bytes=1)).check(inventory)
+        DeclaredRootGuard(declaration, limits=byte_limits)

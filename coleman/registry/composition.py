@@ -260,11 +260,12 @@ class RegistryCheckpoint(RegistryContract):
         if not all(isinstance(items, (tuple, list)) for items in (registries, executions, catalogues)):
             return value
         selected = RegistryLimits.model_validate(limits)
-        resources = (
-            ownership.resources
-            if isinstance(ownership, OwnershipDeclaration)
-            else (ownership.get("resources", ()) if isinstance(ownership, dict) else ())
-        )
+        if isinstance(ownership, OwnershipDeclaration):
+            resources = ownership.resources
+        elif isinstance(ownership, dict):
+            resources = ownership.get("resources", ())
+        else:
+            resources = ()
         if isinstance(resources, (tuple, list)) and len(resources) > selected.maximum_resources:
             raise ValueError("Checkpoint ownership resource capacity exhausted")
         if len(registries) > 32 or len(executions) > selected.maximum_producers:

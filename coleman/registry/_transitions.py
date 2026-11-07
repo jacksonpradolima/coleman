@@ -36,23 +36,7 @@ def _transition(previous: EligibilityMember | None, fact: LifecycleFact) -> Elig
             _reentry(previous, fact)
             epoch, status = fact.state_epoch, "active"
         else:
-            if previous.member != fact.member or previous.definition_fingerprint != fact.definition_fingerprint:
-                raise ValueError("Lifecycle transition cannot inherit another definition/version")
-            allowed: dict[str, set[str]] = {
-                "inactive": {"active"},
-                "unavailable": {"active"},
-                "resume": {"inactive", "unavailable"},
-                "retire": {"active", "inactive", "unavailable"},
-            }
-            if previous.status not in allowed[fact.operation]:
-                raise ValueError("Invalid lifecycle transition from current disposition")
-            statuses: dict[str, Status] = {
-                "inactive": "inactive",
-                "unavailable": "unavailable",
-                "resume": "active",
-                "retire": "retired",
-            }
-            status = statuses[fact.operation]
+            status = _continuing_status(previous, fact)
     return EligibilityMember(
         member=fact.member,
         definition_fingerprint=fact.definition_fingerprint,
@@ -61,6 +45,27 @@ def _transition(previous: EligibilityMember | None, fact: LifecycleFact) -> Elig
         last_event_id=fact.event_id,
         reason=fact.reason,
     )
+
+
+def _continuing_status(previous: EligibilityMember, fact: LifecycleFact) -> Status:
+    """Validate a same-definition lifecycle move and return its disposition."""
+    if previous.member != fact.member or previous.definition_fingerprint != fact.definition_fingerprint:
+        raise ValueError("Lifecycle transition cannot inherit another definition/version")
+    allowed: dict[str, set[str]] = {
+        "inactive": {"active"},
+        "unavailable": {"active"},
+        "resume": {"inactive", "unavailable"},
+        "retire": {"active", "inactive", "unavailable"},
+    }
+    if previous.status not in allowed[fact.operation]:
+        raise ValueError("Invalid lifecycle transition from current disposition")
+    statuses: dict[str, Status] = {
+        "inactive": "inactive",
+        "unavailable": "unavailable",
+        "resume": "active",
+        "retire": "retired",
+    }
+    return statuses[fact.operation]
 
 
 def _reentry(previous: EligibilityMember, fact: LifecycleFact) -> None:
@@ -104,13 +109,18 @@ def _validate_history(
         previous_round, previous_known = activation, fact.known_at
         prior = current.get(fact.member.id)
         updated = _transition(prior, fact)
-        used = epochs.setdefault(fact.member.id, set())
-        if fact.operation in {"introduce", "reenter"} and fact.disposition != "retain":
-            if fact.state_epoch in used:
-                raise ValueError("New state epoch cannot reuse a retained historical epoch")
-            if fact.state_epoch is not None:
-                used.add(fact.state_epoch)
+        _remember_epoch(epochs, fact)
         current[fact.member.id] = updated
+
+
+def _remember_epoch(epochs: dict[str, set[Reference]], fact: LifecycleFact) -> None:
+    """Track each logical member's epochs after its transition is validated."""
+    used = epochs.setdefault(fact.member.id, set())
+    if fact.operation in {"introduce", "reenter"} and fact.disposition != "retain":
+        if fact.state_epoch in used:
+            raise ValueError("New state epoch cannot reuse a retained historical epoch")
+        if fact.state_epoch is not None:
+            used.add(fact.state_epoch)
 
 
 def _require_definition(policy: PopulationPolicy, leaf: tuple[str, str] | None, fact: LifecycleFact) -> None:

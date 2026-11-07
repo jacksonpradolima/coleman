@@ -192,8 +192,9 @@ def test_literal_checkpoint_and_producer_keep_independently_authored_core_action
 def test_producer_rejects_exact_recipe_task_version_definition_epoch_and_objective_mismatch(field, value, message):
     producer = checkpoint().executions[0]
     recipe = RecipeBinding.model_validate(producer.recipe.model_dump() | {field: value})
+    candidate_values = producer.model_dump() | {"recipe": recipe}
     with pytest.raises(ValueError, match=message):
-        RecipeExecution.model_validate(producer.model_dump() | {"recipe": recipe})
+        RecipeExecution.model_validate(candidate_values)
 
 
 @pytest.mark.parametrize(
@@ -210,16 +211,18 @@ def test_producer_rejects_inner_task_round_and_implementation_without_changing_a
     producer = checkpoint().executions[0]
     inner = changed_inner(producer, request=request_changes, **proposal)
     assert inner.action.to_json() == producer.executed.action.to_json()
+    candidate_values = producer.model_dump() | {"executed": inner}
     with pytest.raises(ValueError, match=message):
-        RecipeExecution.model_validate(producer.model_dump() | {"executed": inner})
+        RecipeExecution.model_validate(candidate_values)
 
 
 def test_producer_rejects_wrong_clock_sleeping_expert_and_action_population():
     current = checkpoint(retained=False)
     untimed = origin(current)
     timed = checkpoint(retained=False, clock="timed")
+    candidate_values = untimed.model_dump() | {"snapshot": timed.registries[0].snapshot(0, START)}
     with pytest.raises(ValueError, match="clock profile or cutoff"):
-        RecipeExecution.model_validate(untimed.model_dump() | {"snapshot": timed.registries[0].snapshot(0, START)})
+        RecipeExecution.model_validate(candidate_values)
     state = current.registries[0]
     fact = LifecycleFact.model_validate(
         state.facts[0].model_dump()
@@ -241,8 +244,9 @@ def test_producer_rejects_wrong_clock_sleeping_expert_and_action_population():
     values["policy"]["kind"] = "action"
     values["facts"][0]["definition_fingerprint"] = action.fingerprint
     action_state = RegistryState.model_validate(values)
+    candidate_values = untimed.model_dump() | {"snapshot": action_state.snapshot(0)}
     with pytest.raises(ValueError, match="expert-population task"):
-        RecipeExecution.model_validate(untimed.model_dump() | {"snapshot": action_state.snapshot(0)})
+        RecipeExecution.model_validate(candidate_values)
 
 
 def test_recipe_feedback_joins_outer_and_inner_producer_and_actual_active_action_panel():
@@ -252,21 +256,24 @@ def test_recipe_feedback_joins_outer_and_inner_producer_and_actual_active_action
     observed.validate_for(producer, capability())
     assert RecipeFeedback.from_json(observed.to_json()) == observed
     later = origin(current, 1)
+    selected_consumer = capability()
     with pytest.raises(ValueError, match="original outer producer"):
-        observed.validate_for(later, capability())
+        observed.validate_for(later, selected_consumer)
     wrong_inner = RecipeFeedback.model_validate(
         observed.model_dump()
         | {
             "batch": observed.batch.model_dump() | {"decision_fingerprint": later.executed.fingerprint},
         }
     )
+    selected_consumer = capability()
     with pytest.raises(ValueError, match="executed decision content"):
-        wrong_inner.validate_for(producer, capability())
+        wrong_inner.validate_for(producer, selected_consumer)
     unavailable = feedback(producer, (0.25, None))
     assert isinstance(unavailable.batch.feedback, FullPanel)
     assert unavailable.batch.feedback.rows[1].values[0].value is None
+    selected_consumer = capability()
     with pytest.raises(ValueError):
-        unavailable.validate_for(producer, capability())
+        unavailable.validate_for(producer, selected_consumer)
     unavailable.validate_for(producer, capability(requires_observed=False))
     assert isinstance(observed.batch.feedback, FullPanel)
     incomplete = RecipeFeedback.model_validate(
@@ -275,8 +282,9 @@ def test_recipe_feedback_joins_outer_and_inner_producer_and_actual_active_action
             "batch": observed.batch.model_dump() | {"feedback": FullPanel(rows=(observed.batch.feedback.rows[0],))},
         }
     )
+    selected_consumer = capability()
     with pytest.raises(ValueError, match="Full panel"):
-        incomplete.validate_for(producer, capability())
+        incomplete.validate_for(producer, selected_consumer)
 
 
 def test_recipe_feedback_after_explicit_restart_still_belongs_to_the_old_epoch():
@@ -315,8 +323,9 @@ def test_recipe_feedback_after_explicit_restart_still_belongs_to_the_old_epoch()
     replacement = origin(current, 2, registry=restarted, recipe=recipe)
     delayed = feedback(old)
     delayed.validate_for(old, capability())
+    selected_consumer = capability()
     with pytest.raises(ValueError, match="original outer producer"):
-        delayed.validate_for(replacement, capability())
+        delayed.validate_for(replacement, selected_consumer)
     assert old.recipe.state_epoch == ref("recipe-A:e0")
     assert replacement.recipe.state_epoch == ref("recipe-A:e1")
 
@@ -326,20 +335,25 @@ def test_record_exact_retry_conflict_stale_prefix_round_and_capacity_leave_prior
     original = current.to_json()
     producer = current.executions[0]
     assert current.record(RecipeExecution.from_json(producer.to_json())) == current
+    candidate_origin = origin(current, 1, "opportunity-0")
     with pytest.raises(ValueError, match="Conflicting original"):
-        current.record(origin(current, 1, "opportunity-0"))
+        current.record(candidate_origin)
+    candidate_origin = origin(current, 0, "another-same-round")
     with pytest.raises(ValueError, match="opportunity frontier"):
-        current.record(origin(current, 0, "another-same-round"))
+        current.record(candidate_origin)
     advanced = current.record(origin(current, 2))
+    candidate_origin = origin(advanced, 1)
     with pytest.raises(ValueError, match="opportunity frontier"):
-        advanced.record(origin(advanced, 1))
+        advanced.record(candidate_origin)
     grown = current.replace_registry(extended_registry(current, introduce=True))
+    candidate_origin = origin(current, 1)
     with pytest.raises(ValueError, match="actual current predecision"):
-        grown.record(origin(current, 1))
+        grown.record(candidate_origin)
     limited = RegistryCheckpoint.model_validate(current.model_dump() | {"limits": RegistryLimits(maximum_producers=1)})
     assert limited.record(producer) == limited
+    candidate_origin = origin(limited, 1)
     with pytest.raises(ValueError, match="producer capacity"):
-        limited.record(origin(limited, 1))
+        limited.record(candidate_origin)
     assert current.to_json() == original
 
 
@@ -354,11 +368,13 @@ def test_historical_publications_resolve_exactly_after_unrelated_growth_and_keep
     later = grown.record(origin(grown, 1))
     assert later.executions[0].recipe == later.executions[1].recipe
     assert RegistryCheckpoint.from_json(later.to_json()) == later
+    candidate_values = grown.model_dump() | {"catalogues": (grown.registries[0].catalogue,)}
     with pytest.raises(ValueError, match="exact retained catalogue publication"):
-        RegistryCheckpoint.model_validate(grown.model_dump() | {"catalogues": (grown.registries[0].catalogue,)})
+        RegistryCheckpoint.model_validate(candidate_values)
     wrong = Catalogue.model_validate(grown.catalogues[0].model_dump() | {"reference": ref("other-namespace")})
+    candidate_values = grown.model_dump() | {"catalogues": (*grown.catalogues, wrong)}
     with pytest.raises(ValueError, match="unknown catalogue namespace/version"):
-        RegistryCheckpoint.model_validate(grown.model_dump() | {"catalogues": (*grown.catalogues, wrong)})
+        RegistryCheckpoint.model_validate(candidate_values)
     changed_snapshot = original.snapshot.model_validate(
         original.snapshot.model_dump()
         | {
@@ -369,8 +385,9 @@ def test_historical_publications_resolve_exactly_after_unrelated_growth_and_keep
         }
     )
     wrong_origin = RecipeExecution.model_validate(original.model_dump() | {"snapshot": changed_snapshot})
+    candidate_values = current.model_dump() | {"executions": (wrong_origin,)}
     with pytest.raises(ValueError, match="exact retained catalogue publication"):
-        RegistryCheckpoint.model_validate(current.model_dump() | {"executions": (wrong_origin,)})
+        RegistryCheckpoint.model_validate(candidate_values)
     unselected = grown.registries[0].catalogue.resolve("expert", ref("unrelated-recipe"))
     wrong_publication = Catalogue(
         schema_version=1, reference=current.registries[0].catalogue.reference, definitions=(unselected,)
@@ -384,28 +401,26 @@ def test_historical_publications_resolve_exactly_after_unrelated_growth_and_keep
         }
     )
     wrong_origin = RecipeExecution.model_validate(original.model_dump() | {"snapshot": snapshot})
+    candidate_values = grown.model_dump() | {
+        "catalogues": (*grown.catalogues, wrong_publication),
+        "executions": (wrong_origin,),
+    }
     with pytest.raises(ValueError, match="Unknown catalogue member"):
-        RegistryCheckpoint.model_validate(
-            grown.model_dump()
-            | {
-                "catalogues": (*grown.catalogues, wrong_publication),
-                "executions": (wrong_origin,),
-            }
-        )
+        RegistryCheckpoint.model_validate(candidate_values)
 
 
 def test_checkpoint_reader_rejects_retrospective_suffix_prefix_rewind_clock_rewind_and_same_round():
     current = checkpoint()
     invalid = extended_registry(current, introduce=True, admitted=0)
+    candidate_values = current.model_dump() | {"registries": (invalid,)}
     with pytest.raises(ValueError, match="already-produced recipe round"):
-        RegistryCheckpoint.model_validate(current.model_dump() | {"registries": (invalid,)})
+        RegistryCheckpoint.model_validate(candidate_values)
     future = extended_registry(current, introduce=True)
     first = origin(current, 0, registry=future)
     second = origin(current, 1)
+    candidate_values = current.model_dump() | {"registries": (future,), "executions": (first, second)}
     with pytest.raises(ValueError, match="history prefixes cannot rewind"):
-        RegistryCheckpoint.model_validate(
-            current.model_dump() | {"registries": (future,), "executions": (first, second)}
-        )
+        RegistryCheckpoint.model_validate(candidate_values)
     timed = checkpoint(retained=False, clock="timed")
     for second_round, second_cutoff, message in (
         (1, START, "knowledge cutoffs cannot rewind"),
@@ -413,8 +428,9 @@ def test_checkpoint_reader_rejects_retrospective_suffix_prefix_rewind_clock_rewi
     ):
         first = origin(timed, 0, "timed-first", cutoff=START + timedelta(minutes=1))
         second = origin(timed, second_round, "timed-second", cutoff=second_cutoff)
+        candidate_values = timed.model_dump() | {"executions": (first, second)}
         with pytest.raises(ValueError, match=message):
-            RegistryCheckpoint.model_validate(timed.model_dump() | {"executions": (first, second)})
+            RegistryCheckpoint.model_validate(candidate_values)
 
 
 @pytest.mark.parametrize("field", ["target", "loss_transform", "controls", "owners"])
@@ -460,12 +476,14 @@ def test_owned_recipe_checkpoint_explicitly_rejects_mixing_the_standalone_reques
     sealed = seal_request(state, registered_request(state))
     assert sealed.producers
     assert current.profile == "owned-recipes-v1"
+    candidate_values = current.model_dump() | {"registries": (sealed,)}
     with pytest.raises(ValueError, match="cannot mix standalone registered-request seals"):
-        RegistryCheckpoint.model_validate(current.model_dump() | {"registries": (sealed,)})
+        RegistryCheckpoint.model_validate(candidate_values)
     with pytest.raises(ValueError, match="cannot mix standalone registered-request seals"):
         current.replace_registry(sealed)
+    candidate_values = current.model_dump() | {"profile": "future-profile-v2"}
     with pytest.raises(ValueError):
-        RegistryCheckpoint.model_validate(current.model_dump() | {"profile": "future-profile-v2"})
+        RegistryCheckpoint.model_validate(candidate_values)
 
 
 def test_registry_owner_restore_is_monotone_for_origins_publications_and_fixed_ownership():
@@ -496,8 +514,9 @@ def test_registry_owner_restore_is_monotone_for_origins_publications_and_fixed_o
     )
     ownership = OwnershipDeclaration.model_validate(empty.ownership.model_dump() | {"recipes": (changed,)})
     alternate = RegistryCheckpoint.model_validate(empty.model_dump() | {"ownership": ownership})
+    restoring_owner = RegistryOwner(empty)
     with pytest.raises(ValueError, match="fixed ownership or selected limits"):
-        RegistryOwner(empty).restore_state(alternate)
+        restoring_owner.restore_state(alternate)
 
 
 def test_checkpoint_admits_raw_counts_and_coupled_work_before_nested_invalid_producers():
@@ -510,8 +529,9 @@ def test_checkpoint_admits_raw_counts_and_coupled_work_before_nested_invalid_pro
             "history validation work capacity",
         ),
     ):
+        candidate_values = current.model_dump() | values
         with pytest.raises(ValidationError, match=message) as caught:
-            RegistryCheckpoint.model_validate(current.model_dump() | values)
+            RegistryCheckpoint.model_validate(candidate_values)
         assert len(caught.value.errors()) == 1
         assert caught.value.errors()[0]["loc"] == ()
 
@@ -530,17 +550,16 @@ def test_normalized_publication_work_has_constructor_writer_reader_parity_at_the
         assert minimal.catalogues == (publication,)
         assert RegistryCheckpoint.from_json(minimal.to_json()) == minimal
         assert RegistryCheckpoint.model_validate_json(minimal.to_json()) == minimal
+    candidate_values = current.model_dump() | {
+        "executions": (origin(current),),
+        "catalogues": (),
+        "limits": RegistryLimits(maximum_checkpoint_work=1),
+    }
     with pytest.raises(ValueError, match="normalized coupled validation work"):
-        RegistryCheckpoint.model_validate(
-            current.model_dump()
-            | {
-                "executions": (origin(current),),
-                "catalogues": (),
-                "limits": RegistryLimits(maximum_checkpoint_work=1),
-            }
-        )
+        RegistryCheckpoint.model_validate(candidate_values)
+    candidate_values = current.model_dump() | {"catalogues": (publication, publication)}
     with pytest.raises(ValueError, match="duplicate explicit catalogue publications"):
-        RegistryCheckpoint.model_validate(current.model_dump() | {"catalogues": (publication, publication)})
+        RegistryCheckpoint.model_validate(candidate_values)
 
 
 def test_checkpoint_resource_publication_and_work_caps_are_selected_separately_without_eviction():
@@ -553,23 +572,19 @@ def test_checkpoint_resource_publication_and_work_caps_are_selected_separately_w
             "resources": (*current.ownership.resources, weights),
         }
     )
+    candidate_values = current.model_dump() | {
+        "ownership": ownership,
+        "limits": RegistryLimits(maximum_resources=1),
+    }
     with pytest.raises(ValueError, match="ownership resource capacity"):
-        RegistryCheckpoint.model_validate(
-            current.model_dump()
-            | {
-                "ownership": ownership,
-                "limits": RegistryLimits(maximum_resources=1),
-            }
-        )
+        RegistryCheckpoint.model_validate(candidate_values)
     ownership_values = current.ownership.model_dump() | {"resources": ({}, {})}
+    candidate_values = current.model_dump() | {
+        "ownership": ownership_values,
+        "limits": RegistryLimits(maximum_resources=1),
+    }
     with pytest.raises(ValidationError, match="ownership resource capacity") as caught:
-        RegistryCheckpoint.model_validate(
-            current.model_dump()
-            | {
-                "ownership": ownership_values,
-                "limits": RegistryLimits(maximum_resources=1),
-            }
-        )
+        RegistryCheckpoint.model_validate(candidate_values)
     assert caught.value.errors()[0]["loc"] == ()
     admitted = RegistryCheckpoint.model_validate(
         current.model_dump()
@@ -583,8 +598,9 @@ def test_checkpoint_resource_publication_and_work_caps_are_selected_separately_w
         current.model_dump() | {"limits": RegistryLimits(maximum_publications=1)}
     )
     before = limited.to_json()
+    candidate_registry = extended_registry(limited)
     with pytest.raises(ValueError, match="publication capacity"):
-        limited.replace_registry(extended_registry(limited))
+        limited.replace_registry(candidate_registry)
     assert limited.to_json() == before
     grown = extended_registry(current)
     one_publication = RegistryCheckpoint.model_validate(
@@ -763,15 +779,13 @@ def test_current_catalogue_namespaces_reject_conflicting_complete_publications_a
             "resources": (*current.ownership.resources, claim),
         }
     )
+    candidate_values = current.model_dump() | {
+        "registries": (registry, state),
+        "ownership": ownership,
+        "catalogues": (),
+    }
     with pytest.raises(ValueError, match="conflicting complete publications"):
-        RegistryCheckpoint.model_validate(
-            current.model_dump()
-            | {
-                "registries": (registry, state),
-                "ownership": ownership,
-                "catalogues": (),
-            }
-        )
+        RegistryCheckpoint.model_validate(candidate_values)
     separate = RegistryState.model_validate(
         state.model_dump()
         | {
@@ -804,8 +818,9 @@ def test_composition_readers_reject_missing_future_coerced_versions_and_unknown_
         values.pop("schema_version")
         with pytest.raises(ValueError):
             contract.model_validate(values)
+        candidate_values = sample.model_dump() | {"untyped_metadata": {"hidden": "value"}}
         with pytest.raises(ValueError):
-            contract.model_validate(sample.model_dump() | {"untyped_metadata": {"hidden": "value"}})
+            contract.model_validate(candidate_values)
 
 
 def test_publication_and_execution_declaration_permutations_have_one_canonical_identity():

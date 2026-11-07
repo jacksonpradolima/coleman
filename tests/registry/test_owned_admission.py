@@ -23,8 +23,9 @@ def test_invalid_complete_inspection_inventory_rejects_before_host_callbacks(kin
         "missing": fixture.inspections[:1],
         "duplicate": (fixture.inspections[0], fixture.inspections[0]),
     }[kind]
+    inspections = cast(tuple, values)
     with pytest.raises((ValueError, TypeError)):
-        OwnedBindings(fixture.declaration, cast(tuple, values))
+        OwnedBindings(fixture.declaration, inspections)
     assert fixture.calls == []
 
 
@@ -68,8 +69,9 @@ def test_live_inventory_requires_exact_complete_selected_inspectors_before_callb
         "partial": correct[:1],
         "duplicate": correct[:1] * 2,
     }
+    live = cast(tuple, variants[kind])
     with pytest.raises((ValueError, TypeError)):
-        OwnedBindings(fixture.declaration, fixture.inspections, live=cast(tuple, variants[kind]))
+        OwnedBindings(fixture.declaration, fixture.inspections, live=live)
     assert fixture.calls == []
 
 
@@ -79,11 +81,10 @@ def test_partial_fresh_factory_set_cannot_restore_or_export_one_owner_early(meth
     owned = OwnedBindings(fixture.declaration, fixture.inspections)
     partial = owned.bindings[0].new_owner()
     fixture.calls.clear()
+    operation = getattr(partial, method)
+    arguments = (fixture.values[0].value,) if method == "restore_state" else ()
     with pytest.raises(ValueError, match="Complete owned factory inventory"):
-        if method == "restore_state":
-            partial.restore_state(fixture.values[0].value)
-        else:
-            partial.export_state()
+        operation(*arguments)
     assert fixture.calls == []
 
 

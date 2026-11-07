@@ -74,16 +74,34 @@ def _inventory(reports: tuple[RootInventory, ...], maximum_resources: int) -> Ro
             raise TypeError("Owner inspection requires concrete tuple fields")
         if len(report.recipes) > 32 or len(roots) + len(report.roots) > maximum_resources:
             raise ValueError("Owner inventory exceeds its selected finite capacity")
-        for recipe in report.recipes:
-            checked = RecipeBinding.model_validate(recipe)
-            prior = recipes.get(checked.child.id)
-            if prior is not None and prior.to_json() != checked.to_json():
-                raise ValueError("Owner inventories disagree on the exact recipe binding")
-            recipes[checked.child.id] = checked
-            if len(recipes) > 32:
-                raise ValueError("Owner inventory exceeds32 recipe bindings")
+        _merge_recipes(recipes, report.recipes)
         roots.extend(report.roots)
     return RootInventory(tuple(sorted(recipes.values(), key=lambda item: item.child.id)), tuple(roots))
+
+
+def _merge_recipes(recipes: dict[str, RecipeBinding], offered: tuple[RecipeBinding, ...]) -> None:
+    """Merge one admitted report's recipes while preserving exact join checks."""
+    for recipe in offered:
+        checked = RecipeBinding.model_validate(recipe)
+        prior = recipes.get(checked.child.id)
+        if prior is not None and prior.to_json() != checked.to_json():
+            raise ValueError("Owner inventories disagree on the exact recipe binding")
+        recipes[checked.child.id] = checked
+        if len(recipes) > 32:
+            raise ValueError("Owner inventory exceeds32 recipe bindings")
+
+
+def _checked_inspection_binding(item: OwnerInspection[Any, Any]) -> ComponentBinding[Any, Any]:
+    """Validate one static inspection descriptor without calling its callbacks."""
+    if type(item) is not OwnerInspection:  # pylint: disable=unidiomatic-typecheck
+        raise TypeError("Owned inspection requires exact OwnerInspection values")
+    if type(item.binding) is not ComponentBinding or not callable(item.inspect):  # pylint: disable=unidiomatic-typecheck
+        raise TypeError("Owned inspection requires an exact component and callable inspector")
+    if type(item.binding.codec) is not ComponentCodec or not all(  # pylint: disable=unidiomatic-typecheck
+        callable(callback) for callback in (item.binding.new_owner, item.binding.frontier)
+    ):
+        raise TypeError("Owned component requires an exact concrete codec and callable factory/frontier")
+    return item.binding
 
 
 class _Fence:
@@ -220,15 +238,7 @@ class OwnedBindings:
         expected.update((owner.owner.id, owner) for owner in declaration.shared_owners)
         actual = {}
         for item in inspections:
-            if type(item) is not OwnerInspection:  # pylint: disable=unidiomatic-typecheck
-                raise TypeError("Owned inspection requires exact OwnerInspection values")
-            if type(item.binding) is not ComponentBinding or not callable(item.inspect):  # pylint: disable=unidiomatic-typecheck
-                raise TypeError("Owned inspection requires an exact component and callable inspector")
-            if type(item.binding.codec) is not ComponentCodec or not all(  # pylint: disable=unidiomatic-typecheck
-                callable(callback) for callback in (item.binding.new_owner, item.binding.frontier)
-            ):
-                raise TypeError("Owned component requires an exact concrete codec and callable factory/frontier")
-            owner = item.binding.codec.binding
+            owner = _checked_inspection_binding(item).codec.binding
             if owner.owner.id in actual:
                 raise ValueError("Duplicate owned component inspection")
             actual[owner.owner.id] = owner

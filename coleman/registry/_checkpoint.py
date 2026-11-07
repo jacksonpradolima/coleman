@@ -69,21 +69,23 @@ def _registry_for(checkpoint: RegistryCheckpoint, task_id: str) -> RegistryState
 
 def _raw_fact_count(registry: Any) -> int:
     """Count only supplied flat history before nested contract validation."""
-    history = (
-        registry.facts
-        if isinstance(registry, RegistryState)
-        else (registry.get("facts", ()) if isinstance(registry, dict) else ())
-    )
+    if isinstance(registry, RegistryState):
+        history = registry.facts
+    elif isinstance(registry, dict):
+        history = registry.get("facts", ())
+    else:
+        history = ()
     return len(history) if isinstance(history, (tuple, list)) else 0
 
 
 def _raw_leaf_count(catalogue: Any) -> int:
     """Count flat publication leaves without hashing or copying their values."""
-    leaves = (
-        catalogue.definitions
-        if isinstance(catalogue, Catalogue)
-        else (catalogue.get("definitions", ()) if isinstance(catalogue, dict) else ())
-    )
+    if isinstance(catalogue, Catalogue):
+        leaves = catalogue.definitions
+    elif isinstance(catalogue, dict):
+        leaves = catalogue.get("definitions", ())
+    else:
+        leaves = ()
     return len(leaves) if isinstance(leaves, (tuple, list)) else 0
 
 

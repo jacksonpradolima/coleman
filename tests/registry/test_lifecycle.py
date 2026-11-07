@@ -69,13 +69,15 @@ def test_every_activation_and_knowledge_boundary_is_validated_before_successor()
     original = history(count=0)
     introduced = original.append(fact(original, round_number=10))
     before = introduced.to_json()
+    earlier_round = fact(introduced, operation="retire", round_number=5)
     with pytest.raises(ValueError, match="nondecreasing"):
-        introduced.append(fact(introduced, operation="retire", round_number=5))
+        introduced.append(earlier_round)
     assert introduced.to_json() == before
     timed = history(count=0, clock="timed")
     timed = timed.append(fact(timed, known_at=START + timedelta(minutes=10)))
+    earlier_knowledge = fact(timed, operation="retire", known_at=START + timedelta(minutes=5))
     with pytest.raises(ValueError, match="known_at"):
-        timed.append(fact(timed, operation="retire", known_at=START + timedelta(minutes=5)))
+        timed.append(earlier_knowledge)
 
 
 def test_unknown_timed_knowledge_never_becomes_live_and_new_fact_is_prospective():
@@ -92,8 +94,10 @@ def test_unknown_timed_knowledge_never_becomes_live_and_new_fact_is_prospective(
     assert not state.snapshot(0, START + timedelta(days=1)).active
     assert state.snapshot(1, START).active == (ref("A"),)
     assert state.facts[0] == unknown
+    untimed = history(count=0)
+    timed_fact = fact(untimed, known_at=START)
     with pytest.raises(ValueError, match="Untimed population"):
-        history(count=0).append(fact(history(count=0), known_at=START))
+        untimed.append(timed_fact)
 
 
 def test_future_introduction_waits_for_both_rounds_and_timed_cutoff():
@@ -138,8 +142,9 @@ def test_retry_sequence_unknown_version_and_conflicting_implementation_leave_pri
         {"event_id": "unknown-version", "sequence": 1, "member": ref("A", "v9")},
         {"event_id": "wrong-definition", "sequence": 1, "definition_fingerprint": "sha256:" + "f" * 64},
     ):
+        candidate = LifecycleFact.model_validate(event.model_dump() | replacement)
         with pytest.raises(ValueError):
-            state.append(LifecycleFact.model_validate(event.model_dump() | replacement))
+            state.append(candidate)
         assert state.to_json() == before
 
 
@@ -147,8 +152,9 @@ def test_retry_sequence_unknown_version_and_conflicting_implementation_leave_pri
 def test_absent_member_cannot_transition(operation):
     state = history(count=0)
     extra = {"state_epoch": ref("A:e1"), "predecessor_epoch": ref("A:e0"), "disposition": "restart"}
+    candidate = fact(state, operation=operation, **(extra if operation == "reenter" else {}))
     with pytest.raises(ValueError):
-        state.append(fact(state, operation=operation, **(extra if operation == "reenter" else {})))
+        state.append(candidate)
 
 
 @pytest.mark.parametrize("sleep", ["inactive", "unavailable"])
@@ -166,17 +172,16 @@ def test_reentry_requires_explicit_definition_and_fresh_or_retained_epoch():
     state = history(count=1)
     state = state.append(fact(state, operation="retire", round_number=1))
     for disposition, epoch in (("retain", "A:e1"), ("reset", "A:e0"), ("restart", "A:e0")):
+        candidate = fact(
+            state,
+            operation="reenter",
+            round_number=2,
+            disposition=disposition,
+            state_epoch=ref(epoch),
+            predecessor_epoch=ref("A:e0"),
+        )
         with pytest.raises(ValueError):
-            state.append(
-                fact(
-                    state,
-                    operation="reenter",
-                    round_number=2,
-                    disposition=disposition,
-                    state_epoch=ref(epoch),
-                    predecessor_epoch=ref("A:e0"),
-                )
-            )
+            state.append(candidate)
     retained = state.append(
         fact(
             state,
@@ -220,22 +225,22 @@ def test_version_restart_returning_to_old_version_never_activates_two_versions_o
     )
     state = state.append(changed)
     assert state.snapshot(2).active == (ref("A", "v2"),)
+    duplicate_introduction = fact(state, operation="introduce", round_number=3)
     with pytest.raises(ValueError):
-        state.append(fact(state, operation="introduce", round_number=3))
+        state.append(duplicate_introduction)
     state = state.append(
         fact(state, operation="retire", round_number=3, member=second.member, definition_fingerprint=second.fingerprint)
     )
+    reused_epoch = fact(
+        state,
+        operation="reenter",
+        round_number=4,
+        disposition="restart",
+        state_epoch=ref("A:e0"),
+        predecessor_epoch=ref("A:e1"),
+    )
     with pytest.raises(ValueError, match="historical epoch"):
-        state.append(
-            fact(
-                state,
-                operation="reenter",
-                round_number=4,
-                disposition="restart",
-                state_epoch=ref("A:e0"),
-                predecessor_epoch=ref("A:e1"),
-            )
-        )
+        state.append(reused_epoch)
     state = state.append(
         fact(
             state,
@@ -259,7 +264,9 @@ def test_snapshot_cannot_forge_dispositions_leaves_or_clock_policy():
         {"round": True},
         {"schema_version": 2},
     ):
+        candidate = original.model_dump() | change
         with pytest.raises(ValueError):
-            EligibilitySnapshot.model_validate(original.model_dump() | change)
+            EligibilitySnapshot.model_validate(candidate)
+    unknown_clock = original.policy.model_dump() | {"clock": "automatic"}
     with pytest.raises(ValueError):
-        PopulationPolicy.model_validate(original.policy.model_dump() | {"clock": "automatic"})
+        PopulationPolicy.model_validate(unknown_clock)

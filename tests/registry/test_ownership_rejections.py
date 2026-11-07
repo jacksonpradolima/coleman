@@ -43,8 +43,9 @@ def mutable_values(inventory):
 def refuse_declaration(declaration, inventory, updates, message):
     """Reach the real declaration validator while retaining the valid prior."""
     before, original = mutable_values(inventory), declaration.to_json()
+    candidate = declaration.model_copy(update=updates)
     with pytest.raises(ValueError, match=message):
-        OwnershipDeclaration.model_validate(declaration.model_copy(update=updates))
+        OwnershipDeclaration.model_validate(candidate)
     assert declaration.to_json() == original
     assert mutable_values(inventory) == before
     DeclaredRootGuard(declaration).check(inventory)
@@ -55,11 +56,11 @@ def refuse_inventory(declaration, original, candidate, message, *, error: type[E
     before = mutable_values(original)
     roots = tuple(item.root for item in original.roots)
     guard = DeclaredRootGuard(declaration)
-    callbacks = []
+    reached_adaptive_work = False
     with pytest.raises(error, match=message):
         guard.check(candidate)
-        callbacks.append("adaptive-call")
-    assert callbacks == []
+        reached_adaptive_work = True
+    assert not reached_adaptive_work
     assert all(item.root is root for item, root in zip(original.roots, roots, strict=True))
     assert mutable_values(original) == before
     guard.check(original)
@@ -82,8 +83,9 @@ def test_resource_access_profiles_reject_incomplete_or_contradictory_ownership(u
     declaration, inventory = independent_case()
     original = inventory.roots[1].claim
     before = mutable_values(inventory)
+    candidate = original.model_copy(update=updates)
     with pytest.raises(ValueError):
-        ResourceClaim.model_validate(original.model_copy(update=updates))
+        ResourceClaim.model_validate(candidate)
     assert mutable_values(inventory) == before
     DeclaredRootGuard(declaration).check(inventory)
 
@@ -91,14 +93,9 @@ def test_resource_access_profiles_reject_incomplete_or_contradictory_ownership(u
 def test_shared_consumers_cannot_repeat_a_logical_child_under_another_version():
     declaration, inventory, sharing = shared_case()
     before = mutable_values(inventory)
+    candidate = sharing.model_copy(update={"consumers": (sharing.consumers[0], ref(sharing.consumers[0].id, "other"))})
     with pytest.raises(ValueError, match="unique child"):
-        SharedPredictor.model_validate(
-            sharing.model_copy(
-                update={
-                    "consumers": (sharing.consumers[0], ref(sharing.consumers[0].id, "other")),
-                }
-            )
-        )
+        SharedPredictor.model_validate(candidate)
     assert mutable_values(inventory) == before
     DeclaredRootGuard(declaration).check(inventory)
 
@@ -291,8 +288,9 @@ def test_runtime_shape_rejection_does_not_enumerate_custom_containers():
         declaration, inventory, RootInventory(recipes, inventory.roots), "in-process tuples", error=TypeError
     )
     roots = UnsupportedTuple(inventory.roots)
+    guard = DeclaredRootGuard(declaration)
     with pytest.raises(ValueError, match="bounded tuple"):
-        DeclaredRootGuard(declaration).check_partial(roots)
+        guard.check_partial(roots)
     assert calls == []
 
 
@@ -342,9 +340,10 @@ def test_actual_immutable_byte_capacity_is_checked_after_valid_declaration_admis
     assert len(declared.to_json().encode()) < selected.maximum_bytes
     guard = DeclaredRootGuard(declared, limits=selected)
     before = mutable_values(inventory)
-    callbacks = []
+    candidate = RootInventory(inventory.recipes, roots)
+    reached_adaptive_work = False
     with pytest.raises(ValueError, match="immutable resource bytes exceed"):
-        guard.check(RootInventory(inventory.recipes, roots))
-        callbacks.append("adaptive-call")
-    assert callbacks == []
+        guard.check(candidate)
+        reached_adaptive_work = True
+    assert not reached_adaptive_work
     assert mutable_values(inventory) == before

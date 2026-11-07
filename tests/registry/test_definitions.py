@@ -49,13 +49,15 @@ def test_strict_versions_unknown_fields_and_unchecked_instances_reject(version):
     values = leaf.model_dump() | {"schema_version": version}
     with pytest.raises(ValueError):
         MemberDefinition.model_validate(values)
+    unchecked_leaf = leaf.model_copy(update={"schema_version": version})
     with pytest.raises(ValueError):
-        leaf.model_copy(update={"schema_version": version}).to_json()
+        unchecked_leaf.to_json()
     values.pop("schema_version")
     with pytest.raises(ValueError):
         MemberDefinition.model_validate(values)
+    candidate_values = leaf.model_dump() | {"loss": 0.0}
     with pytest.raises(ValueError):
-        MemberDefinition.model_validate(leaf.model_dump() | {"loss": 0.0})
+        MemberDefinition.model_validate(candidate_values)
 
 
 def test_recipe_reuses_exact_state_owners_and_nullable_existing_definition_bindings():
@@ -84,9 +86,12 @@ def test_recipe_reuses_exact_state_owners_and_nullable_existing_definition_bindi
     assert [owner.owner.id for owner in recipe.owners] == ["rng", "weights"]
     assert RecipeBinding.from_json(recipe.to_json()) == recipe
     assert '"controls":null' in recipe.to_json()
+    candidate_values = recipe.model_dump() | {"owners": (owners[0], owners[0])}
     with pytest.raises(ValueError):
-        RecipeBinding.model_validate(recipe.model_dump() | {"owners": (owners[0], owners[0])})
+        RecipeBinding.model_validate(candidate_values)
     with pytest.raises(ValueError):
         Reference(id="A", version=" ")
+    limited_catalogue = history(count=0).catalogue
+    selected_limits = RegistryLimits(maximum_definitions=1)
     with pytest.raises(ValueError, match="capacity"):
-        history(count=0).catalogue.register(leaf, limits=RegistryLimits(maximum_definitions=1))
+        limited_catalogue.register(leaf, limits=selected_limits)

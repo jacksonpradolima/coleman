@@ -34,6 +34,11 @@ def initialize(tmp_path, fixture, compatibility):
     return store, receipt.current_head
 
 
+def unexpected_transition(_stage):
+    """Fail if a refused transition reaches the actual store callback."""
+    pytest.fail("callback ran")
+
+
 def test_constructor_performs_no_factory_or_inventory_callback():
     fixture = layout()
     live = tuple(
@@ -84,10 +89,9 @@ def test_real_accepted_transition_and_retained_retry_have_one_callback_and_zero_
     assert second.status == "retained"
     assert callbacks == ["accepted"]
     assert fixture.calls == []
+    conflicting = command(1, head, content="different")
     with pytest.raises(ValueError):
-        store.commit_transition(
-            command(1, head, content="different"), owned.bindings, increment, compatibility=compatibility
-        )
+        store.commit_transition(conflicting, owned.bindings, increment, compatibility=compatibility)
     assert fixture.calls == []
 
 
@@ -106,10 +110,9 @@ def test_staged_alias_to_live_weights_rejects_before_restore_and_keeps_acknowled
     inspected = OwnerInspection(component, inspection.inspect)
     live = (LiveOwner(inspected, fixture.origins[0]),)
     owned = OwnedBindings(fixture.declaration, (inspected,), live=live)
+    request = command(1, head)
     with pytest.raises(ValueError, match="retained live root"):
-        store.commit_transition(
-            command(1, head), owned.bindings, lambda _stage: pytest.fail("callback ran"), compatibility=compatibility
-        )
+        store.commit_transition(request, owned.bindings, unexpected_transition, compatibility=compatibility)
     assert not any(operation == "restore" for _child, operation in fixture.calls)
     assert fixture.origins[0].values == [0]
     assert store.read_head() == head
@@ -120,10 +123,9 @@ def test_two_fresh_wrappers_sharing_weights_reject_before_any_restore(tmp_path, 
     store, head = initialize(tmp_path, valid, compatibility)
     fixture = layout(shared_values=[0])
     owned = OwnedBindings(fixture.declaration, fixture.inspections)
+    request = command(1, head)
     with pytest.raises(ValueError, match="alias"):
-        store.commit_transition(
-            command(1, head), owned.bindings, lambda _stage: pytest.fail("callback ran"), compatibility=compatibility
-        )
+        store.commit_transition(request, owned.bindings, unexpected_transition, compatibility=compatibility)
     assert not any(operation == "restore" for _child, operation in fixture.calls)
     assert store.read_head() == head
 
@@ -142,10 +144,9 @@ def test_postrestore_replacement_alias_is_rejected_before_transition(tmp_path, c
     component = ComponentBinding(original.binding.codec, replacement_factory, original.binding.frontier)
     inspection = OwnerInspection(component, original.inspect)
     owned = OwnedBindings(fixture.declaration, (inspection,), live=(LiveOwner(inspection, fixture.origins[0]),))
+    request = command(1, head)
     with pytest.raises(ValueError, match="retained live root"):
-        store.commit_transition(
-            command(1, head), owned.bindings, lambda _stage: pytest.fail("callback ran"), compatibility=compatibility
-        )
+        store.commit_transition(request, owned.bindings, unexpected_transition, compatibility=compatibility)
     assert sum(operation == "restore" for _child, operation in fixture.calls) == 1
     assert fixture.origins[0].values == [0]
     assert store.read_head() == head
@@ -168,10 +169,9 @@ def test_malformed_host_inventory_rejects_without_normalizing_unbounded_shapes(t
         return cast(RootInventory, object())
 
     owned = OwnedBindings(fixture.declaration, (OwnerInspection(original.binding, inspect),))
+    request = command(1, head)
     with pytest.raises(TypeError, match="RootInventory|tuple"):
-        store.commit_transition(
-            command(1, head), owned.bindings, lambda _stage: pytest.fail("callback ran"), compatibility=compatibility
-        )
+        store.commit_transition(request, owned.bindings, unexpected_transition, compatibility=compatibility)
     assert store.read_head() == head
 
 
@@ -187,10 +187,9 @@ def test_inspected_stale_controls_reject_before_adaptive_callback(tmp_path, comp
 
     component = ComponentBinding(original.binding.codec, stale_factory, original.binding.frontier)
     owned = OwnedBindings(fixture.declaration, (OwnerInspection(component, original.inspect),))
+    request = command(1, head)
     with pytest.raises(ValueError, match="recipe binding"):
-        store.commit_transition(
-            command(1, head), owned.bindings, lambda _stage: pytest.fail("callback ran"), compatibility=compatibility
-        )
+        store.commit_transition(request, owned.bindings, unexpected_transition, compatibility=compatibility)
     assert not any(operation == "restore" for _child, operation in fixture.calls)
 
 
@@ -201,10 +200,12 @@ def test_wrapper_refuses_second_accepted_staging_and_unlisted_binding(tmp_path, 
     original = fixture.inspections[0].binding
 
     def update(stage):
+        unlisted = replace(original)
         with pytest.raises(ValueError, match="not in"):
-            owned.owner(stage, replace(original))
+            owned.owner(stage, unlisted)
         owned.owner(stage, original).values[0] += 1
 
     first = store.commit_transition(command(1, head), owned.bindings, update, compatibility=compatibility)
+    request = command(2, first.current_head)
     with pytest.raises(ValueError, match="one accepted staging"):
-        store.commit_transition(command(2, first.current_head), owned.bindings, update, compatibility=compatibility)
+        store.commit_transition(request, owned.bindings, update, compatibility=compatibility)
