@@ -52,7 +52,8 @@ def installed_learning(tmp_path_factory):
     supplied = environment.get("COLEMAN_TEST_LEARNING_WHEEL")
     if supplied:
         wheel = Path(supplied).resolve(strict=True)
-        assert wheel.is_file() and wheel.suffix == ".whl"
+        assert wheel.is_file()
+        assert wheel.suffix == ".whl"
         python = _install_existing_wheel(uv, wheel, virtual, environment)
     else:
         wheel = build_install_offline_wheel(uv, owned / "dist", virtual, environment)
@@ -125,15 +126,19 @@ def test_installed_interval_profiles_resume_real_causal_replay_after_held_panel(
     for mode in result["modes"]:
         assert (mode["D"], mode["U"], mode["R"], mode["restored_pending_panels"]) == (2, 1, 1, 1)
         assert mode["complete_continuation_equal"] is True
-        assert mode["anchor_and_bounds"] and mode["cadence"] == "interval"
+        assert mode["anchor_and_bounds"]
+        assert mode["cadence"] == "interval"
         assert mode["physical_executions"] == 0
 
 
 def test_installed_actual_reference_exchanges_typed_json_with_stdlib_only_host(installed_learning):
     result = _invoke(installed_learning, "exchange")
-    assert result["schema_version"] == 1 and result["host_imported_coleman"] is False
-    assert result["unknown_receipt_preserved"] is True and result["unavailable_feature_preserved"] is True
-    assert result["microsecond_precision"] == 123456 and result["actual_updates"] == 1
+    assert result["schema_version"] == 1
+    assert result["host_imported_coleman"] is False
+    assert result["unknown_receipt_preserved"] is True
+    assert result["unavailable_feature_preserved"] is True
+    assert result["microsecond_precision"] == 123456
+    assert result["actual_updates"] == 1
     assert result["host_runtime"]["implementation"] == "cpython"
     assert result["host_runtime"]["version"]
 
@@ -180,7 +185,8 @@ def test_installed_learning_cold_imports_use_only_the_selected_base_distribution
         cwd=outside,
     )
     observed = json.loads(result)
-    assert observed["forbidden"] == [] and set(observed["modules"]) == set(modules)
+    assert observed["forbidden"] == []
+    assert set(observed["modules"]) == set(modules)
     inventory = _command(
         [
             str(python),

@@ -23,6 +23,7 @@ from coleman.objectives.controls import (
 
 if TYPE_CHECKING:
     from coleman.learning.control_contracts import ControlledPayload, ControlOutcome
+    from coleman.objectives.controls import MovementAllowance
 
 
 def _outcome_law(payload: ControlledPayload, outcome: ControlOutcome) -> None:
@@ -87,22 +88,26 @@ def _released_bounds(outcome: ControlOutcome, intervals: tuple[ExactExpertInterv
 def _context_profile(payload: ControlledPayload, outcome: ControlOutcome) -> None:
     """Keep per-release, net-period and accumulated-period context distinct."""
     movement = payload.config.controls.movement
-    periodic = movement is not None and movement.scope == "per_interval"
-    if not periodic:
+    if movement is None or movement.scope != "per_interval":
         if outcome.movement_usage is not None or outcome.exact_path_before is not None:
             raise ValueError("A nonperiodic release cannot import historical period usage")
         return
-    if movement is not None and movement.measure == "net_displacement":
+    if movement.measure == "net_displacement":
         if outcome.movement_usage is None or outcome.exact_path_before is not None:
             raise ValueError("A net-period attempt requires only its complete original movement usage")
         _context_period(payload, outcome.movement_usage.interval, outcome.movement_usage.origin)
-    else:
-        path = outcome.exact_path_before
-        if path is None or outcome.movement_usage is not None:
-            raise ValueError("An accumulated-period attempt requires only its complete original exact path")
-        if movement is None or path.movement.to_json() != movement.to_json():
-            raise ValueError("A retained exact path must bind the complete fixed movement law")
-        _context_period(payload, path.interval, path.period_origin)
+        return
+    _accumulated_context(payload, outcome, movement)
+
+
+def _accumulated_context(payload: ControlledPayload, outcome: ControlOutcome, movement: MovementAllowance) -> None:
+    """Join an original accumulated-period context to its admitted fixed law."""
+    path = outcome.exact_path_before
+    if path is None or outcome.movement_usage is not None:
+        raise ValueError("An accumulated-period attempt requires only its complete original exact path")
+    if path.movement.to_json() != movement.to_json():
+        raise ValueError("A retained exact path must bind the complete fixed movement law")
+    _context_period(payload, path.interval, path.period_origin)
 
 
 def _context_period(payload: ControlledPayload, interval: Reference, origin: CoefficientOrigin) -> None:

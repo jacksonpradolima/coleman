@@ -184,7 +184,8 @@ class _IndependentHost:
         values = tuple(row.values[0] for row in batch.feedback.rows)
         if any(value.transform != self._state.transform or value.value is None for value in values):
             raise ValueError("Unknown or differently transformed host observations are not zero")
-        assert values[0].value is not None and values[1].value is not None
+        assert values[0].value is not None
+        assert values[1].value is not None
         totals = (self._state.totals[0] + Fraction(values[0].value), self._state.totals[1] + Fraction(values[1].value))
         self._state = _HostState(
             loss_spec=self._state.loss_spec,
@@ -252,7 +253,8 @@ def test_each_actual_shipped_method_passes_shared_direct_and_restored_paths(meth
         assert isinstance(decision.action, MixtureAction)
         assert tuple(weight.member for weight in decision.action.weights) == MEMBERS
         assert all(weight.value > 0 for weight in decision.action.weights)
-        assert decision.sampling.status == "not_required" and decision.sampling.probability is None
+        assert decision.sampling.status == "not_required"
+        assert decision.sampling.probability is None
         assert isinstance(batch.feedback, FullPanel)
         assert tuple(row.member for row in batch.feedback.rows) == MEMBERS
     second = report.decisions[1].action
@@ -298,7 +300,8 @@ def test_controlled_anchored_bounded_round_cadence_passes_shared_restored_paths(
     # and final reconstructed paths all receive the same three genuine panels.
     for app in (instances[1], instances[2], instances[-1]):
         state = app.export_state().method.payload
-        assert state.update_count == 3 and state.release_count == 1
+        assert state.update_count == 3
+        assert state.release_count == 1
         assert len(state.pending) == 1
 
 

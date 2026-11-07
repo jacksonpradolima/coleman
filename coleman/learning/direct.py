@@ -21,6 +21,7 @@ from coleman.core.feedback import FeedbackBatch, FullPanel
 from coleman.core.identity import Reference
 from coleman.core.numeric import ScalarSpec
 from coleman.core.primitives import canonical_json, fingerprint
+from coleman.core.reading import bounded_json_bytes
 from coleman.core.sampling import SamplingRecord
 from coleman.core.temporal import Timestamp
 from coleman.learning.contracts import MAXIMUM_BYTES, _BoundedContract, read_loss_panel
@@ -395,7 +396,14 @@ class DirectMixture[P: CoreContract]:
     def _snapshot(
         self, method: AlgorithmState[P], *, pending: tuple[ExecutedDecision, ...], decisions: int, updates: int
     ) -> DirectMixtureState[P]:
-        """Construct complete bounded candidate state without assigning it."""
+        """Construct complete bounded candidate state without assigning it.
+
+        Notes
+        -----
+        The constructor revalidates all fields and the selected byte limit.
+        Serialize only this fresh local DTO for the hard byte/depth guard;
+        no host callback intervenes. Public writers still revalidate inputs.
+        """
         if self._method.update_count != self._frontier.initial_updates + updates:
             raise ValueError("Direct snapshot and actual mathematical update clocks disagree")
         state = self._contract(
@@ -408,7 +416,8 @@ class DirectMixture[P: CoreContract]:
             initial_updates=self._frontier.initial_updates,
             pending=pending,
         )
-        if len(state.to_json().encode("utf-8")) > self._options.maximum_bytes:
+        content = bounded_json_bytes(canonical_json(state.model_dump(mode="json")), MAXIMUM_BYTES)
+        if len(content) > self._options.maximum_bytes:
             raise ValueError("Direct complete state exceeds its selected byte capacity")
         return state
 

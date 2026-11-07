@@ -10,7 +10,7 @@ from pydantic import model_validator
 from coleman.core.actions import Weight
 from coleman.core.base import CoreImmutable
 from coleman.core.identity import Reference
-from coleman.core.primitives import fingerprint
+from coleman.core.primitives import canonical_json, fingerprint
 from coleman.core.temporal import Timestamp
 from coleman.learning._controlled_output import ReleaseProposal
 from coleman.learning.contracts import LearningFailure
@@ -114,9 +114,15 @@ def checked_state(binding: StateBinding, payload: ControlledPayload) -> Algorith
     ------
     ValueError, TypeError
         Invalid version/content, selected count limits or whole-state byte cap.
+
+    Notes
+    -----
+    Construction revalidates every supplied field. The byte check serializes
+    only that fresh local snapshot; no host callback or live assignment
+    intervenes. Public serialization and restored inputs remain revalidated.
     """
     result = AlgorithmState[ControlledPayload](schema_version=1, binding=binding, payload=payload)
-    if len(result.to_json().encode("utf-8")) > payload.config.limits.maximum_bytes:
+    if len(canonical_json(result.model_dump(mode="json")).encode("utf-8")) > payload.config.limits.maximum_bytes:
         raise ValueError("Controlled complete state exceeds the selected byte capacity")
     return result
 

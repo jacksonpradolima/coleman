@@ -23,7 +23,8 @@ def collection_example():
     name = "authored_learning_collection_test"
     path = ROOT / "examples/learning/collection.py"
     spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
     spec.loader.exec_module(module)
@@ -36,7 +37,8 @@ def collection_driver():
     name = "authored_learning_collection_source_driver"
     path = ROOT / "tests/learning/installed_collection_driver.py"
     spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
     spec.loader.exec_module(module)
@@ -52,7 +54,8 @@ def test_source_real_reference_moving_and_holding_roots_are_complete(collection_
     inventory = RootInventory(owners[-1].recipe_bindings, tuple(root for report in reports for root in report.roots))
     DeclaredRootGuard(layout.ownership).check(inventory)
     summary = example.summary(layout, owners)
-    assert summary["D"] == 12 and summary["U"] == summary["pending"] == 6
+    assert summary["D"] == 12
+    assert summary["U"] == summary["pending"] == 6
     assert summary["moving_exact_usage_positive"] is True
     assert summary["optimal_holds_spend_zero"] is True
     assert len(inventory.roots) == 18
@@ -82,7 +85,8 @@ def test_source_full32_shipped_profiles_complete_the_same_exact_movement_period(
         64,
         64,
     )
-    assert before["R_controlled"] == 18 and before["origins"] == 128
+    assert before["R_controlled"] == 18
+    assert before["origins"] == 128
     assert before["moving_children"] == before["holding_children"] == 6
     example.complete_pending(layout, owners)
     after = example.summary(layout, owners)
@@ -93,8 +97,10 @@ def test_source_full32_shipped_profiles_complete_the_same_exact_movement_period(
             payload = owner.method.export_state().payload
             recipe = next(item for item in layout.ownership.recipes if item.child == owner.specification.identity)
             assert recipe.controls == owner.method.config.binding
-            assert payload.release_count >= 2 and len(payload.periods) == 1
-            assert payload.exact_path is not None and payload.exact_path.through_origin == payload.origin.binding
+            assert payload.release_count >= 2
+            assert len(payload.periods) == 1
+            assert payload.exact_path is not None
+            assert payload.exact_path.through_origin == payload.origin.binding
     assert hashlib.sha256(source.read_bytes()).hexdigest() == before_source
     proof = {"before": before, "after": after, "source_sha256": before_source, "initial_components": len(initial)}
     artifact = tmp_path / "source32-summary.json"
@@ -106,11 +112,14 @@ def test_source_actual_store_failure_preserves_all_complete_states_and_exact_ret
     example = collection_driver.load_example()
     layout = example.collection_layout((0, 3, 4))
     result = collection_driver.failed_then_retry(tmp_path / "source-store", layout=layout)
-    assert result["generation"] == 1 and result["status"] == "new" and result["retry"] == "retained"
+    assert result["generation"] == 1
+    assert result["status"] == "new"
+    assert result["retry"] == "retained"
     assert result["failure_kept_original_head_and_all_states"] is True
     assert result["retained_retry_callbacks"] == 0
     assert result["callbacks"].count("transition") == 2
-    assert result["observation"]["U"] == 12 and result["observation"]["pending"] == 0
+    assert result["observation"]["U"] == 12
+    assert result["observation"]["pending"] == 0
 
 
 @pytest.fixture(scope="module")
@@ -187,7 +196,8 @@ def direct_qualification(installed_collection):
         phases = {}
         for phase in ("reference", "interleaved", "restored", "completed"):
             result = invoke(installed, "direct", root, order, phase)
-            assert result["order"] == order and result["phase"] == phase
+            assert result["order"] == order
+            assert result["phase"] == phase
             assert json.loads((root / f"{order}-{phase}.json").read_text()) == result
             if identity is None:
                 identity = result["identity"]
@@ -249,9 +259,12 @@ def test_installed_actual33_owner_failure_then_retry_matches_uninterrupted_full_
     assert failure["callbacks"].count("transition") == 1
     result = invoke(installed, "retry-transition", root)
     assert result["failed_transition_sha256"] == hashlib.sha256(failed_bytes).hexdigest()
-    assert result["generation"] == 1 and result["status"] == "new" and result["retry"] == "retained"
+    assert result["generation"] == 1
+    assert result["status"] == "new"
+    assert result["retry"] == "retained"
     assert result["failure_kept_original_head_and_all_states"] is True
-    assert result["retained_retry_callbacks"] == 0 and result["callbacks"].count("transition") == 2
+    assert result["retained_retry_callbacks"] == 0
+    assert result["callbacks"].count("transition") == 2
     assert result["final_sha256"] == direct_qualification[0]["isolated_reference"]["final_sha256"]
     observed = result["observation"]
     assert (observed["children"], observed["components"], observed["D"], observed["U"], observed["pending"]) == (
@@ -327,20 +340,24 @@ def test_installed_actual_two_writers_have_one_callback_winner_and_zero_callback
         (case / "start-contention").write_text("attempt under actual held SQLite ownership")
         wait_for(case / "loser-busy.json", loser)
         busy = json.loads((case / "loser-busy.json").read_text())
-        assert busy["callbacks"] == [] and busy["lock_wait_seconds"] == 30.0
-        assert busy["elapsed_seconds"] > 0.0 and winner.poll() is None
+        assert busy["callbacks"] == []
+        assert busy["lock_wait_seconds"] == 30.0
+        assert busy["elapsed_seconds"] > 0.0
+        assert winner.poll() is None
         (case / "release-lock").write_text("publish the actual completed winner")
         output, error = winner.communicate(timeout=PROCESS_OBSERVATION_SECONDS)
         assert winner.returncode == 0, output + error
         winning = json.loads(output)
-        assert winning["status"] == "new" and winning["generation"] == 1
+        assert winning["status"] == "new"
+        assert winning["generation"] == 1
         assert winning["callbacks"].count("transition") == 1
         assert sum(item.startswith("factory:") for item in winning["callbacks"]) == 33
         (case / "retry-loser").write_text("reconcile the original predecessor and intent")
         output, error = loser.communicate(timeout=PROCESS_OBSERVATION_SECONDS)
         assert loser.returncode == 0, output + error
         losing = json.loads(output)
-        assert losing["status"] == ("rejected" if divergent else "retained") and losing["callbacks"] == []
+        assert losing["status"] == ("rejected" if divergent else "retained")
+        assert losing["callbacks"] == []
         observed = invoke(installed, "inspect", root)
         assert (
             observed["generation"],

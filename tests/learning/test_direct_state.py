@@ -1,19 +1,26 @@
 """Exercise real direct snapshot readers, original producers and callback order."""
 
+from __future__ import annotations
+
 import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from coleman.core.actions import ChoiceSpace, MixtureAction, MixtureSpace, Weight
+from coleman.core.base import CoreContract
 from coleman.core.decisions import Decision, DecisionRequest, ExecutedDecision, StateOwner
 from coleman.core.feedback import FeedbackBatch, FeedbackRow, FullPanel, OutcomeValue
 from coleman.core.identity import Reference
+from coleman.core.numeric import ScalarSpec
+from coleman.core.primitives import canonical_json, fingerprint
 from coleman.core.sampling import SamplingRecord
 from coleman.core.timing import DecisionTiming, FeedbackTiming
-from coleman.learning.contracts import LearningUpdate, ReferenceConfig
+from coleman.learning.contracts import LearningUpdate, ReferenceConfig, ReferencePayload
 from coleman.learning.direct import DirectMixture, LearningApplicationError
 from coleman.learning.reference import Hedge
+from coleman.objectives.bindings import DefinitionBinding
+from coleman.state.contracts import AlgorithmState, StateBinding
 from tests.learning.test_direct_conformance import OBJECTIVE, TASK, _cases, _config
 
 
@@ -427,7 +434,8 @@ def test_pending_conflict_and_capacity_reject_before_another_decision():
         adapter.decide(conflicting)
     with pytest.raises(ValueError, match="producer capacity"):
         adapter.decide(second.request)
-    assert adapter.export_state().to_json() == before and kernel.update_count == 0
+    assert adapter.export_state().to_json() == before
+    assert kernel.update_count == 0
 
 
 @pytest.mark.parametrize("change", ["horizon", "transform"])
@@ -450,7 +458,8 @@ def test_wrong_feedback_interpretation_rejects_without_consuming_original_produc
     before = adapter.export_state().to_json()
     with pytest.raises(ValueError, match="horizon|transform"):
         adapter.update(candidate)
-    assert kernel.update_count == 0 and adapter.export_state().to_json() == before
+    assert kernel.update_count == 0
+    assert adapter.export_state().to_json() == before
 
 
 def test_foreign_direct_binding_rejects_before_trusted_mathematical_restore():
@@ -462,7 +471,8 @@ def test_foreign_direct_binding_rejects_before_trusted_mathematical_restore():
     before = adapter.export_state().to_json()
     with pytest.raises(ValueError, match="owner/options binding"):
         adapter.restore_state(candidate)
-    assert kernel.restore_calls == 0 and adapter.export_state().to_json() == before
+    assert kernel.restore_calls == 0
+    assert adapter.export_state().to_json() == before
 
 
 def test_real_underflow_update_invalidates_bridge_without_acknowledging_or_rewriting_panel():
@@ -474,7 +484,8 @@ def test_real_underflow_update_invalidates_bridge_without_acknowledging_or_rewri
     batch = _batch(_execution(adapter), kernel.config, (0.0, 1.0))
     with pytest.raises(LearningApplicationError, match="did not accept"):
         adapter.update(batch)
-    assert kernel.update_count == 0 and kernel.export_state().to_json() == before.method.to_json()
+    assert kernel.update_count == 0
+    assert kernel.export_state().to_json() == before.method.to_json()
     with pytest.raises(LearningApplicationError, match="invalidated"):
         adapter.export_state()
     adapter.restore_state(before)
@@ -489,3 +500,144 @@ def test_external_real_kernel_update_invalidates_the_exclusive_direct_owner():
         adapter.export_state()
     adapter.restore_state(original)
     assert adapter.export_state().to_json() == original.to_json()
+
+
+class _SnapshotNode(CoreContract):
+    """Keep finite declared context whose complete container depth is explicit."""
+
+    child: _SnapshotNode | None
+
+
+class _NestedPayload(CoreContract):
+    """Retain the actual shipped statistics and all typed contextual state."""
+
+    learner: ReferencePayload
+    context: _SnapshotNode
+
+
+class _NestedSnapshotKernel:
+    """Wrap actual Hedge with declared immutable context, never mock its math."""
+
+    def __init__(self, layers: int):
+        self._kernel = Hedge(_config(), owner=_ref("nested-snapshot-owner"))
+        node = _SnapshotNode(schema_version=1, child=None)
+        for _ in range(layers - 1):
+            node = _SnapshotNode(schema_version=1, child=node)
+        self._context = node
+        self._binding = StateBinding(
+            owner=self._kernel.binding.owner,
+            implementation=DefinitionBinding(
+                reference=_ref("nested-snapshot-shipped-hedge-wrapper"),
+                definition_fingerprint=fingerprint({"underlying": self._kernel.binding.model_dump(mode="json")}),
+            ),
+            state_codec=_ref("nested-snapshot-test-codec"),
+            configuration_fingerprint=fingerprint(
+                {"learner": self._kernel.binding.configuration_fingerprint, "layers": layers}
+            ),
+        )
+
+    @property
+    def binding(self) -> StateBinding:
+        return self._binding
+
+    @property
+    def members(self) -> tuple[Reference, ...]:
+        return self._kernel.members
+
+    @property
+    def loss_spec(self) -> ScalarSpec:
+        return self._kernel.loss_spec
+
+    @property
+    def transform(self) -> DefinitionBinding:
+        return self._kernel.transform
+
+    @property
+    def weights(self) -> tuple[Weight, ...]:
+        return self._kernel.weights
+
+    @property
+    def update_count(self) -> int:
+        return self._kernel.update_count
+
+    def observe(self, panel: FullPanel, /) -> LearningUpdate:
+        return self._kernel.observe(panel)
+
+    def export_state(self) -> AlgorithmState[_NestedPayload]:
+        return AlgorithmState[_NestedPayload](
+            schema_version=1,
+            binding=self.binding,
+            payload=_NestedPayload(
+                schema_version=1, learner=self._kernel.export_state().payload, context=self._context
+            ),
+        )
+
+    def restore_state(self, state: AlgorithmState[_NestedPayload], /) -> None:
+        checked = AlgorithmState[_NestedPayload].model_validate(state)
+        if checked.binding != self.binding or checked.payload.context != self._context:
+            raise ValueError("The complete nested snapshot law/context must remain unchanged")
+        self._kernel.restore_state(
+            AlgorithmState[ReferencePayload](
+                schema_version=1, binding=self._kernel.binding, payload=checked.payload.learner
+            )
+        )
+
+
+def _container_depth(value: object) -> int:
+    """Count actual decoded containers independently of the production scanner."""
+    if isinstance(value, dict):
+        return 1 + max((_container_depth(item) for item in value.values()), default=0)
+    if isinstance(value, list):
+        return 1 + max((_container_depth(item) for item in value), default=0)
+    return 0
+
+
+@pytest.mark.parametrize("layers", [61, 62], ids=["depth64", "depth65"])
+def test_actual_generic_fresh_snapshot_retains_hard_depth_guard(layers):
+    kernel = _NestedSnapshotKernel(layers)
+    method = kernel.export_state()
+    original = method.to_json()
+    # AlgorithmState adds two containers above the typed chain. The complete
+    # DirectMixtureState adds one more, without changing the mathematical host.
+    assert _container_depth(json.loads(original)) == layers + 2
+    assert len(original.encode("utf-8")) < 16777216
+    if layers == 62:
+        with pytest.raises(ValueError, match="depth.*64"):
+            DirectMixture(kernel, task=TASK, objective=OBJECTIVE)
+    else:
+        adapter = DirectMixture(kernel, task=TASK, objective=OBJECTIVE)
+        state = adapter.export_state()
+        wire = state.to_json()
+        assert _container_depth(json.loads(wire)) == 64
+        assert wire == canonical_json(state.model_dump(mode="json"))
+        assert state.method.to_json() == original
+        assert state.initial_updates == 0
+    assert kernel.update_count == 0
+    assert kernel.export_state().to_json() == original
+
+
+def test_fresh_direct_snapshot_preserves_canonical_utf8_and_exact_selected_byte_cap():
+    kernel = Hedge(_config(), owner=_ref("exact-fresh-byte-owner"))
+    task = _ref("constructed-ci-á")
+    baseline = DirectMixture(kernel, task=task, objective=OBJECTIVE, maximum_bytes=9999)
+    original = baseline.export_state()
+    wire = canonical_json(original.model_dump(mode="json"))
+    size = len(wire.encode("utf-8"))
+    assert len(wire) < size
+    assert 1000 <= size < 9999
+    # All selected caps below have four decimal digits. Only fixed-length
+    # fingerprints change, so the complete serialized state has the same size.
+    accepted_kernel = Hedge(kernel.config, owner=kernel.binding.owner)
+    accepted = DirectMixture(accepted_kernel, task=task, objective=OBJECTIVE, maximum_bytes=size)
+    state = accepted.export_state()
+    canonical = canonical_json(state.model_dump(mode="json"))
+    assert state.to_json() == canonical
+    assert len(canonical.encode("utf-8")) == size
+    assert state.method.to_json() == original.method.to_json()
+    refused_kernel = Hedge(kernel.config, owner=kernel.binding.owner)
+    before = refused_kernel.export_state().to_json()
+    selected_cap = size - 1
+    with pytest.raises(ValueError, match="selected byte capacity"):
+        DirectMixture(refused_kernel, task=task, objective=OBJECTIVE, maximum_bytes=selected_cap)
+    assert refused_kernel.update_count == 0
+    assert refused_kernel.export_state().to_json() == before

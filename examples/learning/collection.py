@@ -745,8 +745,8 @@ def summary(layout: Layout, owners: tuple[Any, ...]) -> dict[str, object]:
     """
     children = owners[:-1]
     controllers = tuple(owner.method for owner in children if isinstance(owner.method, ControlledHedge))
-    moving = tuple(method for method in controllers if _strength(method) == 0.01)
-    holding = tuple(method for method in controllers if _strength(method) == 1.0)
+    moving = tuple(method for method in controllers if _strength_identity(method) == float.hex(0.01))
+    holding = tuple(method for method in controllers if _strength_identity(method) == float.hex(1.0))
     return {
         "evidence": "authored-shipped-learning-operational-collection",
         "children": len(children),
@@ -764,12 +764,12 @@ def summary(layout: Layout, owners: tuple[Any, ...]) -> dict[str, object]:
     }
 
 
-def _strength(method: ControlledHedge) -> float:
-    """Require the actual positive-L1 law before classifying a child."""
+def _strength_identity(method: ControlledHedge) -> str:
+    """Classify the declared L1 law by exact binary64 identity, without rounding."""
     output = method.config.controls.output
     if not isinstance(output, L1MovementPenalty):
         raise ValueError("The controlled collection requires its explicit L1 profile")
-    return output.strength
+    return output.strength.hex()
 
 
 def _path_atoms(method: ControlledHedge) -> tuple[int, ...]:

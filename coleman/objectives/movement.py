@@ -62,7 +62,7 @@ def _canonical_atoms(value: object) -> str:
         raise ValueError("Exact movement atoms require a built-in decimal string")
     if not 1 <= len(value) <= _MAX_ATOM_DIGITS or not value.isascii() or not value.isdecimal():
         raise ValueError("Exact movement atoms require one through 632 ASCII digits")
-    if len(value) > 1 and value[0] == "0":
+    if len(value) > 1 and value.startswith("0"):
         raise ValueError("Exact movement atoms forbid leading zeroes")
     return value
 

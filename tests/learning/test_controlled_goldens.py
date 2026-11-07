@@ -69,7 +69,8 @@ def test_controlled_law_golden_is_canonical_complete_and_separate_from_dynamic_o
     encoded = (FIXTURES / "controlled-law-v1.json").read_text().rstrip("\n")
     law = ControlledConfig.from_json(encoded)
     assert law.to_json() == encoded
-    assert law.eta == 0.0 and law.controls.target is not None
+    assert law.eta == 0.0
+    assert law.controls.target is not None
     assert law.controls.target.alpha == 1.0
     assert tuple(Fraction(item.value) for item in law.controls.initial_prior.weights) == (
         Fraction(1, 2),
@@ -104,7 +105,8 @@ def test_pending_golden_continues_to_moving_then_optimal_hold_released_golden():
     state = _read((FIXTURES / "controlled-pending-state-v1.json").read_bytes(), learner)
     learner.restore_state(state)
     assert (learner.update_count, learner.release_count) == (1, 0)
-    assert len(state.payload.pending) == 1 and state.payload.exact_path is not None
+    assert len(state.payload.pending) == 1
+    assert state.payload.exact_path is not None
     assert all(item.atoms_decimal == "0" for item in state.payload.exact_path.used)
     moving = learner.observe(
         _panel(learner.config, (1.0, 0.0, 0.5)),
@@ -136,10 +138,12 @@ def test_pending_golden_continues_to_moving_then_optimal_hold_released_golden():
     )
     assert held.disposition == "released"
     assert tuple(Fraction(weight.value) for weight in learner.weights) == expected
-    assert held.exact_path_before is not None and held.exact_path_before.used == before_hold.used
+    assert held.exact_path_before is not None
+    assert held.exact_path_before.used == before_hold.used
     assert held.movement_usage is None
     actual = learner.export_state()
-    assert actual.payload.exact_path is not None and actual.payload.exact_path.used == before_hold.used
+    assert actual.payload.exact_path is not None
+    assert actual.payload.exact_path.used == before_hold.used
     assert (actual.payload.update_count, actual.payload.release_count, actual.payload.consumed_panels) == (4, 2, 4)
     assert actual.to_json() == (FIXTURES / "controlled-released-state-v1.json").read_text().rstrip("\n")
 

@@ -73,7 +73,8 @@ def test_complete_pending_continuation_resumes_after_drain_before_release_identi
     delayed = example.feedback(first, direct.learner.config, (0.0, 1.0, 0.5), visible=2)
     replay.admit_feedback((delayed, delayed))
     replay.advance(eligible_through=example.NOW + timedelta(minutes=2), apply_at=example.NOW + timedelta(minutes=3))
-    assert direct.learner.update_count == 1 and direct.learner.release_count == 0
+    assert direct.learner.update_count == 1
+    assert direct.learner.release_count == 0
     pending = replay.export_continuation()
     decoded = read_continuation(pending.to_json(), state_type=direct.state_type)
     fresh = application(example, strength=strength)
@@ -121,12 +122,14 @@ def test_every_reference_consumes_actual_delayed_replay_application_with_origina
     replay.advance(eligible_through=example.NOW + timedelta(minutes=2), apply_at=example.NOW + timedelta(minutes=3))
     assert direct.learner.update_count == 1
     state = direct.export_state()
-    assert state.decision_count == 2 and state.update_count == 1
+    assert state.decision_count == 2
+    assert state.update_count == 1
     assert len(state.pending) == 1
     accepted = replay.state.updates[0].application
     assert accepted.executed.to_json() == first.executed.to_json()
     assert accepted.eligible_at != accepted.apply_at
-    assert accepted.update_count_before == 0 and accepted.decision_count_before == 2
+    assert accepted.update_count_before == 0
+    assert accepted.decision_count_before == 2
     assert direct.learner.weights != config.prior.weights
 
 
@@ -160,5 +163,6 @@ def test_closed_drain_can_apply_after_information_cutoff_before_the_same_release
     assert accepted.apply_at > replay.state.decisions[-1].opportunity.request.timing.information_cutoff
     assert direct.learner.update_count == direct.learner.release_count == 1
     result = direct.learner.last_outcome
-    assert result is not None and result.disposition == "released"
+    assert result is not None
+    assert result.disposition == "released"
     assert direct.export_state().direct.method.payload.pending == ()

@@ -93,11 +93,15 @@ def test_legacy_residual_admission_and_exact_empty_simplex_remain_distinct():
     result = solve_mixture_output(
         proposal=current.weights, bounds=declared, origin=current, output=ProjectionOutput(), movement=hard
     )
-    assert old.status == "feasible" and old.exact_feasible is False
-    assert exact.status == "infeasible" and exact.reason == "simplex_sum"
+    assert old.status == "feasible"
+    assert old.exact_feasible is False
+    assert exact.status == "infeasible"
+    assert exact.reason == "simplex_sum"
     assert exact.legacy_intersection is not None
     assert exact.legacy_intersection.to_json() == old.to_json()
-    assert result.status == "infeasible" and result.weights is None and result.proposal == current.weights
+    assert result.status == "infeasible"
+    assert result.weights is None
+    assert result.proposal == current.weights
 
 
 def test_exact_intervals_retain_unrounded_original_movement_endpoints():
@@ -130,7 +134,8 @@ def test_exact_dyadic_hold_plateau_has_one_output_and_a_deterministic_multiplier
         origin=current,
         output=penalty(current, 0.25),
     )
-    assert result.status == "optimal" and result.weights == current.weights
+    assert result.status == "optimal"
+    assert result.weights == current.weights
     assert result.certificate is not None
     assert result.certificate.exact_weights == (Fraction(1, 2), Fraction(1, 4), Fraction(1, 4))
     assert result.certificate.full_l1 == 0
@@ -141,8 +146,11 @@ def test_positive_subnormal_optimizer_underflow_is_a_typed_failure():
     current = origin((0.5, 0.5))
     proposed = weights((math.ulp(0.0), 1.0))
     result = solve_mixture_output(proposal=proposed, bounds=bounds(2), origin=current, output=ProjectionOutput())
-    assert result.status == "numerical_failure" and result.reason == "nonrepresentable_output"
-    assert result.weights is None and result.certificate is None and result.proposal == proposed
+    assert result.status == "numerical_failure"
+    assert result.reason == "nonrepresentable_output"
+    assert result.weights is None
+    assert result.certificate is None
+    assert result.proposal == proposed
     assert result.geometry.status == "feasible"
 
 
@@ -153,7 +161,8 @@ def test_exact_endpoint_feasibility_does_not_excuse_rounding_outside_the_box():
         proposal=weights((0.5, 0.5)), bounds=bounds(2), origin=current, output=ProjectionOutput(), movement=hard
     )
     assert result.geometry.status == "feasible"
-    assert result.status == "numerical_failure" and result.reason == "rounded_box"
+    assert result.status == "numerical_failure"
+    assert result.reason == "rounded_box"
 
 
 def test_exact_diagnostics_do_not_overflow_or_pretend_to_be_finite_float_values():
@@ -165,7 +174,8 @@ def test_exact_diagnostics_do_not_overflow_or_pretend_to_be_finite_float_values(
         origin=current,
         output=penalty(current, maximum),
     )
-    assert result.status == "optimal" and result.weights == weights((0.0, 1.0))
+    assert result.status == "optimal"
+    assert result.weights == weights((0.0, 1.0))
     assert result.certificate is not None
     assert result.certificate.objective == 2 * Fraction(maximum)
     assert result.certificate.objective > Fraction(maximum)
@@ -181,7 +191,8 @@ def test_penalty_origin_joins_include_version_and_original_signed_zero_bytes():
         solve_mixture_output(proposal=proposed, bounds=declared, origin=current, output=selected)
     a = exact_mixture_intervals(declared, current)
     b = exact_mixture_intervals(declared, different)
-    assert a.intervals == b.intervals and a.inputs_fingerprint != b.inputs_fingerprint
+    assert a.intervals == b.intervals
+    assert a.inputs_fingerprint != b.inputs_fingerprint
     result = solve_mixture_output(proposal=proposed, bounds=declared, origin=current, output=ProjectionOutput())
     assert math.copysign(1.0, result.proposal[0].value) == -1.0
 
@@ -241,8 +252,10 @@ def test_holds_charge_zero_but_advance_release_and_do_not_erase_signed_origin():
     initial = initial_exact_path_usage(interval=ref("period"), movement=hard, origin=current)
     first_release = ref("release")
     held = advance_exact_path_usage(usage=initial, origin=current, emitted=current, release=first_release)
-    assert held.used == initial.used and held.through_origin == current.binding
-    assert held.through_release == first_release and held.fingerprint != initial.fingerprint
+    assert held.used == initial.used
+    assert held.through_origin == current.binding
+    assert held.through_release == first_release
+    assert held.fingerprint != initial.fingerprint
     with pytest.raises(ValueError, match="same release twice"):
         advance_exact_path_usage(usage=held, origin=current, emitted=current, release=first_release)
 
@@ -312,7 +325,8 @@ def test_full_4096_coordinate_domain_and_extreme_finite_strength_are_admitted():
         origin=current,
         output=penalty(current, float.fromhex("0x1.fffffffffffffp+1023")),
     )
-    assert result.status == "optimal" and result.weights == current.weights
+    assert result.status == "optimal"
+    assert result.weights == current.weights
     assert result.certificate is not None
     assert result.certificate.simplex_residual == result.certificate.full_l1 == 0
 
@@ -326,6 +340,8 @@ def test_full_4096_distinct_breakpoint_domain_matches_symmetric_scalar_arithmeti
     result = solve_mixture_output(
         proposal=proposed, bounds=bounds(count), origin=current, output=penalty(current, strength)
     )
-    assert result.status == "optimal" and result.weights == weights(expected)
-    assert result.certificate is not None and result.certificate.dual == 0
+    assert result.status == "optimal"
+    assert result.weights == weights(expected)
+    assert result.certificate is not None
+    assert result.certificate.dual == 0
     assert result.certificate.maximum_rounding_error == result.certificate.simplex_residual == 0

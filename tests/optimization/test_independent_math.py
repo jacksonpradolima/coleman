@@ -212,7 +212,8 @@ def test_authored_five_vector_accounting_exposes_nearest_rounding_overspend():
         if index == 4:
             assert exact[0] == Fraction(document["true_first_usage_after_release_4"]) == 1 + delta
             assert rounded[0] == float(document["nearest_first_usage_after_release_4"]) == 1.0
-    assert exact[1] <= 2 and exact[2] <= 2
+    assert exact[1] <= 2
+    assert exact[2] <= 2
 
 
 def test_exact_variation_partition_reversal_stutter_and_subnormal_quantum():
@@ -292,7 +293,8 @@ def _require_oracle_agreement(result, proposal, old, lower, upper, strength):
         return
     assert result.status == "optimal", result.reason
     certificate = result.certificate
-    assert certificate is not None and result.weights is not None
+    assert certificate is not None
+    assert result.weights is not None
     assert certificate.exact_weights == expected.weights
     assert certificate.exact_objective == expected.objective
     assert expected.dual_lower is None or certificate.dual >= expected.dual_lower
@@ -418,8 +420,10 @@ def test_exact_empty_thirds_preserves_legacy_numerical_admission_and_original_by
     before = (current.to_json(), bounds.to_json(), movement.to_json())
     legacy = check_mixture_intersection(bounds, current, movement=movement)
     exact = exact_mixture_intervals(bounds, current, movement=movement)
-    assert legacy.status == "feasible" and legacy.exact_feasible is False
-    assert exact.status == "infeasible" and exact.reason == "simplex_sum"
+    assert legacy.status == "feasible"
+    assert legacy.exact_feasible is False
+    assert exact.status == "infeasible"
+    assert exact.reason == "simplex_sum"
     assert exact.legacy_intersection == legacy
     assert before == (current.to_json(), bounds.to_json(), movement.to_json())
 
@@ -493,7 +497,8 @@ def test_real_fixed_geometry_total_exact_movement_is_nonincreasing_in_strength()
         result = solve_mixture_output(
             proposal=_weights(proposal), bounds=bounds, origin=current, output=_penalty(current, strength)
         )
-        assert result.status == "optimal" and result.certificate is not None
+        assert result.status == "optimal"
+        assert result.certificate is not None
         movements.append(full_movement(result.certificate.exact_weights, _stored(old)))
     assert movements == sorted(movements, reverse=True)
 

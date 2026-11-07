@@ -111,7 +111,8 @@ def test_transition_endpoints_and_single_expert_are_independent_of_loss(alpha):
 
 def test_tiny_other_mass_survives_matrix_share_when_largest_binary64_q_rounds_to_one():
     q = _scalar_exponential((0.5, 0.5), (0.0, 1.0), 40.0)
-    assert float(q[0]) == 1.0 and float(q[1]) > 0
+    assert float(q[0]) == 1.0
+    assert float(q[1]) > 0
     expected = _matrix_share(q, 1.0)
     assert expected == tuple(reversed(q))
     assert expected[0] > Decimal("4e-18")
@@ -246,7 +247,8 @@ def test_actual_excluding_origin_primitive_matches_explicit_transition_matrix(pr
 
 def test_actual_share_retains_other_mass_when_largest_q_rounds_to_one():
     q = exp_update(_weights((0.5, 0.5)), (0.0, 1.0), 40.0)
-    assert q[0].value == 1 and q[1].value > 0
+    assert q[0].value == 1
+    assert q[1].value > 0
     result = excluding_origin_share(q, 1.0)
     assert result[0].value == q[1].value
     assert result[1].value == 1
@@ -268,7 +270,8 @@ def test_actual_positive_underflow_is_a_refusal_rather_than_new_structural_zero(
     prior = _weights((0.5, 0.5))
     losses = (0.0, 1.0)
     expected = _scalar_exponential((0.5, 0.5), losses, 1000.0)
-    assert expected[1] > 0 and float(expected[1]) == 0
+    assert expected[1] > 0
+    assert float(expected[1]) == 0
     with pytest.raises(LearningNumericalError, match="underflows"):
         exp_update(prior, losses, 1000.0)
     assert tuple(weight.value for weight in prior) == (0.5, 0.5)
@@ -304,7 +307,8 @@ def test_actual_reference_trajectory_matches_independent_scalar_and_matrix_arith
                 expected = _matrix_share(expected, alpha)
         oracle = tuple(float(value) for value in expected)
         result = learner.observe(_panel(config, losses))
-        assert result.status == "accepted" and result.update_count == step + 1
+        assert result.status == "accepted"
+        assert result.update_count == step + 1
         assert tuple(weight.value for weight in learner.weights) == pytest.approx(oracle, rel=4e-13, abs=2e-14)
         assert all(math.isfinite(weight.value) and weight.value > 0 for weight in learner.weights)
         assert abs(sum((Fraction.from_float(weight.value) for weight in learner.weights), Fraction()) - 1) <= Fraction(
@@ -392,7 +396,8 @@ def test_actual_reference_underflow_preserves_all_sufficient_state(method, profi
     learner = method(config, owner=Reference(id="underflow-owner", version="v1"))
     before = learner.export_state().to_json()
     result = learner.observe(_panel(config, (0.0, 1.0)))
-    assert result.status == "numerical_failure" and result.failure is not None
+    assert result.status == "numerical_failure"
+    assert result.failure is not None
     assert result.failure.code == "positive_underflow"
     assert learner.update_count == 0
     assert tuple(weight.value for weight in learner.weights) == (0.5, 0.5)

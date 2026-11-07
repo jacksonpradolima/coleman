@@ -149,10 +149,12 @@ def test_sum_exponential_then_one_target_share_precedes_actual_joint_output():
     assert values(result.summed_losses) == (0.0, 2.0)
     assert result.proposal is not None
     assert values(result.proposal) == pytest.approx((0.525, 0.475), abs=3e-16)
-    assert result.solution is not None and result.solution.status == "optimal"
+    assert result.solution is not None
+    assert result.solution.status == "optimal"
     assert result.solution.weights == weights((0.5, 0.5))
     assert result.failure is None
-    assert before == (config.to_json(), current.to_json(), tuple(item.to_json() for item in block))
+    actual_state = (config.to_json(), current.to_json(), tuple(item.to_json() for item in block))
+    assert actual_state == before
 
 
 def test_per_release_l1_origin_moves_without_rewriting_the_fixed_configuration():
@@ -165,8 +167,10 @@ def test_per_release_l1_origin_moves_without_rewriting_the_fixed_configuration()
     assert isinstance(config.controls.output, L1MovementPenalty)
     assert result.output.origin.to_json() == current.to_json()
     assert result.output.strength == config.controls.output.strength
-    assert result.solution is not None and result.solution.weights == current.weights
-    assert result.failure is None and config.to_json() == before
+    assert result.solution is not None
+    assert result.solution.weights == current.weights
+    assert result.failure is None
+    assert config.to_json() == before
     assert config.controls.output.origin.reference.id == "emitted-initial"
 
 
@@ -178,8 +182,10 @@ def test_lambda_zero_and_projection_share_proposal_geometry_and_qualified_output
     a = release_proposal(plain, current, block)
     b = release_proposal(penalized, current, block)
     assert a.proposal == b.proposal
-    assert a.solution is not None and b.solution is not None
-    assert a.solution.geometry == b.solution.geometry and a.solution.certificate == b.solution.certificate
+    assert a.solution is not None
+    assert b.solution is not None
+    assert a.solution.geometry == b.solution.geometry
+    assert a.solution.certificate == b.solution.certificate
     assert a.solution.weights == b.solution.weights
     assert a.input_fingerprint != b.input_fingerprint
 
@@ -190,7 +196,8 @@ def test_declared_share_preserves_and_restores_structural_zero_support(alpha, ex
     current = origin((1.0, 0.0))
     result = release_proposal(config, current, (accepted(config, (1.0, 0.0)),))
     assert result.proposal == weights(expected)
-    assert result.solution is not None and result.solution.weights == weights(expected)
+    assert result.solution is not None
+    assert result.solution.weights == weights(expected)
     assert result.failure is None
 
 
@@ -199,7 +206,8 @@ def test_share_positive_underflow_is_explicit_and_retains_finite_inputs():
     current = origin((0.0, 1.0))
     block = (accepted(config, (0.0, 0.0)),)
     result = release_proposal(config, current, block)
-    assert result.failure is not None and result.failure.code == "positive_underflow"
+    assert result.failure is not None
+    assert result.failure.code == "positive_underflow"
     assert result.proposal is result.solution is None
     assert values(result.summed_losses) == (0.0, 0.0)
     assert result.input_fingerprint == release_proposal(config, current, block).input_fingerprint
@@ -208,8 +216,10 @@ def test_share_positive_underflow_is_explicit_and_retains_finite_inputs():
 def test_exponential_underflow_cannot_be_silently_repaired_by_a_later_target():
     config = configuration(eta=10000.0, target=(0.0, 1.0), alpha=1.0)
     result = release_proposal(config, origin((0.5, 0.5)), (accepted(config, (0.0, 1.0)),))
-    assert result.failure is not None and result.failure.code == "positive_underflow"
-    assert result.proposal is result.solution is None and values(result.summed_losses) == (0.0, 1.0)
+    assert result.failure is not None
+    assert result.failure.code == "positive_underflow"
+    assert result.proposal is result.solution is None
+    assert values(result.summed_losses) == (0.0, 1.0)
 
 
 def test_original_proposal_survives_exact_infeasibility_under_legacy_admission():
@@ -223,20 +233,26 @@ def test_original_proposal_survives_exact_infeasibility_under_legacy_admission()
     config = configuration(prior=(1 / 3,) * 3, movement=hard)
     current = origin((1 / 3,) * 3)
     result = release_proposal(config, current, (accepted(config, (0.0,) * 3),))
-    assert result.failure is not None and result.failure.code == "infeasible"
+    assert result.failure is not None
+    assert result.failure.code == "infeasible"
     assert result.proposal == current.weights
-    assert result.solution is not None and result.solution.status == "infeasible"
+    assert result.solution is not None
+    assert result.solution.status == "infeasible"
     legacy = result.solution.geometry.legacy_intersection
-    assert legacy is not None and legacy.status == "feasible" and not legacy.exact_feasible
+    assert legacy is not None
+    assert legacy.status == "feasible"
+    assert not legacy.exact_feasible
 
 
 def test_solver_rounding_failure_retains_its_actual_solution_and_proposal():
     config = configuration(prior=(math.ulp(0.0), 1.0))
     current = origin((math.ulp(0.0), 1.0))
     result = release_proposal(config, current, (accepted(config, (0.0, 0.0)),))
-    assert result.failure is not None and result.failure.code == "positive_underflow"
+    assert result.failure is not None
+    assert result.failure.code == "positive_underflow"
     assert result.proposal == current.weights
-    assert result.solution is not None and result.solution.status == "numerical_failure"
+    assert result.solution is not None
+    assert result.solution.status == "numerical_failure"
     assert result.solution.reason == "nonrepresentable_output"
 
 
@@ -253,8 +269,10 @@ def test_exact_usage_limits_the_joint_output_without_spending_the_ledger():
     ledger = initial_exact_path_usage(interval=ref("period"), movement=hard, origin=current)
     before = ledger.to_json()
     result = release_proposal(config, current, (accepted(config, (0.0, 0.0)),), exact_path=ledger)
-    assert result.solution is not None and result.solution.weights == weights((0.875, 0.125))
-    assert result.failure is None and ledger.to_json() == before
+    assert result.solution is not None
+    assert result.solution.weights == weights((0.875, 0.125))
+    assert result.failure is None
+    assert ledger.to_json() == before
     assert values(result.proposal) == (0.5, 0.5)
 
 
@@ -265,8 +283,10 @@ def test_full_input_identity_distinguishes_original_blocks_with_equal_sum_and_ge
     b = (accepted(config, (1.0, 0.0), 1), accepted(config, (0.0, 1.0), 2))
     first = release_proposal(config, current, a)
     second = release_proposal(config, current, b)
-    assert first.summed_losses == second.summed_losses and first.proposal == second.proposal
-    assert first.solution is not None and second.solution is not None
+    assert first.summed_losses == second.summed_losses
+    assert first.proposal == second.proposal
+    assert first.solution is not None
+    assert second.solution is not None
     assert first.solution.geometry.inputs_fingerprint == second.solution.geometry.inputs_fingerprint
     assert first.input_fingerprint != second.input_fingerprint
     assert first.input_fingerprint != first.solution.geometry.inputs_fingerprint
@@ -324,7 +344,8 @@ def test_release_origin_requires_the_configured_expert_version_before_loss_work(
     before = config.to_json(), current.to_json(), block[0].to_json()
     with pytest.raises(ValueError, match="exact configured members and versions"):
         release_proposal(config, current, block)
-    assert (config.to_json(), current.to_json(), block[0].to_json()) == before
+    actual_state = (config.to_json(), current.to_json(), block[0].to_json())
+    assert actual_state == before
 
 
 def test_release_requires_concrete_accepted_panel_envelopes():
@@ -349,7 +370,8 @@ def test_complete_block_schema_bytes_are_coupled_even_inside_panel_count_capacit
     assert len(block) == config.limits.maximum_pending
     with pytest.raises(ValueError, match="loss schemas exceed the selected complete-byte capacity"):
         release_proposal(config, current, block)
-    assert (config.to_json(), current.to_json(), tuple(item.to_json() for item in block)) == before
+    actual_state = (config.to_json(), current.to_json(), tuple(item.to_json() for item in block))
+    assert actual_state == before
 
 
 def test_valid_residual_boundary_target_share_has_an_explicit_rounding_failure():
@@ -366,8 +388,11 @@ def test_valid_residual_boundary_target_share_has_an_explicit_rounding_failure()
     block = (accepted(config, (0.0, 0.0, 0.0)),)
     before = config.to_json(), current.to_json(), block[0].to_json()
     result = release_proposal(config, current, block)
-    assert result.failure is not None and result.failure.code == "normalization"
-    assert result.proposal is None and result.solution is None
+    assert result.failure is not None
+    assert result.failure.code == "normalization"
+    assert result.proposal is None
+    assert result.solution is None
     assert tuple(item.value for item in result.summed_losses) == (0.0, 0.0, 0.0)
     assert result.input_fingerprint.startswith("sha256:")
-    assert (config.to_json(), current.to_json(), block[0].to_json()) == before
+    actual_state = (config.to_json(), current.to_json(), block[0].to_json())
+    assert actual_state == before

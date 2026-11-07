@@ -81,26 +81,33 @@ def test_failed_interval_remains_abstained_after_held_feedback_until_successful_
 
     first = app.decide(request(0, 0, 0))
     delayed = app.decide(request(1, 0.5, 0.5))
-    assert isinstance(first.action, MixtureAction) and isinstance(delayed.action, MixtureAction)
+    assert isinstance(first.action, MixtureAction)
+    assert isinstance(delayed.action, MixtureAction)
     first_result = app.update(
         feedback(first, (0.0, 1.0, 1.0), 1),
         eligible_at=start + timedelta(seconds=1),
         apply_at=start + timedelta(seconds=1),
     )
-    assert isinstance(first_result, ControlOutcome) and first_result.disposition == "held"
+    assert isinstance(first_result, ControlOutcome)
+    assert first_result.disposition == "held"
     failed = app.decide(request(2, 3, 2))
     assert isinstance(failed.action, AbstainAction)
     failure = actual.last_outcome
-    assert failure is not None and failure.disposition == "numerical_failure"
-    assert failure.failure is not None and failure.failure.code == "positive_underflow"
-    assert actual.update_count == 1 and actual.release_count == 0
+    assert failure is not None
+    assert failure.disposition == "numerical_failure"
+    assert failure.failure is not None
+    assert failure.failure.code == "positive_underflow"
+    assert actual.update_count == 1
+    assert actual.release_count == 0
     second_result = app.update(
         feedback(delayed, (1.0, 0.0, 0.0), 4),
         eligible_at=start + timedelta(seconds=4),
         apply_at=start + timedelta(seconds=4),
     )
-    assert isinstance(second_result, ControlOutcome) and second_result.disposition == "held"
-    assert actual.update_count == 2 and actual.release_count == 0
+    assert isinstance(second_result, ControlOutcome)
+    assert second_result.disposition == "held"
+    assert actual.update_count == 2
+    assert actual.release_count == 0
     assert len(actual.export_state().payload.pending) == 2
     continuation = app.export_state()
     restored_kernel = ControlledHedge(config, owner=ref("independent-control-owner"))
@@ -114,9 +121,11 @@ def test_failed_interval_remains_abstained_after_held_feedback_until_successful_
         recovered = candidate.decide(request(4, 13, 12))
         assert isinstance(recovered.action, MixtureAction)
         assert tuple(weight.value for weight in recovered.action.weights) == (0.5, 0.25, 0.25)
-        assert candidate.learner.update_count == 2 and candidate.learner.release_count == 1
+        assert candidate.learner.update_count == 2
+        assert candidate.learner.release_count == 1
         payload = candidate.learner.export_state().payload
-        assert payload.unresolved_failure is None and not payload.pending
+        assert payload.unresolved_failure is None
+        assert not payload.pending
         assert payload.last_outcome is not None
         assert tuple(item.value for item in payload.last_outcome.summed_losses) == (1.0, 1.0, 1.0)
     assert restored.export_state().to_json() == app.export_state().to_json()

@@ -403,8 +403,9 @@ def test_complete_outer_state_must_fit_selected_bytes_not_just_payload():
     ceiling = len(state.payload.to_json().encode("utf-8")) + 100
     assert ceiling < len(state.to_json().encode("utf-8"))
     config = configuration(limits=ControlledLimits(maximum_bytes=ceiling))
+    owner_reference = ref("outer-byte-owner")
     with pytest.raises(ValueError, match="complete state.*byte capacity"):
-        ControlledHedge(config, owner=ref("outer-byte-owner"))
+        ControlledHedge(config, owner=owner_reference)
 
 
 @pytest.fixture(scope="module")

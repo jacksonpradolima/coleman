@@ -40,7 +40,9 @@ class ControlSchedule(_ControllerContract):
     calendar : Reference or None
         Required configured cadence calendar for interval mode; null for rounds.
     intervals : tuple of ReleaseInterval
-        Nonoverlapping chronological release intervals, with unique identities.
+        Nonoverlapping chronological release intervals, with unique identities
+        and unique release instants. Adjacent boundaries may touch, but their
+        releases must occur at distinct normalized UTC instants.
     periods : tuple of MovementPeriod
         Nonoverlapping chronological hard-budget periods, with unique identities.
 
@@ -59,7 +61,7 @@ class ControlSchedule(_ControllerContract):
 
     @model_validator(mode="after")
     def _sequences(self) -> Self:
-        """Retain complete chronological declarations without collapsing retries."""
+        """Keep chronological declarations and one unambiguous release per instant."""
         if (self.calendar is None) != (not self.intervals):
             raise ValueError("Exactly nonempty release intervals require a cadence calendar")
         for sequence in (self.intervals, self.periods):
@@ -68,6 +70,9 @@ class ControlSchedule(_ControllerContract):
                 raise ValueError("Scheduled logical interval identities must be unique")
             if any(later.start < previous.end for previous, later in zip(sequence, sequence[1:], strict=False)):
                 raise ValueError("Scheduled intervals cannot overlap or rewind")
+        releases = tuple(item.release_at for item in self.intervals)
+        if len(set(releases)) != len(releases):
+            raise ValueError("Scheduled release instants must be unique")
         return self
 
 

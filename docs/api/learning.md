@@ -50,6 +50,12 @@ acceptance, transaction fees or a synchronous theorem for delayed actions.
 
 ## Explicit controlled clocks and replay application
 
+`ControlSchedule` requires unique logical interval identities and unique UTC
+release instants. Adjacent intervals sharing a boundary cannot both release at
+that instant. Invalid plans reject during construction or snapshot reading,
+before the scheduled application invokes its learner; no release is silently
+selected from a group of coincident points.
+
 ::: coleman.learning.schedule
 
 ::: coleman.learning.replay

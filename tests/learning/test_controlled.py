@@ -52,7 +52,8 @@ def test_penalty_is_once_per_released_sum_block_and_next_step_uses_emitted_origi
     assert held.disposition == "held"
     assert held.output is held.proposal is None
     assert held.summed_losses == ()
-    assert learner.update_count == 1 and learner.release_count == 0
+    assert learner.update_count == 1
+    assert learner.release_count == 0
     restored = clone(learner)
     loss = panel(config, (0.0, 1.0, 1.0))
     first = learner.observe(loss)
@@ -65,7 +66,8 @@ def test_penalty_is_once_per_released_sum_block_and_next_step_uses_emitted_origi
     assert first.output.origin.to_json() == first.origin.to_json()
     assert first.emitted_origin.weights == learner.weights
     assert learner.config.to_json() == config.to_json()
-    assert learner.update_count == 2 and learner.release_count == 1
+    assert learner.update_count == 2
+    assert learner.release_count == 1
     assert initial != learner.export_state().to_json()
     learner.observe(panel(config, (1.0, 0.0, 0.0)))
     second = learner.observe(panel(config, (1.0, 0.0, 0.0)))
@@ -140,10 +142,12 @@ def test_exact_empty_intersection_retains_failed_block_and_rejects_fake_acceptan
     assert result.disposition == "infeasible"
     assert result.failure is not None
     assert result.failure.code == "infeasible"
-    assert learner.update_count == 1 and learner.release_count == 0
+    assert learner.update_count == 1
+    assert learner.release_count == 0
     before = learner.export_state().to_json()
+    next_panel = panel(config, (0.0, 0.5, 1.0))
     with pytest.raises(ValueError, match="retried"):
-        learner.observe(panel(config, (0.0, 0.5, 1.0)))
+        learner.observe(next_panel)
     assert learner.export_state().to_json() == before
     assert clone(learner).retry_release().to_json() == result.to_json()
 
@@ -163,12 +167,14 @@ def test_period_budget_round_trip_historical_retry_never_resets_usage_or_flushes
     assert not restored.begin_period(one, apply_at=START)
     assert restored.export_state().to_json() == before
     assert restored.begin_period(two, apply_at=two.start)
-    assert restored.release_count == 1 and restored.update_count == 3
+    assert restored.release_count == 1
+    assert restored.update_count == 3
     if measure == "accumulated_absolute":
         assert all(item.atoms_decimal == "0" for item in restored.export_state().payload.exact_path.used)
     final = restored.observe(panel(config, (1.0, 0.0, 0.0)), apply_at=two.start)
     assert final.disposition == "released"
-    assert restored.update_count == 4 and restored.release_count == 2
+    assert restored.update_count == 4
+    assert restored.release_count == 2
     after = restored.export_state().to_json()
     assert not restored.begin_period(one, apply_at=START)
     assert restored.export_state().to_json() == after
@@ -186,15 +192,17 @@ def test_late_panel_does_not_reopen_closed_cutoff_and_future_interval_retains_it
     assert learner.export_state().to_json() == before
     second = interval(1)
     assert learner.release(second, calendar=calendar, apply_at=second.release_at).disposition == "released"
-    assert learner.release_count == 1 and learner.update_count == 1
+    assert learner.release_count == 1
+    assert learner.update_count == 1
 
 
 def test_unknown_future_version_and_wrong_owner_cannot_change_live_state():
     learner = ControlledHedge(configuration(), owner=ref("strict-owner"))
     state = learner.export_state()
     before = state.to_json()
+    future_state = before.replace('"schema_version":1', '"schema_version":2', 1)
     with pytest.raises(ValueError):
-        AlgorithmState[ControlledPayload].from_json(before.replace('"schema_version":1', '"schema_version":2', 1))
+        AlgorithmState[ControlledPayload].from_json(future_state)
     other = ControlledHedge(learner.config, owner=ref("foreign-owner")).export_state()
     with pytest.raises(ValueError, match="owner"):
         learner.restore_state(other)
@@ -222,7 +230,8 @@ def test_single_expert_and_positive_penalty_have_finite_exact_hold_state():
     learner = ControlledHedge(config, owner=ref("one-controlled-expert"))
     for value in (0.0, 1.0, 0.25):
         result = learner.observe(panel(config, (value,)))
-        assert result.disposition == "released" and values(learner) == (1.0,)
+        assert result.disposition == "released"
+        assert values(learner) == (1.0,)
         assert learner.export_state().payload.support == (True,)
     assert learner.release_count == learner.update_count == 3
 
@@ -234,8 +243,9 @@ def test_historical_interval_retry_still_rejects_a_conflicting_application_insta
     first = interval(0)
     learner.release(first, calendar=calendar, apply_at=first.release_at)
     before = learner.export_state().to_json()
+    wrong_apply_at = first.release_at + timedelta(seconds=1)
     with pytest.raises(ValueError, match="single release point"):
-        learner.release(first, calendar=calendar, apply_at=first.release_at + timedelta(seconds=1))
+        learner.release(first, calendar=calendar, apply_at=wrong_apply_at)
     assert learner.export_state().to_json() == before
 
 
@@ -270,8 +280,9 @@ def test_explicit_processing_admission_rejects_inconsistent_clocks_without_chang
         "unknown_eligibility": {"eligible_at": None, "apply_at": START},
     }[clock_error]
     before = learner.export_state().to_json()
+    next_panel = panel(config, (1.0, 0.0, 0.5))
     with pytest.raises(ValueError):
-        learner.observe(panel(config, (1.0, 0.0, 0.5)), **arguments)
+        learner.observe(next_panel, **arguments)
     assert learner.export_state().to_json() == before
 
 
@@ -284,8 +295,9 @@ def test_period_limited_panel_requires_a_real_current_period_and_its_processing_
         learner.begin_period(current, apply_at=START)
     apply_at = None if admission == "unknown_application" else current.end if admission == "outside_period" else START
     before = learner.export_state().to_json()
+    next_panel = panel(config, (0.0, 1.0, 0.5))
     with pytest.raises(ValueError, match="period|application"):
-        learner.observe(panel(config, (0.0, 1.0, 0.5)), apply_at=apply_at)
+        learner.observe(next_panel, apply_at=apply_at)
     assert learner.export_state().to_json() == before
 
 

@@ -312,6 +312,16 @@ exact old interval returns its original result. Conflicting interval content rej
 Budget periods cannot flush a partial k-block. A duplicate old period cannot
 reset accounting; admission of a new period retains the actual emitted origin.
 
+An optional `ControlSchedule` requires a distinct release instant for every
+scheduled interval. Adjacent intervals may share an end/start boundary, but
+cannot both release at that boundary. For example, an interval ending at
+`01:00 UTC` and one beginning at `01:00 UTC` cannot both declare `release_at`
+equal to `01:00 UTC`; choose distinct release points such as `00:30 UTC` and
+`01:30 UTC`. Construction and snapshot reading reject coincident release points
+before a controlled application can silently omit a release. Replacing an
+ambiguous saved plan requires an explicit compatible future lineage, with its
+original pending feedback retained.
+
 For per-period net displacement, geometry derives displacement from the full
 period-start and current origins. For accumulated absolute movement,
 `ExactPathUsage` records each actual emitted coordinate's exact absolute changes
