@@ -126,16 +126,49 @@ print('declared roots/bindings checked')
 
 def test_actual32_isolated_interleaved_reordered_and_restored_child_traces(installed_registry):
     outside = installed_registry[1]
-    result = json.loads(
-        invoke(installed_registry, [str(outside / "driver.py"), "direct-traces", str(outside / "direct" / "unused")])
-    )
-    assert result == {
+    direct = outside / "direct"
+    aggregate = direct / "direct-qualification.json"
+    assert not aggregate.exists()
+    references = []
+    for order in ("forward", "reverse"):
+        # Each real32-child comparison has the same finite600-second process
+        # observation bound; both must finish before the aggregate qualifies.
+        result = json.loads(
+            invoke(installed_registry, [str(outside / "driver.py"), "direct-traces", str(direct / "unused"), order])
+        )
+        reference = result["isolated_reference"]
+        assert result == {
+            "children": 32,
+            "order": order,
+            "orders": 1,
+            "origins": 95,
+            "preserved_complete_child_traces": True,
+            "restored_pending": 47,
+            "isolated_reference": reference,
+        }
+        assert set(reference) == {"children_sha256", "registry_sha256", "origins_sha256"}
+        assert len(reference["children_sha256"]) == 32
+        for digest in [*reference["children_sha256"], reference["registry_sha256"], reference["origins_sha256"]]:
+            assert len(digest) == 64
+            assert set(digest) <= set("0123456789abcdef")
+        proof = direct / ("direct-qualification-" + order + ".json")
+        assert json.loads(proof.read_text()) == result
+        assert not aggregate.exists()
+        references.append(reference)
+    assert references[0]["children_sha256"] == references[1]["children_sha256"]
+    assert references[0]["registry_sha256"] == references[1]["registry_sha256"]
+    assert references[0]["origins_sha256"] == references[1]["origins_sha256"]
+    result = {
         "children": 32,
         "orders": 2,
         "origins": 95,
         "preserved_complete_child_traces": True,
         "restored_pending": 47,
     }
+    temporary = aggregate.with_suffix(".tmp")
+    temporary.write_text(json.dumps(result, sort_keys=True))
+    temporary.replace(aggregate)
+    assert json.loads(aggregate.read_text()) == result
 
 
 def test_actual32_wrong_child_expert_epoch_controls_catalogue_and_aliases_reject(installed_registry):

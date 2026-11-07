@@ -350,47 +350,64 @@ def inspect(root):
 
 
 def direct_traces(root):
-    """Compare every actual isolated/interleaved/reordered and restored child."""
+    """Compare one declared order with all actual isolated/restored child traces."""
+    selected = sys.argv[3] if len(sys.argv) > 3 else None
+    if selected == "forward":
+        order = tuple(range(32))
+    elif selected == "reverse":
+        order = tuple(reversed(range(32)))
+    else:
+        raise ValueError("Direct traces require one explicit forward or reverse order")
     example = load_example()
     layout = example.collection_layout()
     reference_owners, reference_values = example.pending_values(layout, isolated=True)
     expected = tuple(item.value.to_json() for item in reference_values[:-2])
-    for order in (tuple(range(32)), tuple(reversed(range(32)))):
-        old, values = example.pending_values(layout, order=order)
-        if tuple(item.value.to_json() for item in values[:-2]) != expected:
-            raise AssertionError("Interleaving/reordering changed an actual isolated child's complete trace")
-        if values[-1].value.to_json() != reference_values[-1].value.to_json():
-            raise AssertionError("Scheduling unrelated tasks changed their complete canonical outer origins")
-        guard = DeclaredRootGuard(layout.ownership, inventory(layout, old))
-        fresh = []
-        for binding in layout.bindings:
-            fresh.append(binding.new_owner())
-            guard.check_partial(inventory(layout, tuple(fresh)).roots)
+    reference_registry = reference_values[-1].value.to_json()
+    reference_origins = canonical_json(json.loads(reference_registry)["executions"])
+    old, values = example.pending_values(layout, order=order)
+    if tuple(item.value.to_json() for item in values[:-2]) != expected:
+        raise AssertionError("Interleaving/reordering changed an actual isolated child's complete trace")
+    if values[-1].value.to_json() != reference_registry:
+        raise AssertionError("Scheduling unrelated tasks changed their complete canonical outer origins")
+    guard = DeclaredRootGuard(layout.ownership, inventory(layout, old))
+    fresh = []
+    for binding in layout.bindings:
+        fresh.append(binding.new_owner())
+        guard.check_partial(inventory(layout, tuple(fresh)).roots)
+    guard.check(inventory(layout, tuple(fresh)))
+    for binding, value, owner in zip(layout.bindings, values, fresh, strict=True):
+        owner.restore_state(binding.codec.decode(binding.codec.encode(value.value).content))
         guard.check(inventory(layout, tuple(fresh)))
-        for binding, value, owner in zip(layout.bindings, values, fresh, strict=True):
-            owner.restore_state(binding.codec.decode(binding.codec.encode(value.value).content))
-            guard.check(inventory(layout, tuple(fresh)))
-        if tuple(owner.export_state().to_json() for owner in fresh[:-2]) != expected:
-            raise AssertionError("Actual complete restore changed a child continuation")
-        # Existing pending traces keep their original outer producing epochs.
-        example.complete_pending(layout, tuple(fresh))
-        example.complete_pending(layout, old)
-        if tuple(owner.export_state().to_json() for owner in fresh[:-2]) != tuple(
-            owner.export_state().to_json() for owner in old[:-2]
-        ):
-            raise AssertionError("Resumed delayed feedback differs from uninterrupted actual replay")
+    if tuple(owner.export_state().to_json() for owner in fresh[:-2]) != expected:
+        raise AssertionError("Actual complete restore changed a child continuation")
+    # Existing pending traces keep their original outer producing epochs.
+    example.complete_pending(layout, tuple(fresh))
+    example.complete_pending(layout, old)
+    if tuple(owner.export_state().to_json() for owner in fresh[:-2]) != tuple(
+        owner.export_state().to_json() for owner in old[:-2]
+    ):
+        raise AssertionError("Resumed delayed feedback differs from uninterrupted actual replay")
     untouched = reference_owners[1].export_state().to_json()
     reference_owners[0].restore_state(layout.bindings[0].new_owner().export_state())
     if reference_owners[1].export_state().to_json() != untouched:
         raise AssertionError("Resetting another actual child changed unrelated complete state/RNG")
     result = {
         "children": 32,
-        "orders": 2,
+        "order": selected,
+        "orders": 1,
         "origins": len(reference_values[-1].value.executions),
         "preserved_complete_child_traces": True,
         "restored_pending": 47,
+        "isolated_reference": {
+            "children_sha256": [hashlib.sha256(item.encode("utf-8")).hexdigest() for item in expected],
+            "registry_sha256": hashlib.sha256(reference_registry.encode("utf-8")).hexdigest(),
+            "origins_sha256": hashlib.sha256(reference_origins.encode("utf-8")).hexdigest(),
+        },
     }
-    (root.parent / "direct-qualification.json").write_text(json.dumps(result, sort_keys=True))
+    destination = root.parent / ("direct-qualification-" + selected + ".json")
+    temporary = destination.with_suffix(".tmp")
+    temporary.write_text(json.dumps(result, sort_keys=True))
+    temporary.replace(destination)
     print(json.dumps(result, sort_keys=True))
 
 
