@@ -1,0 +1,1 @@
+{"active_expert_ids":["recipe-A"],"checkpoint_fingerprint":"sha256:a7489622edac100e56030d366fd7c2796916def0e21fb49973e48e72af9e29f1","inner_action_ids":["A","B"],"inner_execution_fingerprint":"sha256:b8ab465b8fe03db4edb5a62180beaf7b15ae5cba4a7a4e71f31686c237f5ae2e","producer_fingerprint":"sha256:02f666866cd2c2cc4da71def3804ffbdf7b1898fc5c399310b57ba9e6afd1022","schema_version":1}

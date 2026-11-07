@@ -12,6 +12,11 @@ For extension points, use [the extension guide](extensibility.md).
 ```mermaid
 flowchart TD
     L[Python caller] --> A[coleman.api: RunSpec experiments]
+    L --> DH[Direct host-owned decision recipes]
+    L --> RG[Optional versioned registry and eligibility]
+    RG --> DH
+    DH --> RC[Optional complete owned recovery]
+    RC --> RG
     C[CLI adapter] --> A
     M[Optional MCP adapter] --> S[Bounded application services]
     S --> A
@@ -46,6 +51,7 @@ Network and process execution remain in adapters. The corpus package's
 | Observations and evaluation | Availability/lineage, protected access, repeated units and justified comparisons | [Evaluation guide](evaluation-guide.md) |
 | Selection and allocation | Finite coverage and scenario-payoff decisions under explicit assumptions | [Coverage](finite-coverage.md), [allocation](scenario-payoffs.md) |
 | Application services and transports | Bounded workflows and CLI/HTTP/process/MCP adapters | [Integration guide](integration-guide.md) |
+| Optional registry and owned recipes | Prospective member eligibility, original producer joins and declared mutable-root checks | [Recipe lifecycle](registry-lifecycle.md), [registry API](api/registry.md) |
 
 ## Three independent operational concerns
 

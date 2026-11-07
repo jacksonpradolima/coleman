@@ -73,6 +73,7 @@ The links below provide the same routes as the graph, including keyboard access.
 | Understand the framework's resource footprint | [Persisted CPU and memory samples](observability.md#understand-resource-measurements), plus [Scalene and py-spy profiling](code-cost.md#2-runtime-cost) for investigating hotspots |
 | Query results with your analytical tools | [Parquet, embedded DuckDB or optional ClickHouse](observability.md#choose-result-storage), SQL and Polars analysis, with configuration and provenance retained locally |
 | Stress a difficult CI decision | [32 deterministic interaction-covering cases](ci-stress-laboratory.md), explicit truth and feedback clocks, native Parquet and resumable agents |
+| Manage changing CI recipes safely | [Versioned eligibility and explicit ownership](registry-lifecycle.md), prospective lifecycle, original feedback epochs and complete 32-child recovery; requires the unreleased v5 source wheel |
 | Audit what a source actually supports | [Source admission](corpus-admission.md): original evidence, explicit units and a 35-axis production-reality matrix |
 | Compare repeated CI experiments | [Raw build/seed records and paired repository-family means](corpus-evaluation.md), explicit missingness and protected access |
 | Compare metrics with known limits | [Conservative bounded paired means](bounded-paired-evaluation.md), full-family uncertainty and practical equivalence under declared independent-unit assumptions |
