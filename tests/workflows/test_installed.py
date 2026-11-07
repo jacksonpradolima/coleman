@@ -62,7 +62,7 @@ def test_installed_wheel_without_model_and_optional_sdk(tmp_path):
     command([uv, "pip", "install", "--no-deps", "--python", str(python), str(wheel) + "[ci]"])
     program = tmp_path / "qualified.py"
     program.write_text("""
-import asyncio,importlib.util,json,sys,time
+import asyncio,importlib.util,json,sqlite3,sys,time
 from pathlib import Path
 import coleman
 from coleman.application.workflows import WorkflowService
@@ -74,18 +74,53 @@ assert not Path.cwd().is_relative_to(Path(coleman.__file__).resolve().parent)
 service=WorkflowService(Path("workspace"))
 service.register(owned_fixture(service.store.root))
 plan=service.plan(PlanningRequest(schema_version=1,dataset_id="owned-ci-three-build-v1"))
-def wait(job):
-    for _ in range(600):
-        view=service.status(job.job_id)
-        if view.state=="completed" and not view.worker_active:return view
-        assert view.state in ("queued","running","completed"),view
-        time.sleep(.05)
+def wait(job,busy_observed=None):
+    deadline=time.monotonic()+30
+    while time.monotonic()<deadline:
+        try:
+            view=service.status(job.job_id)
+        except sqlite3.OperationalError as error:
+            code=getattr(error,"sqlite_errorcode",None)
+            if not isinstance(code,int) or code&0xff not in (sqlite3.SQLITE_BUSY,sqlite3.SQLITE_LOCKED):
+                raise
+            if busy_observed is not None:busy_observed.set()
+        else:
+            if view.state=="completed" and not view.worker_active:return view
+            assert view.state in ("queued","running","completed"),view
+        remaining=deadline-time.monotonic()
+        if remaining>0:time.sleep(min(.05,remaining))
     raise AssertionError("Installed native job did not complete")
 if sys.argv[1]=="base":
     assert importlib.util.find_spec("mcp") is None
     job=wait(service.execute(ExecutePlan(schema_version=1,request_id="installed-library",plan_id=plan.plan_id)))
     report=service.report(job.job_id)
     assert len(report.trials)==8 and sum(len(trial.rows) for trial in report.trials)==24
+    # A completed native job isolates observation contention from execution.
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    acquired,release,busy_observed=Event(),Event(),Event()
+    def hold_writer():
+        with service.store.transaction(deadline=time.monotonic()+10):
+            acquired.set()
+            assert release.wait(15),"Coordinated writer was not released"
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        holder=pool.submit(hold_writer)
+        try:
+            if not acquired.wait(10):
+                holder.result(timeout=1)
+                raise AssertionError("Real writer did not acquire BEGIN IMMEDIATE")
+            observer=pool.submit(wait,job,busy_observed)
+            if not busy_observed.wait(5):
+                if observer.done():observer.result()
+                raise AssertionError("Status did not encounter actual numeric contention")
+        finally:
+            release.set()
+        holder.result(timeout=5)
+        observed=observer.result(timeout=5)
+    assert observed.job_id==job.job_id and observed.result_digest==job.result_digest
+    assert (observed.attempts,observed.invocations,observed.completed_trials)==(
+        job.attempts,job.invocations,job.completed_trials)
+    assert service.report(observed.job_id).to_json()==report.to_json()
     values={trial.trial_id:[(row.source_build_id,row.napfd,row.apfdc,row.ranking)
         for row in trial.rows] for trial in report.trials}
     Path("mathematics.json").write_text(json.dumps(values))

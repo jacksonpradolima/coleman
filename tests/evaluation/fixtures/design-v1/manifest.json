@@ -1,0 +1,23 @@
+{
+  "files": {
+    "design.json": {
+      "file_sha256": "a96b54df021b8e1b64983a822127cdbf835709d0b78c78b201de881a19e3073b",
+      "model_fingerprint": "sha256:e674cb7579e324b844f10dff3e5b42e0be383054873faf5e72f56049639d79d1"
+    },
+    "partition.json": {
+      "file_sha256": "829f0ed9609e4a343257ee822360b9e3e7e55cb09c337ffbcf87b6b05265145c",
+      "model_fingerprint": "sha256:09a69d7020cfebc58e78f7a50e2dc8f6ac53bf833fa89762d4479c9ab89e8a66"
+    },
+    "prefix.json": {
+      "file_sha256": "ced4745e1b4ecd4717d15812bd13014ef8cfde4d1f31d2153f9d42aac1feac56",
+      "model_fingerprint": "sha256:0824f0a15ae83de8e1e42c8f214e44abfca0f8e4f567d7df18a5c5990fa9a486"
+    },
+    "selection.json": {
+      "file_sha256": "1d8800af5d165c50158a7f2d116984265dba322cd77236d1a96f20a3c21ea0eb",
+      "model_fingerprint": "sha256:596086dd54db7c6d2dffb76afda805f28473a0330b14f137a43810dfc4ab459c"
+    }
+  },
+  "notes": "Complete manually specified inputs; stdlib only canonical encoding/hashing. No production model generated expected values. Receipt clocks/IDs are authored fixture data, not runtime evidence.",
+  "profile": "hand-authored-generic-ci-contract-v1",
+  "schema_version": 1
+}

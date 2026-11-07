@@ -17,6 +17,7 @@ flowchart LR
 
 | Question | Guide |
 | --- | --- |
+| How do I freeze the source, candidate laws, selection and inferential target before outcomes? | [Design an evaluation protocol](evaluation-protocol.md) |
 | What does this source actually support? | [Source admission and reality matrix](corpus-admission.md) |
 | Did candidate methods receive the same conditions? | [Comparable baseline matrices](comparable-baselines.md) |
 | Are the metric calculations correct? | [Independent metric references](corpus-evaluation.md), [decision benchmarks](decision-benchmarks.md) |

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from fractions import Fraction
 from pathlib import Path
 from typing import Annotated, Self
 
@@ -11,6 +10,7 @@ from pydantic import Field, model_validator
 
 from coleman.artifacts import ArtifactWriter
 from coleman.corpus.repeated_contracts import MEAN_SUFFIX, CorpusRepetition, RepetitionDesign
+from coleman.evaluation._repetition import complete_mean as _complete_mean
 from coleman.evaluation.protected import FrozenEvaluation, PairedObservation, TemporalObservation
 from coleman.evaluation.protected.temporal import Timestamp
 from coleman.results.domain import DomainRecord, Measurement, ResultProvenance, fingerprint
@@ -158,17 +158,6 @@ class RepeatedCorpusReport(VersionedContract):
                 )
             )
         return tuple(result)
-
-
-def _complete_mean(builds: tuple[tuple[float | None, ...], ...]) -> float | None:
-    """Average equal seeds then equal builds, returning null if any declared observation is null."""
-    means = []
-    for values in builds:
-        if any(value is None for value in values):
-            return None
-        exact = sum((Fraction(value) for value in values if value is not None), start=Fraction(0))
-        means.append(exact / len(values))
-    return float(sum(means, start=Fraction(0)) / len(means))
 
 
 def publish_repeated_corpus(report: RepeatedCorpusReport, writer: ArtifactWriter) -> Path:
