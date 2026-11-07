@@ -97,14 +97,24 @@ class ProtocolReport(DesignContract):
         """Recompute every aggregate join and reject inflated nested eligibility."""
         panel = self.panel
         request = self.source_receipt.request
-        if (
-            self.family.frozen != panel.frozen
-            or request.scope != panel.design.scope
-            or request.snapshot != panel.design.snapshot
-            or request.selection_fingerprint != panel.selection.fingerprint
-            or request.evaluation_fingerprint != panel.frozen.fingerprint
-        ):
-            raise ValueError("Protocol report source, selection and evaluation joins differ")
+        source_join = (
+            self.family.frozen,
+            request.scope,
+            request.snapshot,
+            request.partition_manifest_fingerprint,
+            request.selection_fingerprint,
+            request.evaluation_fingerprint,
+        )
+        design_join = (
+            panel.frozen,
+            panel.design.scope,
+            panel.design.snapshot,
+            panel.design.partition_manifest.fingerprint,
+            panel.selection.fingerprint,
+            panel.frozen.fingerprint,
+        )
+        if source_join != design_join:
+            raise ValueError("Protocol report source, manifest, selection and evaluation joins differ")
         if self.source_receipt.requested_at < panel.selection.actual_selected_at:
             raise ValueError("Protected source reservation predates actual selection")
         if self.family.access.requested_at < self.source_receipt.requested_at:

@@ -8396,6 +8396,16 @@ The receipt records whether that manifest was verified **at reservation**.
 Persisting a missing manifest later cannot retroactively clean an earlier
 unverified disclosure.
 
+A prior train/validation claim remains narrow only under the **same complete
+manifest** selected for the protected comparison. A changed cutoff, member
+catalogue or snapshot conservatively counts as previous exposure, even if the
+earlier receipt correctly verified its own manifest. Reclassifying an inspected
+training observation as test must never restore first-use eligibility. This
+profile does not infer cross-revision disjointness from renamed member,
+observation or leakage-group IDs. Genuine development reads under one unchanged
+complete manifest remain narrow; independent cross-revision qualification would
+need an explicitly supported equivalence contract.
+
 Idempotent publication or receipt reconciliation may return existing metadata
 without executing a new physical experiment. Returning the report's outcomes
 is a **new disclosure**, even when its bytes come from a cache. Preserve the

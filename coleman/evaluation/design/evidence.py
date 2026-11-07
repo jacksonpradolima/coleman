@@ -14,6 +14,18 @@ from coleman.evaluation.design._wire import model_storage
 from coleman.results.domain import DomainRecord
 
 
+def _numeric_fields(value: Any, names: tuple[str, ...]) -> None:
+    """Check supplied numeric fields before legacy coercion, preserving nulls."""
+    if isinstance(value, BaseModel):
+        value = model_storage(value)
+    if not isinstance(value, dict):
+        return
+    for name in names:
+        number = value.get(name)
+        if number is not None:
+            binary64(number)
+
+
 def _numeric_record(record: Any) -> None:
     """Guard new raw JSON numeric tokens before the nested legacy float parser."""
     if isinstance(record, BaseModel):
@@ -23,18 +35,8 @@ def _numeric_record(record: Any) -> None:
     measurements = record.get("measurements", ())
     if isinstance(measurements, (list, tuple)):
         for measurement in measurements:
-            if isinstance(measurement, BaseModel):
-                measurement = model_storage(measurement)
-            if isinstance(measurement, dict):
-                for name in ("value", "minimum"):
-                    value = measurement.get(name)
-                    if value is not None:
-                        binary64(value)
-    reward = record.get("learning_reward")
-    if isinstance(reward, BaseModel):
-        reward = model_storage(reward)
-    if isinstance(reward, dict) and reward.get("value") is not None:
-        binary64(reward["value"])
+            _numeric_fields(measurement, ("value", "minimum"))
+    _numeric_fields(record.get("learning_reward"), ("value",))
 
 
 class OriginalRecordEvidence(CoreImmutable):

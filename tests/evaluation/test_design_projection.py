@@ -221,12 +221,20 @@ def test_horizon_and_development_choice_change_projection_but_never_reset_source
 
 
 def test_wrong_selection_or_shrunk_final_family_and_freeze_capacity_are_rejected():
+    from coleman.evaluation.protected.contracts import FrozenCandidate
+
     design = make_design()
     selection = make_selection(design)
     with pytest.raises(ValueError, match="design"):
         project_frozen(design, changed(selection, design_fingerprint="sha256:" + "a" * 64))
-    with pytest.raises(ValueError):
-        project_frozen(design, changed(selection, selected_candidate_ids=("candidate",)))
+    extra = changed(
+        design.candidate("candidate"),
+        candidate=FrozenCandidate.from_configuration("third-candidate", {"method": "constructed-third"}),
+    )
+    complete_design = changed(design, candidates=(*design.candidates, extra))
+    shrunk_selection = make_selection(complete_design, selected_candidate_ids=("baseline", "candidate"))
+    with pytest.raises(ValueError, match="complete final candidate family"):
+        project_frozen(complete_design, shrunk_selection)
     tiny = changed(design, limits=changed(design.limits, max_freeze_bytes=1))
     with pytest.raises(ValueError, match="freeze capacity"):
         project_frozen(tiny, make_selection(tiny))

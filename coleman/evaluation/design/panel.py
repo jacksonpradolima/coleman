@@ -15,7 +15,7 @@ from coleman.evaluation.design.aggregates import AggregateProjection
 from coleman.evaluation.design.cells import RawCell
 from coleman.evaluation.design.contracts import ExperimentDesign, MetricPlan
 from coleman.evaluation.design.projection import project_frozen
-from coleman.evaluation.design.selection import AttemptLedger, PhysicalAttempt, SelectionManifest
+from coleman.evaluation.design.selection import AttemptLedger, ConfigurationTrial, PhysicalAttempt, SelectionManifest
 from coleman.evaluation.design.source_contracts import SourceMember
 from coleman.evaluation.protected.contracts import FrozenEvaluation
 from coleman.evaluation.protected.observations import PairedObservation
@@ -177,11 +177,7 @@ class RawPanel(DesignContract):
                 raise ValueError("Protected attempt references an unfrozen candidate")
             if groups.setdefault(attempt.group_id, attempt.candidate_id) != attempt.candidate_id:
                 raise ValueError("One physical work group cannot change its candidate between retries")
-            if attempt.trial_id is not None and (
-                attempt.trial_id not in trials
-                or trials[attempt.trial_id].candidate != self.design.candidate(attempt.candidate_id)
-            ):
-                raise ValueError("Protected attempt does not match its retained development trial")
+            self._require_attempt_trial(attempt, trials)
             outputs = {(item.candidate_id, item.member_id, item.seed) for item in attempt.outputs}
             if not outputs <= cells:
                 raise ValueError("Protected physical group claims an undeclared logical output")
@@ -191,6 +187,14 @@ class RawPanel(DesignContract):
             row.state != "skipped" and (row.candidate_id, row.member_id, row.seed) not in covered for row in self.rows
         ):
             raise ValueError("Produced non-skipped cells require supplied protected physical-group references")
+
+    def _require_attempt_trial(self, attempt: PhysicalAttempt, trials: dict[str, ConfigurationTrial]) -> None:
+        """Check retained trial identity after the attempt's candidate/group checks."""
+        if attempt.trial_id is not None and (
+            attempt.trial_id not in trials
+            or trials[attempt.trial_id].candidate != self.design.candidate(attempt.candidate_id)
+        ):
+            raise ValueError("Protected attempt does not match its retained development trial")
 
     def _require_attempt_time(self, attempt: PhysicalAttempt) -> None:
         """Reject contradictory supplied actual times without inventing unknowns."""

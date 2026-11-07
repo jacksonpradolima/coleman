@@ -139,7 +139,10 @@ class SourcePartitionManifest(DesignContract):
     Unknown/late/outside source rows remain explicit through plan decisions;
     they are not silently assigned another partition. This root performs no
     persistence or access. The adapter verifies its exact fingerprint before
-    allowing a train/validation-only disclosure to remain narrow.
+    allowing a train/validation-only disclosure to remain narrow. At protected
+    qualification, that earlier fingerprint must also equal the current complete
+    design manifest. Changed splits, membership or snapshots are conservative
+    exposure; this profile supplies no cross-revision equivalence proof.
     """
 
     _maximum_bytes: ClassVar[int] = 2 * 1024**2

@@ -82,7 +82,9 @@ def test_real_verified_development_reads_remain_narrow_without_broadening_protec
     )
     assert narrow.partition_manifest_verified
     frozen = project_frozen(design, selection)
-    protected_request = request_for(design, purpose="protected_evaluation", partitions=("test",))
+    protected_request = request_for(
+        design, purpose="protected_evaluation", partitions=("test",), manifest=manifest.fingerprint
+    )
     protected_request = changed(
         protected_request,
         selection_fingerprint=selection.fingerprint,

@@ -107,7 +107,7 @@ def read_bounded(path: Path, maximum_bytes: int) -> bytes:
         content = stream.read(maximum_bytes + 1)
     try:
         return bounded_json_bytes(content, maximum_bytes)
-    except (ValueError, UnicodeError) as error:
+    except ValueError as error:
         raise ProtocolCapacityError("Protocol artifact exceeds its bounded UTF-8/depth profile") from error
 
 
@@ -233,7 +233,7 @@ def publish_bounded(
     """
     try:
         encoded = bounded_json_bytes(content, maximum_bytes)
-    except (ValueError, TypeError, UnicodeError) as error:
+    except (ValueError, TypeError) as error:
         raise ProtocolCapacityError("Publication exceeds its bounded profile") from error
     try:
         destination_mode = path.lstat().st_mode
@@ -300,7 +300,7 @@ def guard_freeze(value: Any, capacity: AuditCapacity) -> None:
             raise ProtocolCapacityError("Protected configuration requires encoded JSON")
         try:
             bounded_json_bytes(content, capacity.configuration_bytes)
-        except (ValueError, TypeError, UnicodeError) as error:
+        except (ValueError, TypeError) as error:
             raise ProtocolCapacityError("Protected configuration exceeds its bounded profile") from error
 
 

@@ -8,10 +8,18 @@ from coleman.evaluation.design.selection import SelectionManifest
 from coleman.evaluation.design.source_contracts import SourcePartitionManifest, SourcePrefix, SourceReceipt
 
 
-def _narrow(receipt: SourceReceipt, manifests: dict[str, SourcePartitionManifest]) -> bool:
-    """Require complete matching metadata for every narrower partition claim."""
+def _narrow(
+    receipt: SourceReceipt,
+    manifests: dict[str, SourcePartitionManifest],
+    selected_manifest_fingerprint: str | None,
+) -> bool:
+    """Keep a verified narrow read only under the current complete partitioning."""
     request = receipt.request
-    if request.potential_test_exposure or not receipt.partition_manifest_verified:
+    if (
+        request.potential_test_exposure
+        or not receipt.partition_manifest_verified
+        or request.partition_manifest_fingerprint != selected_manifest_fingerprint
+    ):
         return False
     manifest = manifests.get(str(request.partition_manifest_fingerprint))
     return manifest is not None and manifest.scope == request.scope and manifest.snapshot == request.snapshot
@@ -21,6 +29,7 @@ def _development_reasons(
     selection: SelectionManifest,
     earlier: tuple[SourceReceipt, ...],
     manifests: dict[str, SourcePartitionManifest],
+    selected_manifest_fingerprint: str | None,
 ) -> set[str]:
     """Keep protected trials and unknown development history visible."""
     reasons = set()
@@ -36,7 +45,11 @@ def _development_reasons(
             reasons.add("development_access_history_unverified")
         for digest in trial.source_accesses:
             access = accesses.get(digest)
-            if access is None or not _narrow(access, manifests) or access.requested_at > selection.actual_selected_at:
+            if (
+                access is None
+                or not _narrow(access, manifests, selected_manifest_fingerprint)
+                or access.requested_at > selection.actual_selected_at
+            ):
                 reasons.add("development_access_history_unverified")
     return reasons
 
@@ -56,6 +69,7 @@ def source_reasons(
         Complete internally valid source prefix retained by the adapter.
     receipt : SourceReceipt
         Exact current reserved evaluation/import access within that prefix.
+        Its manifest fingerprint binds the selected complete partitioning.
     selection : SelectionManifest
         Complete supplied development trials, including unsuccessful ones.
     mode : {'produced', 'imported'}
@@ -63,6 +77,8 @@ def source_reasons(
         and never gain fresh confirmation by being re-encoded.
     manifests : tuple of SourcePartitionManifest
         Exact metadata actually verified by the adapter for narrow prior reads.
+        A prior receipt must name the same complete manifest as the current
+        access; its own reservation-time verification alone is insufficient.
 
     Returns
     -------
@@ -80,6 +96,9 @@ def source_reasons(
     Source ordinal order survives clock ties/backward wall-clock changes. Seeds,
     candidates, snapshots and scope versions cannot create a clean new holdout.
     Legacy evaluation access eligibility remains an additional independent gate.
+    Changed cutoffs, membership or snapshots conservatively expose protected
+    data. This profile does not infer cross-revision equivalence from renamed
+    observation/member/group identities.
     """
     index = receipt.sequence - 1
     if index >= len(prefix.receipts) or prefix.receipts[index] != receipt:
@@ -92,7 +111,8 @@ def source_reasons(
         reasons.add("source_prehistory_not_declared_unexposed")
     if mode == "imported" or receipt.request.purpose != "protected_evaluation":
         reasons.add("imported_or_preexisting_results")
-    if any(not _narrow(prior, known) for prior in prefix.receipts[:index]):
+    selected_manifest_fingerprint = receipt.request.partition_manifest_fingerprint
+    if any(not _narrow(prior, known, selected_manifest_fingerprint) for prior in prefix.receipts[:index]):
         reasons.add("previous_protected_source_access")
-    reasons.update(_development_reasons(selection, prefix.receipts[:index], known))
+    reasons.update(_development_reasons(selection, prefix.receipts[:index], known, selected_manifest_fingerprint))
     return tuple(sorted(reasons))
