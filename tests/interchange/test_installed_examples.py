@@ -117,7 +117,7 @@ print(json.dumps({'installed_base':True,'restored_owned_rng':True,'real_finite_r
     lines = command([str(python), "-I", "-c", cold], cwd=outside).splitlines()
     learning, mab, solver, receipt = [json.loads(line) for line in lines]
     assert learning["choices"] == ["recipe-a", "recipe-b"]
-    assert learning["builtin_methods"] == "pending-368"
+    assert learning["builtin_methods"] == "not-exercised-user-owned-protocol-example"
     assert mab["choices"] == ["recipe-a"] * 3 + ["recipe-b"] * 5
     assert mab["builtin_methods"] == "pending-370"
     assert solver["selected"] == ["A", "C"]

@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "arithmetic": "authored-ideal-rational-identities-v1",
+  "coefficient_unit": "1",
+  "loss_unit": "1",
+  "formula_sources": {
+    "anytime": {
+      "paper": "Mourtada and Gaiffas, JMLR 20(83), 2019",
+      "url": "https://jmlr.org/papers/volume20/18-869/18-869.pdf",
+      "scope": "Equation (2): current rate applied to cumulative past loss. The fixture arithmetic is authored independently."
+    },
+    "fixed_share": {
+      "paper": "Herbster and Warmuth, Tracking the Best Expert, Machine Learning 32, 1998",
+      "url": "https://mwarmuth.bitbucket.io/pubs/J39.pdf",
+      "scope": "Figure 1, excluding-origin redistribution; the oracle explicitly multiplies its transition matrix. No forecasting theorem is imported."
+    }
+  },
+  "fixed_share_zero_eta": {
+    "convention": "excluding-origin",
+    "prior": ["1/2", "1/4", "1/4"],
+    "alpha": "1/2",
+    "weights_after_each_update": [["3/8", "5/16", "5/16"], ["11/32", "21/64", "21/64"]]
+  },
+  "two_expert_anytime_reversal": {
+    "prior": ["1/2", "1/2"],
+    "losses": [["0", "1"], ["1", "0"]],
+    "schedule": "eta_t=2*sqrt(log(2)/t), next prediction after U panels uses eta_(U+1)",
+    "weights_after_second_update": ["1/2", "1/2"],
+    "wrong_historical_rate_prediction": "The first expert remains overweight because eta_1 > eta_2."
+  },
+  "constant_log_two": {
+    "prior": ["1/2", "1/4", "1/4"],
+    "losses": ["0", "1", "1"],
+    "ideal_eta": "log(2)",
+    "ideal_next": ["2/3", "1/6", "1/6"],
+    "qualification": "The API receives rounded binary64 log(2), so equality is qualified numerically rather than asserted as exact."
+  },
+  "limits": "Authored mechanics only. Finite rounded recurrences have numerical error and do not by themselves establish a regret or empirical outcome guarantee. Priors in ideal statements sum exactly one."
+}

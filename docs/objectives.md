@@ -184,12 +184,12 @@ inconclusive outcomes remain results.
 | Declaration | Intended meaning | Application in this source |
 | --- | --- | --- |
 | Initial prior | Initialize named-member weights once | Typed simplex and support checks |
-| Declared-target share | Persistently mix toward a supplied distribution using `alpha ∈ [0,1]` | Contract; the actual learner is qualified separately |
+| Declared-target share | Persistently mix toward a supplied distribution using `alpha ∈ [0,1]` | Typed declaration and one share per nonempty [controlled learner release](expert-mixtures.md) |
 | Static quadratic anchor | Evaluate `strength × sum((weight-anchor)²)` | Explicit pure penalty evaluation |
 | Objective coefficients | Combine declared normalized objective terms | Explicit weighted-loss evaluation |
-| Expert bounds and movement allowance | Constrain emitted coefficients with a declared origin and clock | Contract and feasibility declaration |
-| Cadence | Release after accepted panels or a declared interval | Contract; no ambient calendar |
-| L1 movement profile | Declare `0.5‖p-r‖² + λ‖p-p_old‖₁` on the constrained simplex | Versioned contract; the joint optimizer is later method work |
+| Expert bounds and movement allowance | Constrain emitted coefficients with a declared origin and clock | Declarations, original feasibility checker and separate exact-geometry constrained output |
+| Cadence | Release after accepted panels or a declared interval | Typed clock declarations and complete pending blocks; no ambient calendar |
+| L1 movement profile | Declare `0.5‖p-r‖² + λ‖p-p_old‖₁` on the constrained simplex | Named [joint KKT output](expert-mixtures.md), distinct from the retained plain projection |
 | Reference point or human judgment | Record supplied targets or ordinal preferences | Distinct declarations, without inferred cardinal reward |
 
 For losses `(0.2,0.6)`, coefficients `(0.75,0.25)` give `0.3`, while
@@ -220,6 +220,19 @@ residual; `exact_feasible` separately identifies exact sum-one feasibility of
 that original intersection. An empty coordinate or exceeded period budget stays
 infeasible even when its displayed endpoints round to the same value. This
 check performs no projection, constraint repair or KKT solve.
+
+The separate `exact_mixture_intervals` and `solve_mixture_output` operations
+preserve that older checker's meaning. A new joint solver requires a genuinely
+nonempty exact sum-one intersection of the original stored-number constraints;
+numerical admission alone does not prove one exists. Its rational pre-round
+solution and once-rounded binary64 emission have separate documented
+qualifications. There is no clip-and-renormalize repair.
+
+The [expert-mixture walkthrough](expert-mixtures.md) connects these declarations
+to actual bounded full-information learners, their separate U/R clocks and
+complete checkpoints. Accumulated period movement uses exact variation of the
+actual emitted binary64 coefficients, retaining the period origin and last
+release. A rounded display total cannot silently restore spent allowance.
 
 ## Bind definitions and preserve earlier results
 

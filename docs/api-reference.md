@@ -15,6 +15,7 @@ understand their scope before composing a host-owned learner or solver.
 | [Typed replay](api/replay.md), v5 source | Eligible delayed feedback, explicit clocks and caller-owned continuation | [Replay late CI outcomes](causal-replay.md) |
 | [State and recovery](api/state.md), v5 source | Pure owned state, bounded replay retention and complete locally acknowledged collections | [Resume complete CI decision state](state-recovery.md) |
 | [Registry and ownership](api/registry.md), v5 source | Versioned eligibility, exact original recipe producers and declared-root checks | [Manage independent CI recipes](registry-lifecycle.md) |
+| [Expert learning and constrained output](api/learning.md), v5 source | Pure full-information references, controlled coefficient output and optional direct/replay adapters | [Combine CI experts](expert-mixtures.md) |
 | [Specification models](api/spec-models.md) | `RunSpec` and typed configuration sections | [Configuration](configuration.md) |
 | [YAML I/O](api/spec-io.md) | `load_spec`, `load_sweep_spec`, `save_resolved` | [Configuration](configuration.md) |
 | [Packs](api/spec-packs.md) | Resolve composable configuration fragments | [Configuration](configuration.md) |

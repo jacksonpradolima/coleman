@@ -168,10 +168,14 @@ checkout before the copy commands.
 | [MAB only](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/composition/mab_only.py) | The same two recipes, a declared four-bin selection mechanism and eight synthetic chosen-feedback opportunities | Draw an actual action, expose only its feedback, update the chosen recipe and export/restore the full owned RNG state | Eight choices, their actual mechanism masses (`0.75` or `0.25`) and eight delivered rows |
 | [Solver only](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/composition/solver_only.py) | Three indivisible suites with explicit overlapping coverage, modeled seconds and a three-second budget | Call the existing bounded `branch_bound_v1` solver and compare this tiny fixture with a separate exhaustive calculation | Suites `A` and `C`, cost `3` seconds and covered credit `1.0` |
 
-The learning and MAB classes belong to the copied user application. They exercise
-the public structural protocols and conformance harness, including restored
-continuation, without claiming a shipped generic algorithm. Their JSON output
-marks the built-in learner/MAB work as pending. The solver calls the existing
+The learning and MAB classes in these three composition examples belong to the
+copied user application. They exercise the public structural protocols and
+conformance harness, including restored continuation. The separate
+[expert-mixture guide](expert-mixtures.md) uses the actual shipped Hedge, anytime
+Hedge, Fixed Share and controlled full-information learners from the base wheel;
+it also covers the joint constrained L1 output without a runner or store.
+The MAB composition example does not qualify a built-in chosen-feedback method.
+The solver calls the existing
 production finite solver; its exact-scope result concerns this bounded fixture.
 These synthetic examples establish composition and state behavior, without
 establishing performance on operational CI data or independent observations.

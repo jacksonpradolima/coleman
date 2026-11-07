@@ -35,6 +35,38 @@ Read this for classical confidence-based exploration under its stated reward
 assumptions. The [policy guide](policies.md) distinguishes that theoretical setting
 from a particular CI history, reward transformation or implementation.
 
+## Full-information expert mixtures
+
+**Freund and Schapire. _A decision-theoretic generalization of on-line learning
+and an application to boosting._ Journal of Computer and System Sciences 55(1),
+119–139, 1997.** [Author paper](https://www.schapire.net/papers/FreundSc95.pdf).
+
+This supplies the decision-theoretic mixture-loss setting: the complete bounded
+expert loss vector is observed, and the mixture is compared with a retrospective
+fixed expert. Follow the [expert-mixture walkthrough](expert-mixtures.md) for
+COLEMAN's exact input contract and constant-rate method. A coefficient vector
+does not establish an executed CI outcome or a random selection mechanism.
+
+**Mourtada and Gaïffas. _On the optimality of the Hedge algorithm in the
+stochastic regime._ Journal of Machine Learning Research 20(83), 1–28, 2019.**
+[Original article and paper](https://jmlr.org/papers/v20/18-869.html).
+
+Read this for the decreasing-rate anytime formulation and its distinctions from
+constant-rate and doubling variants. COLEMAN recomputes from cumulative past
+losses using the current rate. The guide states the mathematical comparator,
+prior normalization, synchronous assumptions and finite-arithmetic limits;
+delayed processing has a separate replay qualification.
+
+**Herbster and Warmuth. _Tracking the Best Expert._ Machine Learning 32,
+151–178, 1998.** [Author paper](https://mwarmuth.bitbucket.io/pubs/J39.pdf).
+
+Its Fixed Share construction motivates the explicitly named excluding-origin
+reference. The implemented transition redistributes to the other experts; a
+share toward a declared target is a separate method. The controlled projection
+and L1 movement variants have their own objectives and qualifications, rather
+than inheriting the references' regret statements or promising lower domain
+costs.
+
 ## Structured policies and subset feedback
 
 **Chen, Wang and Yuan. _Combinatorial Multi-Armed Bandit: General Framework and
