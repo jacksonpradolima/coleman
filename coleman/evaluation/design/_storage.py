@@ -151,13 +151,28 @@ class _DirectoryView:
     byte_count: int
 
 
+def _directory_entry_bytes(entry: os.DirEntry[str], receipt_bytes: int) -> int:
+    """Charge a regular file or a vanished temporary's conservative byte budget."""
+    try:
+        metadata = entry.stat(follow_symlinks=False)
+    except FileNotFoundError:
+        if not entry.name.endswith(".tmp"):
+            raise
+        return receipt_bytes
+    if not stat.S_ISREG(metadata.st_mode):
+        raise OSError("Protocol receipt directories support regular files only")
+    return metadata.st_size
+
+
 def _directory_view(root: Path, capacity: AuditCapacity) -> _DirectoryView:
     """Bound all flat directory entries/bytes before collecting receipt paths.
 
     Non-JSON and temporary files consume scan capacity but are never accepted
-    receipts or deleted. Expected receipts are parsed later by the unchanged
-    legacy chain validator. Concurrent additions may yield a conservative read
-    failure; this scan is not a transaction or a physical storage-quota service.
+    receipts or deleted. A temporary name removed by a concurrent writer still
+    consumes one entry and, when its size is unavailable, one receipt byte budget.
+    Other missing names fail closed. Expected receipts are parsed later by the
+    unchanged legacy chain validator. Concurrent additions may yield a conservative
+    read failure; this scan is not a transaction or a physical storage-quota service.
     """
     paths = []
     entries = total = 0
@@ -170,9 +185,7 @@ def _directory_view(root: Path, capacity: AuditCapacity) -> _DirectoryView:
             entries += 1
             if entries > capacity.directory_entries:
                 raise ProtocolCapacityError("Protocol receipt directory entry capacity exceeded")
-            if entry.is_symlink() or not entry.is_file(follow_symlinks=False):
-                raise OSError("Protocol receipt directories support regular files only")
-            total += entry.stat(follow_symlinks=False).st_size
+            total += _directory_entry_bytes(entry, capacity.receipt_bytes)
             if total > capacity.directory_bytes:
                 raise ProtocolCapacityError("Protocol receipt directory byte capacity exceeded")
             if entry.name.endswith(".json"):

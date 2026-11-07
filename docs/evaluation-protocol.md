@@ -252,6 +252,13 @@ actual November capture/selection/production/assembly instants, and freeze a
 comparison deadline that includes them. Do not backdate an access or claim that
 the historical partition remained unseen until November.
 
+A `produced` `RawPanel` checks that every known work-start, work-completion and
+cost-availability instant lies between actual selection and panel assembly.
+The optional `ProtocolAudit` also checks the actual protected-reservation lower
+bound. An unknown start does not waive a known completion time. Keep genuinely
+unknown clocks as `None`; do not infer or backdate them. `imported` work preserves
+its historical times and remains verification rather than fresh confirmation.
+
 `SourceScope.prehistory` distinguishes `declared_unexposed`, `known_exposed` and
 `unknown`. Receipt order records actual mediated calls, not historical event
 order or proof of undisclosed access. An import, tuning access, inspection or
@@ -420,6 +427,13 @@ immutable writer requires trusted parent directories and a suitable filesystem;
 its process-interruption contract is not a network-filesystem or power-loss
 guarantee. A full valid audit prefix remains readable when a new append is
 refused. Nothing deletes old exposure to make room for a favorable result.
+
+Directory scans charge every observed name, including temporary and foreign
+files. A writer's `.tmp` name that disappears before its size can be read still
+consumes one entry and the selected maximum receipt byte budget. Present files
+retain their actual byte charge. Missing non-temporary names and nonregular
+entries fail closed; this accounting is a bounded scan, not a transaction or
+physical storage quota.
 
 The host remains responsible for complete source identity, exposure prehistory,
 snapshot completeness, truthful time/cost evidence and scientific assumptions.

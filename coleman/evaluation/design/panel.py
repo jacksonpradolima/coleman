@@ -51,6 +51,9 @@ class RawPanel(DesignContract):
         Produced records bind the current projected evaluation; imported ones
         retain historical evaluation identity. The adapter must declare import
         exposure before loading and cannot grant fresh confirmation to imports.
+        Every known produced start, completion and cost-availability time must
+        be at or after actual selection; an unknown start never waives a known finish.
+        The optional adapter also enforces its actual reservation lower bound.
     assembled_at : datetime
         Supplied actual common assembly, after consumed raw availability and
         known physical completion, within the frozen comparison deadline.
@@ -197,13 +200,12 @@ class RawPanel(DesignContract):
             raise ValueError("Protected attempt does not match its retained development trial")
 
     def _require_attempt_time(self, attempt: PhysicalAttempt) -> None:
-        """Reject contradictory supplied actual times without inventing unknowns."""
+        """Bound every known work/cost instant without imputing unknown clocks."""
         moments = (attempt.started_at, attempt.completed_at, *(cost.record.available_at for cost in attempt.costs))
         if any(moment is not None and moment > self.assembled_at for moment in moments):
             raise ValueError("Panel assembly predates a supplied actual physical attempt time")
-        if self.mode == "produced" and (
-            (attempt.started_at is not None and attempt.started_at < self.selection.actual_selected_at)
-            or any(cost.record.available_at < self.selection.actual_selected_at for cost in attempt.costs)
+        if self.mode == "produced" and any(
+            moment is not None and moment < self.selection.actual_selected_at for moment in moments
         ):
             raise ValueError("Protected physical work predates actual selected configuration")
 

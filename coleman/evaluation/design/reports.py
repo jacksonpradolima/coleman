@@ -137,14 +137,16 @@ class ProtocolReport(DesignContract):
         return self
 
     def _produced_time(self) -> None:
-        """Reject outcomes/work produced before their actual protected reservation."""
+        """Check every known produced work instant against the actual reservation."""
         if self.panel.mode != "produced":
             return
         reserved = self.source_receipt.requested_at
         if any(row.record.available_at < reserved for row in self.panel.rows):
             raise ValueError("Produced raw outcome predates actual protected source access")
         if any(
-            attempt.started_at is not None and attempt.started_at < reserved for attempt in self.panel.ledger.attempts
+            moment is not None and moment < reserved
+            for attempt in self.panel.ledger.attempts
+            for moment in (attempt.started_at, attempt.completed_at)
         ):
             raise ValueError("Produced physical work predates protected source access")
         if any(cost.record.available_at < reserved for attempt in self.panel.ledger.attempts for cost in attempt.costs):
