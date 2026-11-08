@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from operator import itemgetter
 from typing import Annotated, Any, ClassVar, Literal, Self
 
 from pydantic import Field, model_validator
@@ -308,9 +309,11 @@ class StepEvidence(PrequentialContract):
         if len({item.metric.name for item in self.components}) != len(self.components):
             raise ValueError("Step contains duplicate component metric names")
         receipt = self.receipt
+        # One guarded digest covers this immutable receipt; no callback intervenes.
+        receipt_fingerprint = receipt.fingerprint if self.components else None
         for item in self.components:
             record = item.original.record
-            if item.execution_fingerprint != receipt.fingerprint:
+            if item.execution_fingerprint != receipt_fingerprint:
                 raise ValueError("Component differs from its producing domain execution")
             if record.data_fingerprint != receipt.data_fingerprint:
                 raise ValueError("Component source differs from its domain execution")
@@ -349,7 +352,8 @@ class ConformanceTrace(PrequentialContract):
         keys = [item.receipt.key.logical_identity for item in self.steps]
         if len(keys) != len(set(keys)):
             raise ValueError("Conformance trace contains duplicate logical opportunities")
-        object.__setattr__(self, "steps", tuple(sorted(self.steps, key=lambda item: item.receipt.key.logical_identity)))
+        ordered = sorted(zip(keys, self.steps, strict=True), key=itemgetter(0))
+        object.__setattr__(self, "steps", tuple(map(itemgetter(1), ordered)))
         return self
 
 

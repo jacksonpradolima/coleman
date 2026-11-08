@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from fractions import Fraction
+from operator import itemgetter
 from typing import Annotated, Literal, NamedTuple, Self, cast
 
 from pydantic import BaseModel, Field, model_validator
@@ -106,8 +107,8 @@ class ReferenceConformancePlan(PrequentialContract, SemanticDefinition):
             raise ValueError("Conformance tolerances require unique declared metric names")
         if len(keys) > self.limits.max_steps or len(names) > self.limits.max_components:
             raise ValueError("Conformance plan exceeds selected catalogue capacities")
-        ordered = tuple(sorted(self.opportunities, key=lambda item: item.logical_identity))
-        object.__setattr__(self, "opportunities", ordered)
+        ordered = sorted(zip(keys, self.opportunities, strict=True), key=itemgetter(0))
+        object.__setattr__(self, "opportunities", tuple(map(itemgetter(1), ordered)))
         object.__setattr__(self, "metrics", tuple(sorted(self.metrics, key=lambda item: item.name)))
         object.__setattr__(self, "tolerances", tuple(sorted(self.tolerances, key=lambda item: item.metric_name)))
         if wire_size(self) + 1 > self.limits.max_bytes:

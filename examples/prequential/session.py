@@ -573,10 +573,10 @@ class Session:
         domain = stage.owner(self.domain_binding)
         replay.session.admit_feedback((original.feedback,))
         replay.session.advance(eligible_through=component.timing.usable_at, apply_at=component.applied_at)
+        updates = replay.session.state.updates
+        feedback_fingerprint = original.feedback.fingerprint if updates else None
         applications = tuple(
-            row.application
-            for row in replay.session.state.updates
-            if row.application.feedback.fingerprint == original.feedback.fingerprint
+            row.application for row in updates if row.application.feedback.fingerprint == feedback_fingerprint
         )
         if len(applications) != 1 or applications[0].apply_at != component.applied_at:
             raise ValueError("Domain observation requires its actual selected replay application")
@@ -647,10 +647,14 @@ class Session:
 def _observation_components(source: DomainRecord, receipt, timing: FeedbackTiming, applied: datetime):
     """Bind every original modeled quantity to its exact producer and supplied clocks."""
     original = OriginalRecordEvidence.from_record(source)
+    metrics = MODEL.metrics()
+    if not metrics:
+        return ()
+    execution_fingerprint = receipt.fingerprint
     return tuple(
         ComponentObservation(
             schema_version=1,
-            execution_fingerprint=receipt.fingerprint,
+            execution_fingerprint=execution_fingerprint,
             metric=metric,
             value=MODEL.OutcomeValue(
                 spec=metric.quantity.spec,
@@ -665,5 +669,5 @@ def _observation_components(source: DomainRecord, receipt, timing: FeedbackTimin
             applied_at=applied,
             physical_group_id=None,
         )
-        for metric in MODEL.metrics()
+        for metric in metrics
     )

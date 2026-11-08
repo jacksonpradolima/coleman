@@ -6,6 +6,7 @@ import subprocess
 import sys
 import sysconfig
 from datetime import timedelta
+from inspect import getattr_static
 from pathlib import Path
 
 import pytest
@@ -19,6 +20,7 @@ from coleman.evaluation.prequential.contracts import (
     ConformanceLimits,
     ConformanceTrace,
     DomainExecutionReceipt,
+    ExecutionKey,
     StepEvidence,
 )
 from coleman.objectives.feasibility import check_finite_feasibility
@@ -41,6 +43,78 @@ ROOTS = (
     ("plan", ReferenceConformancePlan),
     ("report", ReferenceConformanceReport),
 )
+
+
+def _watch_property(patch, owner, name):
+    """Count guarded property requests while preserving the actual implementation."""
+    descriptor = getattr_static(owner, name)
+    assert isinstance(descriptor, property)
+    getter = descriptor.fget
+    assert getter is not None
+    calls = []
+
+    def observed(value):
+        result = getter(value)
+        assert isinstance(result, str)
+        calls.append(result)
+        return result
+
+    patch.setattr(owner, name, property(observed))
+    return calls
+
+
+@pytest.mark.parametrize(("component_count", "corrupt_last"), ((0, False), (1, False), (5, False), (5, True)))
+def test_step_bounds_guarded_producer_digest_work_without_losing_component_validation(
+    monkeypatch, component_count, corrupt_last
+):
+    execution = receipt()
+    expected_digest = execution.fingerprint
+    components = tuple(
+        observation(execution, quantity=metric(f"component-{index}")) for index in range(component_count)
+    )
+    expected = StepEvidence(schema_version=1, receipt=execution, components=components).to_json()
+    if corrupt_last:
+        components = (*components[:-1], changed(components[-1], execution_fingerprint="sha256:" + "0" * 64))
+    fields = {"schema_version": 1, "receipt": execution, "components": components}
+    with monkeypatch.context() as patch:
+        calls = _watch_property(patch, DomainExecutionReceipt, "fingerprint")
+        if corrupt_last:
+            with pytest.raises(ValueError, match="producing domain execution"):
+                StepEvidence.model_validate(fields)
+            restored = None
+        else:
+            restored = StepEvidence.model_validate(fields)
+        observed = tuple(calls)
+    assert observed == (expected_digest,) * bool(component_count)
+    if restored is not None:
+        assert restored.to_json() == expected
+
+
+def test_duplicate_component_guard_precedes_any_producer_digest_request(monkeypatch):
+    execution = receipt()
+    component = observation(execution)
+    fields = {"schema_version": 1, "receipt": execution, "components": (component, component)}
+    with monkeypatch.context() as patch:
+        calls = _watch_property(patch, DomainExecutionReceipt, "fingerprint")
+        with pytest.raises(ValueError, match="duplicate component"):
+            StepEvidence.model_validate(fields)
+        assert calls == []
+
+
+@pytest.mark.parametrize("reverse", (False, True))
+def test_trace_orders_complete_keys_with_one_guarded_identity_request_each(monkeypatch, reverse):
+    steps = tuple(
+        StepEvidence(schema_version=1, receipt=receipt(key(f"build-{index}")), components=()) for index in range(3)
+    )
+    fields = {"schema_version": 1, "recipe": trace().recipe, "steps": steps[::-1] if reverse else steps}
+    expected_keys = tuple(step.receipt.key.logical_identity for step in steps)
+    expected = ConformanceTrace.model_validate(fields).to_json()
+    with monkeypatch.context() as patch:
+        calls = _watch_property(patch, ExecutionKey, "logical_identity")
+        restored = ConformanceTrace.model_validate(fields)
+        observed = tuple(calls)
+    assert sorted(observed) == sorted(expected_keys)
+    assert restored.to_json() == expected
 
 
 @pytest.mark.parametrize(("name", "contract"), ROOTS)

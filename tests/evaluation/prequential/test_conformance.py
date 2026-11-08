@@ -9,10 +9,11 @@ import pytest
 
 from coleman.evaluation.prequential.conformance import (
     MetricTolerance,
+    ReferenceConformancePlan,
     ReferenceConformanceReport,
     check_reference_conformance,
 )
-from coleman.evaluation.prequential.contracts import ConformanceLimits, ConformanceTrace
+from coleman.evaluation.prequential.contracts import ConformanceLimits, ConformanceTrace, ExecutionKey
 from tests.evaluation.prequential.conformance_support import (
     NOW,
     binding,
@@ -24,8 +25,33 @@ from tests.evaluation.prequential.conformance_support import (
     receipt,
     trace,
 )
+from tests.evaluation.prequential.test_contracts import _watch_property
 
 FIXTURES = Path(__file__).parent / "fixtures" / "conformance-v1"
+
+
+@pytest.mark.parametrize("reverse", (False, True))
+def test_plan_orders_complete_opportunities_with_one_guarded_identity_request_each(monkeypatch, reverse):
+    opportunities = tuple(key(f"build-{index}") for index in range(3))
+    declared = plan(opportunities=opportunities)
+    fields = declared.model_dump()
+    fields["opportunities"] = opportunities[::-1] if reverse else opportunities
+    expected_keys = tuple(item.logical_identity for item in opportunities)
+    expected = declared.to_json()
+    with monkeypatch.context() as patch:
+        calls = _watch_property(patch, ExecutionKey, "logical_identity")
+        restored = ReferenceConformancePlan.model_validate(fields)
+        observed = tuple(calls)
+    assert sorted(observed) == sorted(expected_keys)
+    assert restored.to_json() == expected
+
+
+def test_duplicate_opportunity_error_precedes_a_different_baseline_candidate():
+    fields = plan().model_dump()
+    foreign = key(candidate="another-candidate")
+    fields["opportunities"] = (foreign, foreign)
+    with pytest.raises(ValueError, match="duplicate opportunities"):
+        ReferenceConformancePlan.model_validate(fields)
 
 
 def test_real_nonidentity_finite_intervention_conforms_with_complete_recomputed_checks():

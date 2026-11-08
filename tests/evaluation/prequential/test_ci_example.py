@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+from coleman.state.components import StagedCollection
+
 
 @pytest.fixture(scope="module")
 def ci_example():
@@ -206,6 +208,84 @@ def test_online_forecasts_use_only_prior_applied_full_panels(ci_example, actual_
     trajectory = diagnostics["complete_trajectories"]["online"][0]
     assert len(trajectory["decisions"]) == 3
     assert "not adoptable or executed" in diagnostics["stage_diagnostic_scope"]
+
+
+def test_component_producer_digest_is_reused_without_changing_original_bytes(ci_example, actual_cell, monkeypatch):
+    owner, original = actual_cell[-2], actual_cell[-1][0]
+    primary = ci_example._primary(original.step)
+    receipt = original.step.receipt
+    expected = {row.metric.name: row.to_json() for row in original.step.components}
+    descriptor = type(receipt).fingerprint
+    reads = []
+
+    def counted(value):
+        if value is receipt:
+            reads.append(value)
+        return descriptor.__get__(value, type(value))
+
+    monkeypatch.setattr(type(receipt), "fingerprint", property(counted))
+    session = sys.modules[type(owner).__module__]
+    actual = session._observation_components(primary.original.record, receipt, primary.timing, primary.applied_at)
+    assert len(reads) == 1
+    assert {row.metric.name: row.to_json() for row in actual} == expected
+    reads.clear()
+    monkeypatch.setattr(ci_example.MODEL, "metrics", lambda: ())
+    assert session._observation_components(primary.original.record, receipt, primary.timing, primary.applied_at) == ()
+    assert reads == []
+
+
+@pytest.mark.parametrize("selected", [True, False], ids=["three-retained-updates", "no-eligible-update"])
+def test_original_feedback_digest_is_reused_after_actual_replay_selection(
+    ci_example, actual_cell, tmp_path, monkeypatch, selected
+):
+    _, frozen, recipe, owner, originals = actual_cell
+    original = originals[-1] if selected else originals[0]
+    if not selected:
+        owner = ci_example.Session(tmp_path / "pending-cell", recipe, frozen.environment, create=True)
+        owner.emit(0, ci_example._timing(original.coefficient.opportunity.request).decision_at)
+        primary = ci_example._primary(original.step)
+        timing = type(original.feedback.batch.timing).model_validate(
+            original.feedback.batch.timing.model_copy(update={"received_at": primary.applied_at + timedelta(seconds=1)})
+        )
+        batch = type(original.feedback.batch).model_validate(
+            original.feedback.batch.model_copy(update={"timing": timing})
+        )
+        feedback = type(original.feedback).model_validate(original.feedback.model_copy(update={"batch": batch}))
+        # The public ingress already rejects this mismatch. Exercise the real
+        # internal selection guard too, without replacing replay or a state owner.
+        original = original.model_copy(update={"feedback": feedback})
+    replay_state, domain_state = owner.snapshots()
+    replay, domain = ci_example.MODEL.ReplayOwner(recipe), ci_example.MODEL.DomainOwner(recipe)
+    replay.restore_state(replay_state)
+    domain.restore_state(domain_state)
+    before = domain.export_state().to_json()
+    before_head = owner.store.read_head()
+    descriptor = type(original.feedback).fingerprint
+    reads = []
+
+    def counted(value):
+        if value is original.feedback:
+            reads.append(value)
+        return descriptor.__get__(value, type(value))
+
+    monkeypatch.setattr(type(original.feedback), "fingerprint", property(counted))
+    stage = StagedCollection(((owner.replay_binding, replay), (owner.domain_binding, domain)))
+    primary = ci_example._primary(original.step)
+    try:
+        if selected:
+            owner._apply_in_stage(stage, original, primary)
+            assert len(replay.session.state.updates) == 3
+            assert len(reads) == 1
+            assert replay.export_state().to_json() == replay_state.to_json()
+        else:
+            with pytest.raises(ValueError, match="actual selected replay application"):
+                owner._apply_in_stage(stage, original, primary)
+            assert replay.session.state.updates == ()
+            assert reads == []
+        assert domain.export_state().to_json() == before
+        assert owner.store.read_head() == before_head
+    finally:
+        stage._close()
 
 
 def test_raw_identity_scopes_distinct_evaluations_and_preserves_original_reproduction(ci_example, actual_cell):
