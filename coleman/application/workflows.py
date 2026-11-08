@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import shutil
 import time
 from contextlib import closing
 from pathlib import Path
@@ -13,16 +12,15 @@ from uuid import uuid4
 import polars as pl
 from pydantic import TypeAdapter
 
+from coleman.application import execution_lifecycle as lifecycle
 from coleman.application.baseline_storage import read_baseline_artifact
 from coleman.application.workflow_artifacts import read_trial_attempts, verify_report, verify_trial
-from coleman.application.workflow_ownership import worker_active
 from coleman.application.workflow_store import JobRecord, WorkflowStore
-from coleman.artifacts import ArtifactWriter
 from coleman.results.domain import Measurement
 from coleman.spec.selected_runtime import capture_native_runtime, require_native_runtime
+from coleman.tasks.identity import HostBootstrapProfile
 from coleman.workflows.contracts import DatasetManifest, ExperimentPlan, PlanningRequest, WorkflowError, WorkflowId
 from coleman.workflows.lifecycle import (
-    TERMINAL,
     DatasetSummary,
     ExecutePlan,
     HostPolicy,
@@ -38,8 +36,6 @@ from coleman.workflows.planning import make_plan
 
 if TYPE_CHECKING:
     from coleman.application.workflow_downloads import _ArtifactManifest
-
-_QUEUE_CAPACITY_ERROR = "Workspace running/queue capacity is exhausted"
 
 
 def _preview(plan: ExperimentPlan) -> PlanPreview:
@@ -70,6 +66,9 @@ class WorkflowService:
         plans/jobs/imports are isolated; the dataset registry is host-owned.
     policy : HostPolicy or None
         Initial finite caps. A conflicting policy on reopen rejects explicitly.
+    bootstrap_profile : HostBootstrapProfile or None, optional
+        Explicit generic approval when sharing a workspace with task jobs. None
+        preserves native startup and cannot authorize queued generic execution.
 
     Notes
     -----
@@ -81,10 +80,20 @@ class WorkflowService:
     sampling is not a hostile-code sandbox or a distributed exactly-once guarantee.
     """
 
-    def __init__(self, root: Path, *, owner: str = "local-workspace", policy: HostPolicy | None = None):
+    def __init__(
+        self,
+        root: Path,
+        *,
+        owner: str = "local-workspace",
+        policy: HostPolicy | None = None,
+        bootstrap_profile: HostBootstrapProfile | None = None,
+    ):
         """Open durable metadata; no fixture, source acquisition or native work is implicit."""
         self.owner = TypeAdapter(WorkflowId).validate_python(owner)
         self.store = WorkflowStore(root, policy)
+        self.bootstrap_profile = (
+            None if bootstrap_profile is None else HostBootstrapProfile.model_validate(bootstrap_profile)
+        )
         self._artifact_manifest: _ArtifactManifest | None = None
 
     def close(self) -> None:
@@ -107,7 +116,11 @@ class WorkflowService:
             Corrupt metadata, unsupported ownership storage or coordinator spawn failure.
         """
         with closing(self.store.connect()) as connection:
-            identities = tuple(job.job_id for job in self.store.jobs(connection) if job.owner == self.owner)
+            identities = tuple(
+                job.job_id
+                for job in self.store.records(connection)
+                if isinstance(job, JobRecord) and job.owner == self.owner
+            )
         views = tuple(self.status(identity) for identity in identities)
         self._start()
         return views
@@ -231,20 +244,7 @@ class WorkflowService:
         if dataset is None:
             raise KeyError("Dataset is not registered")
         plan = make_plan(request, dataset, capture_native_runtime(), native_threads=pl.thread_pool_size())
-        with self.store.transaction() as connection:
-            existing = connection.execute(
-                "SELECT 1 FROM plans WHERE id=? AND owner=?", (plan.fingerprint[7:], self.owner)
-            ).fetchone()
-            if existing is None:
-                if connection.execute("SELECT count(*) FROM plans").fetchone()[0] >= self.store.policy.max_plans:
-                    raise WorkflowError("Saved plan slots are full; create another owned workspace")
-                target = self.store.root / "plans" / f"{plan.fingerprint[7:]}.json"
-                if not target.exists() and len(list(target.parent.glob("*"))) >= self.store.policy.max_plans:
-                    raise WorkflowError("Saved plan artifacts/orphans exhaust the finite workspace slots")
-                ArtifactWriter(self.store.root).write_immutable(target, plan.to_json())
-                connection.execute(
-                    "INSERT INTO plans VALUES (?,?,?)", (plan.fingerprint[7:], self.owner, plan.to_json())
-                )
+        lifecycle.save_plan(self.store, plan, self.owner)
         return _preview(plan)
 
     def saved_plan(self, plan_id: str) -> ExperimentPlan:
@@ -283,68 +283,53 @@ class WorkflowService:
             bounds. No extra interactive confirmation is required.
         """
         request = ExecutePlan.model_validate(request)
-        with self.store.transaction() as connection:
-            jobs = self.store.jobs(connection)
-            existing = next(
-                (job for job in jobs if (job.owner, job.request_id) == (self.owner, request.request_id)), None
+        existing = lifecycle.retained_request(self.store, self.owner, request.request_id)
+        if existing is not None:
+            if not isinstance(existing, JobRecord) or existing.request_digest != request.fingerprint:
+                raise WorkflowError("Idempotency key conflicts with its retained payload or execution family")
+            job = existing
+        else:
+            plan = self.saved_plan(request.plan_id)
+            require_native_runtime(plan.runtime)
+            if plan.native_threads != pl.thread_pool_size():
+                raise WorkflowError("Saved plan producer/runtime is incompatible; create a new plan")
+            now = time.time()
+            proposed = JobRecord(
+                schema_version=1,
+                job_id=uuid4().hex,
+                owner=self.owner,
+                request_id=request.request_id,
+                request_digest=request.fingerprint,
+                plan_id=request.plan_id,
+                state="queued",
+                stage="descriptive" if plan.request.evaluation == "descriptive" else "tuning",
+                created=now,
+                changed=now,
+                total_trials=len(plan.trials),
             )
-            if existing:
-                if existing.request_digest != request.fingerprint:
-                    raise WorkflowError("Idempotency key conflicts with its retained payload")
-                job = existing
-            else:
-                plan = self.store.plan(connection, request.plan_id, self.owner)
-                require_native_runtime(plan.runtime)
-                if plan.native_threads != pl.thread_pool_size():
-                    raise WorkflowError("Saved plan producer/runtime is incompatible; create a new plan")
-                self._admission_limits(connection, jobs, plan)
-                now = time.time()
-                job = JobRecord(
-                    schema_version=1,
-                    job_id=uuid4().hex,
-                    owner=self.owner,
-                    request_id=request.request_id,
-                    request_digest=request.fingerprint,
-                    plan_id=request.plan_id,
-                    state="queued",
-                    stage="descriptive" if plan.request.evaluation == "descriptive" else "tuning",
-                    created=now,
-                    changed=now,
-                    total_trials=len(plan.trials),
-                )
-                self.store.save_job(connection, job, create=True)
+            job = lifecycle.admit_record(self.store, plan, proposed)
         self._start()
         return self.status(job.job_id)
 
     def _admission_limits(self, connection, jobs, plan) -> None:
         """Check new-job slot/byte reservations; resumed jobs retain their existing reservation."""
-        if len(jobs) >= self.store.policy.max_jobs:
-            raise WorkflowError("Job/tombstone slots are full; create another owned workspace")
-        active = [item for item in jobs if item.state in ("queued", "running")]
-        if len(active) >= self.store.policy.max_running + self.store.policy.max_queued:
-            raise WorkflowError(_QUEUE_CAPACITY_ERROR)
-        reserved = sum(
-            self.store.plan(connection, item.plan_id, item.owner).request.limits.max_output_bytes
-            for item in jobs
-            if item.state != "expired" or (self.store.root / "jobs" / item.job_id).exists()
-        )
-        if reserved + plan.request.limits.max_output_bytes > self.store.policy.max_retained_bytes:
-            raise WorkflowError("Aggregate retained output reservation exhausted")
+        lifecycle.check_admission(self.store, connection, jobs, plan)
 
     def _start(self) -> None:
         """Ensure a single fixed detached supervisor; no shell or user-selected module."""
         from coleman.application.workflow_supervisor import ensure_supervisor
 
-        ensure_supervisor(self.store.root)
+        if self.bootstrap_profile is None:
+            ensure_supervisor(self.store.root)
+        else:
+            ensure_supervisor(self.store.root, bootstrap_profile=self.bootstrap_profile)
 
     def _job(self, connection, job_id: str) -> JobRecord:
         """Look up only a validated caller-owned job, including retained tombstones."""
         identity = TypeAdapter(WorkflowId).validate_python(job_id)
-        job = next(
-            (item for item in self.store.jobs(connection) if item.job_id == identity and item.owner == self.owner), None
-        )
-        if job is None:
-            raise KeyError("No owned workflow job")
+        job = lifecycle.owned_record(self.store, connection, identity, self.owner)
+        if not isinstance(job, JobRecord):
+            raise WorkflowError("Native workflow facade requires a native workflow job")
         return job
 
     def status(self, job_id: str) -> JobView:
@@ -361,19 +346,11 @@ class WorkflowService:
             Actual lifecycle snapshot. Lost running ownership becomes interrupted;
             no checkpoint is executed automatically. ETA stays explicitly unavailable.
         """
-        with self.store.transaction() as connection:
-            job = self._job(connection, job_id)
-            active = worker_active(self.store.root, job.job_id)
-            if job.state == "running" and not active:
-                job = JobRecord.model_validate(
-                    {
-                        **job.model_dump(),
-                        "state": "interrupted",
-                        "changed": time.time(),
-                        "error": "worker_ownership_lost",
-                    }
-                )
-                self.store.save_job(connection, job)
+        with closing(self.store.connect()) as connection:
+            self._job(connection, job_id)
+        job, active = lifecycle.reconcile_record(self.store, job_id, self.owner)
+        if not isinstance(job, JobRecord):
+            raise WorkflowError("Native workflow facade requires a native workflow job")
         return JobView(
             schema_version=1,
             job_id=job.job_id,
@@ -415,13 +392,9 @@ class WorkflowService:
             Cancelled state or the already terminal state. A worker can remain
             physically active until its next guard sample; resume rejects meanwhile.
         """
-        with self.store.transaction() as connection:
-            job = self._job(connection, job_id)
-            if job.state not in TERMINAL:
-                self.store.save_job(
-                    connection,
-                    JobRecord.model_validate({**job.model_dump(), "state": "cancelled", "changed": time.time()}),
-                )
+        with closing(self.store.connect()) as connection:
+            self._job(connection, job_id)
+        lifecycle.cancel_record(self.store, job_id, self.owner)
         return self.status(job_id)
 
     def resume(self, job_id: str) -> JobView:
@@ -445,27 +418,14 @@ class WorkflowService:
             producer. Never silently substitutes a fresh run for rejected continuation.
         """
         self.status(job_id)
-        with self.store.transaction() as connection:
+        with closing(self.store.connect()) as connection:
             job = self._job(connection, job_id)
-            if job.state not in ("completed", "queued", "running", "awaiting_evaluation"):
-                plan = self.store.plan(connection, job.plan_id, self.owner)
-                if job.state == "expired" or worker_active(self.store.root, job_id):
-                    raise WorkflowError("Expired work or an active cancelled worker cannot resume")
-                require_native_runtime(plan.runtime)
-                if plan.native_threads != pl.thread_pool_size() or job.invocations >= plan.request.limits.max_attempts:
-                    raise WorkflowError("Incompatible runtime or exhausted worker invocation allowance")
-                jobs = self.store.jobs(connection)
-                if (
-                    sum(item.state in ("queued", "running") for item in jobs)
-                    >= self.store.policy.max_running + self.store.policy.max_queued
-                ):
-                    raise WorkflowError(_QUEUE_CAPACITY_ERROR)
-                self.store.save_job(
-                    connection,
-                    JobRecord.model_validate(
-                        {**job.model_dump(), "state": "queued", "error": None, "changed": time.time()}
-                    ),
-                )
+        if job.state not in ("completed", "queued", "running", "awaiting_evaluation"):
+            plan = self.saved_plan(job.plan_id)
+            require_native_runtime(plan.runtime)
+            if plan.native_threads != pl.thread_pool_size():
+                raise WorkflowError("Incompatible runtime or exhausted worker invocation allowance")
+            lifecycle.requeue_record(self.store, job, plan)
         self._start()
         return self.status(job_id)
 
@@ -555,9 +515,7 @@ class WorkflowService:
                 require_native_runtime(plan.runtime)
                 if plan.native_threads != pl.thread_pool_size() or job.invocations >= plan.request.limits.max_attempts:
                     raise WorkflowError("Incompatible producer/runtime or exhausted invocation allowance")
-                active = sum(item.state in ("queued", "running") for item in self.store.jobs(connection))
-                if active >= self.store.policy.max_running + self.store.policy.max_queued:
-                    raise WorkflowError(_QUEUE_CAPACITY_ERROR)
+                lifecycle.check_queue_capacity(self.store, self.store.records(connection))
                 handoff = prepare_evaluation(self.store.root, self.store.root / "jobs" / job_id, plan)
                 self.store.save_job(
                     connection,
@@ -621,34 +579,7 @@ class WorkflowService:
         requires a new explicitly selected workspace rather than recycling keys and
         accidentally executing an old retried request again.
         """
-        expired = []
-        with self.store.transaction() as connection:
-            for job in self.store.jobs(connection):
-                if (
-                    job.owner == self.owner
-                    and job.state == "expired"
-                    and not worker_active(self.store.root, job.job_id)
-                ):
-                    expired.append(job.job_id)
-                    continue
-                if (
-                    job.owner != self.owner
-                    or job.state not in TERMINAL
-                    or job.state == "expired"
-                    or time.time() - job.changed < self.store.policy.retention_seconds
-                    or worker_active(self.store.root, job.job_id)
-                ):
-                    continue
-                self.store.save_job(
-                    connection,
-                    JobRecord.model_validate({**job.model_dump(), "state": "expired", "changed": time.time()}),
-                )
-                expired.append(job.job_id)
-        for identity in expired:
-            shutil.rmtree(self.store.root / "jobs" / identity, ignore_errors=False) if (
-                self.store.root / "jobs" / identity
-            ).exists() else None
-        return tuple(expired)
+        return lifecycle.cleanup_records(self.store, self.owner, JobRecord)
 
     def export(self, job_id: str):
         """Export bounded self-contained reproducible evidence without executable state.

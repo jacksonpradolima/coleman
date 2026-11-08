@@ -82,6 +82,7 @@ nav = [
     { "Public CI collection" = "public-ci-feasibility.md" },
     { "Application API and optional MCP" = "application-api.md" },
     { "Durable experiments and MCP" = "durable-experiments.md" },
+    { "Durable adaptive tasks" = "typed-execution.md" },
     { "Workflow contracts and recovery" = "workflow-contracts.md" },
     { "Observability" = "observability.md" }
   ] },
@@ -113,6 +114,7 @@ nav = [
       { "State and recovery API" = "api/state.md" },
       { "Registry and ownership API" = "api/registry.md" },
       { "Expert learning and constrained output API" = "api/learning.md" },
+      { "Typed task execution API" = "api/tasks.md" },
       { "Rewards" = "api/reward.md" },
       { "Scenarios" = "api/scenarios.md" },
       { "Measurement records" = "api/results.md" },

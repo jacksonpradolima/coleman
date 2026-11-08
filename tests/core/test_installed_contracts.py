@@ -85,7 +85,8 @@ from coleman.testing.decision_contracts import ConformanceCase, check_decision_c
 assert Path(actions.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
 assert not Path(actions.__file__).resolve().is_relative_to(Path.cwd())
 allowed={'__future__','collections','dataclasses','datetime','decimal','enum','fractions','functools',
-         'hashlib','itertools','json','math','operator','re','types','typing','typing_extensions','pydantic'}
+         'hashlib','itertools','json','math','operator','re','types','typing','typing_extensions','zoneinfo','pydantic'}
+assert 'zoneinfo' in sys.stdlib_module_names
 core_files=sorted(Path(actions.__file__).parent.glob('*.py'))
 assert core_files
 for source in core_files:

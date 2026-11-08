@@ -11,6 +11,7 @@ import threading
 from importlib.metadata import version
 from pathlib import Path
 
+from coleman.application import resource_usage
 from coleman.application.contracts import ExperimentResult, Limits, PortableFile, PortableNativeProvenance, ResultBundle
 from coleman.application.registry import Configuration, NativeConfiguration
 from coleman.artifacts import ArtifactWriter
@@ -26,31 +27,26 @@ class WorkItem(Immutable):
 
 
 def _worker_peak_rss_mib() -> float | None:
-    """Measure this executable's peak RSS in MiB; missing/malformed observations return None.
+    """Delegate own-executable peak RSS while retaining original call-time hooks.
 
-    Linux getrusage can retain the parent's resident footprint before exec. The
-    kernel's VmHWM belongs to the current executable's address space instead.
-    Other platforms retain the existing resource sampler. This private guard
-    does not change general telemetry readings or reinterpret stored artifacts.
-    Reads local kernel metadata only; unavailable measurement fails closed in
-    _check_resources, without increasing the admitted memory limit.
+    Returns
+    -------
+    float or None
+        Original MiB sample, including observed zero and unavailable None.
+
+    Raises
+    ------
+    TypeError, OverflowError, ImportError
+        Unexpected sampling failure, as documented by resource_usage. Expected
+        Linux read/parse failures remain unavailable rather than observed zero.
+
+    Notes
+    -----
+    Passes this module's current Path and sys.platform bindings to the one
+    shared sampler. Existing host/test patches remain effective at call time.
+    No worker limit, completion state or artifact is changed by sampling.
     """
-    if sys.platform != "linux":
-        from coleman.telemetry.resources import ProcessResourceTracker
-
-        return ProcessResourceTracker().sample().peak_rss_mib
-    try:
-        with Path("/proc/self/status").open(encoding="ascii") as status:
-            for line in status:
-                if line.startswith("VmHWM:"):
-                    fields = line.split()
-                    if len(fields) != 3 or fields[2] != "kB":
-                        return None
-                    value = int(fields[1])
-                    return value / 1024 if value >= 0 else None
-    except (OSError, ValueError):
-        return None
-    return None
+    return resource_usage.peak_rss_mib(_path_factory=Path, _platform=sys.platform)
 
 
 def _check_resources(limits: Limits) -> None:
@@ -65,28 +61,33 @@ def _check_resources(limits: Limits) -> None:
 
 
 def _output_exceeds(maximum_bytes: int, *, root: Path = Path("run"), maximum_entries: int = 128) -> bool:
-    """Bound sampled file metadata without retaining an unbounded directory listing.
+    """Delegate the bounded output walk with the original worker defaults.
 
-    The existing service retains its run/128-file defaults. Trusted native matrix
-    callers can supply their separately frozen root/file bound without a second
-    output walker. Disappearing atomic temporary files are normal; other I/O failures propagate
-    to the fail-closed guard. No symlink is followed while measuring file bytes.
+    Parameters
+    ----------
+    maximum_bytes : int
+        Aggregate regular-file byte ceiling; equality remains permitted.
+    root : pathlib.Path, optional
+        Trusted output root, default the relative path run.
+    maximum_entries : int, optional
+        Enumerated descendant ceiling, default 128, including disappearing entries.
+
+    Returns
+    -------
+    bool
+        Original refusal predicate for bytes, entry count or descendant symlinks.
+
+    Raises
+    ------
+    OSError
+        Non-transient traversal/metadata failure; guards retain fail-closed handling.
+
+    Notes
+    -----
+    Uses the sole resource_usage walker and this module's current stat binding.
+    No output is written, removed or marked complete by this compatibility bridge.
     """
-    total = 0
-    for count, path in enumerate(root.rglob("*"), start=1):
-        if count > maximum_entries:
-            return True
-        try:
-            metadata = path.lstat()
-        except FileNotFoundError:
-            continue
-        if stat.S_ISLNK(metadata.st_mode):
-            return True
-        if stat.S_ISREG(metadata.st_mode):
-            total += metadata.st_size
-        if total > maximum_bytes:
-            return True
-    return False
+    return resource_usage.output_exceeds(maximum_bytes, root=root, maximum_entries=maximum_entries, _stat=stat)
 
 
 def _guard(limits: Limits, stopped: threading.Event) -> None:
@@ -145,7 +146,28 @@ def _experiment(configuration: NativeConfiguration, limits: Limits) -> Experimen
 
 
 def execute(item: WorkItem) -> ResultBundle:
-    """Invoke the native solver/runner with admitted work caps and no transport imports."""
+    """Invoke the native solver/runner with admitted work caps and no transport imports.
+
+    Parameters
+    ----------
+    item : WorkItem
+        Complete validated private host snapshot, including concrete problem
+        configuration and finite work, memory and output allowances.
+
+    Returns
+    -------
+    ResultBundle
+        Original typed native result bound to the admitted configuration. Work
+        units retain the selected problem's meaning; they are not paid costs.
+
+    Notes
+    -----
+    The native experiment branch writes relative input and runner artifacts in
+    the trusted worker directory. Solver branches retain their existing bounded
+    algorithms. The process host separately owns deadline/resource guards and
+    complete-last publication; this call publishes no completed-job receipt.
+    Native validation and I/O errors propagate without a reset or migration.
+    """
     from coleman.allocation import AllocationLimits, AllocationProblem, select_allocation
     from coleman.selection import CoverageProblem, SearchLimits, solve_coverage
 

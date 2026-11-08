@@ -173,6 +173,15 @@ SQLite store and existing PCG64 codec stay at their own version 1. See
 [native runtime identities](core-installation.md#keep-native-runtime-identities-explicit)
 for capture, dependency closure and migration limits.
 
+The [generic task route](typed-execution.md) uses the distinct `coleman-tasks-v1`
+namespace and a separately captured installed-executor identity. New tasks and
+compatible native jobs share the five-table metadata layout and bounded
+coordinator in a fresh explicitly selected workspace. Stored profile equality
+does not approve code; the current operator must independently supply it. The
+new mixed reader is bounded at 64 MiB/depth 64, with a 16 MiB task ceiling;
+native-only readers keep their original wire behavior. This adds no migration
+of historical executable work or native pickle state.
+
 Separate wheels are justified only by demonstrated dependency or support
 isolation that a modular namespace and optional extras cannot provide. Evidence
 must include package ownership/names, namespace/resource behavior, dependency

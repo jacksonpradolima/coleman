@@ -76,6 +76,8 @@ clickhouse = [
 [project.scripts]
 coleman = "coleman.cli:main"
 coleman-mcp = "coleman.transports.mcp:main"
+coleman-task = "coleman.application.task_cli:main"
+coleman-task-mcp = "coleman.transports.task_mcp:main"
 
 [project.urls]
 homepage = "https://github.com/jacksonpradolima/coleman"

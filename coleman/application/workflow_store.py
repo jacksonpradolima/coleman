@@ -13,8 +13,10 @@ from typing import Annotated
 
 from pydantic import Field
 
+from coleman.application import _workflow_records
 from coleman.corpus.materialization import validate_source_storage
 from coleman.results.domain import Fingerprint, Finite
+from coleman.tasks.contracts import TaskJobRecord, TaskPlan
 from coleman.workflows.contracts import DatasetManifest, ExperimentPlan, WorkflowContract, WorkflowError, WorkflowId
 from coleman.workflows.lifecycle import HostPolicy, Stage, State
 
@@ -347,6 +349,97 @@ class WorkflowStore:
                 raise ValueError("Job metadata identity mismatch")
         return values
 
+    def read_plan(self, connection: sqlite3.Connection, plan_id: str, owner: str) -> ExperimentPlan | TaskPlan:
+        """Load a known native/task plan through the bounded shared metadata route.
+
+        Parameters
+        ----------
+        connection : sqlite3.Connection
+            Caller-owned metadata connection, without provider callbacks.
+        plan_id, owner : str
+            Exact full content handle and trusted principal.
+
+        Returns
+        -------
+        ExperimentPlan or TaskPlan
+            Complete known plan metadata with its indexed fingerprint checked.
+
+        Raises
+        ------
+        KeyError, ValueError, TypeError, sqlite3.Error
+            Missing/nonowned, corrupt or oversized metadata. Shared routing is
+            capped at64 MiB/depth64; task models require at most16 MiB.
+            The existing native plan method retains its original reader limits.
+        """
+        return _workflow_records.read_plan(connection, plan_id, owner)
+
+    def records(self, connection: sqlite3.Connection) -> tuple[JobRecord | TaskJobRecord, ...]:
+        """Read all bounded record arms for shared ownership/capacity scans.
+
+        Parameters
+        ----------
+        connection : sqlite3.Connection
+            Caller-owned consistent metadata connection.
+
+        Returns
+        -------
+        tuple of JobRecord or TaskJobRecord
+            Every creation-ordered row, including both families and tombstones.
+            No complete plan, concrete provider codec or runtime is loaded.
+
+        Raises
+        ------
+        ValueError, TypeError, sqlite3.Error
+            Excess row count, invalid namespace/version/body or indexed identity.
+
+        Notes
+        -----
+        This scan does not assert plan/frontier compatibility; claim/transition
+        code must select the actual plan and call require_record_plan. The
+        native jobs facade still refuses generic rows instead of filtering them.
+        """
+        rows = connection.execute("SELECT * FROM jobs ORDER BY rowid LIMIT 129").fetchall()
+        if len(rows) > self.policy.max_jobs:
+            raise ValueError("Workspace job metadata exceeds its policy")
+        values = tuple(_workflow_records.read_job_payload(row["payload"], native_type=JobRecord) for row in rows)
+        for value, row in zip(values, rows, strict=True):
+            if (value.job_id, value.owner, value.request_id, value.plan_id) != (
+                row["id"],
+                row["owner"],
+                row["request"],
+                row["plan"],
+            ):
+                raise ValueError("Job metadata identity mismatch")
+        return values
+
+    @staticmethod
+    def save_record(connection: sqlite3.Connection, job: JobRecord | TaskJobRecord, *, create: bool = False) -> None:
+        """Save one known record; task transitions require the exact retained plan.
+
+        Parameters
+        ----------
+        connection : sqlite3.Connection
+            Active caller transaction; neither its body nor external effects retry.
+        job : JobRecord or TaskJobRecord
+            Complete operational record. Task plan/stage/coordinate/frontier/caps
+            are checked through built-in pure models, without provider decoding.
+        create : bool, optional
+            Insert rather than update, retaining the same owner/request key space.
+
+        Raises
+        ------
+        KeyError, ValueError, TypeError, sqlite3.Error
+            Missing/wrong-family plan, bad progress or changed retained identity.
+            Refusal leaves the transaction available for its caller to roll back.
+        """
+        if isinstance(job, TaskJobRecord):
+            checked = TaskJobRecord.model_validate(job)
+            plan = _workflow_records.read_plan(connection, checked.plan_id, checked.owner)
+            _workflow_records.require_record_plan(checked, plan)
+        else:
+            checked = JobRecord.model_validate(job)
+        _workflow_records.write_record(connection, checked, create=create, native_type=JobRecord)
+
     @staticmethod
     def save_job(connection: sqlite3.Connection, job: JobRecord, *, create: bool = False) -> None:
         """Commit one validated operational record inside the caller's transaction.
@@ -366,15 +459,4 @@ class WorkflowStore:
             Missing identity or conflicting caller/request; transaction rolls back.
         """
         job = JobRecord.model_validate(job)
-        if create:
-            connection.execute(
-                "INSERT INTO jobs VALUES (?,?,?,?,?)",
-                (job.job_id, job.owner, job.request_id, job.plan_id, job.to_json()),
-            )
-        else:
-            cursor = connection.execute(
-                "UPDATE jobs SET payload=? WHERE id=? AND owner=? AND request=? AND plan=?",
-                (job.to_json(), job.job_id, job.owner, job.request_id, job.plan_id),
-            )
-            if cursor.rowcount != 1:
-                raise ValueError("Cannot replace workflow job identity")
+        _workflow_records.write_record(connection, job, create=create, native_type=JobRecord)

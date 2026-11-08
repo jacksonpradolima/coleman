@@ -62,8 +62,10 @@ def test_core_ast_imports_point_only_to_leaves_or_small_required_dependencies():
         "types",
         "typing",
         "typing_extensions",
+        "zoneinfo",
         "pydantic",
     }
+    assert "zoneinfo" in sys.stdlib_module_names
     for source in sorted((ROOT / "coleman/core").glob("*.py")):
         tree = ast.parse(source.read_text(), filename=str(source))
         for node in ast.walk(tree):
