@@ -88,6 +88,7 @@ parallel execution, and extensibility via hooks and namespaced custom config.
 - docs/operational-pilot.md
 - docs/point-in-time-observations.md
 - docs/policies.md
+- docs/prequential-comparisons.md
 - docs/prospective-shadow.md
 - docs/protected-evaluation.md
 - docs/public-ci-feasibility.md
@@ -244,6 +245,7 @@ flowchart TD
 | Resume independent adaptive recipes | [Owned state and complete checkpoints](docs/state-recovery.md): explicit RNG buffers, pending labels, predictor/cache and applied/virtual paths, with bounded replay retention and local acknowledgements; requires the unreleased v5 source wheel |
 | Manage changing CI recipes safely | [Versioned eligibility and explicit ownership](docs/registry-lifecycle.md): prospective lifecycle, original feedback epochs and checked declared roots across complete 32-child checkpoints; requires the unreleased v5 source wheel |
 | Combine declared CI experts | [Full-information expert mixtures](docs/expert-mixtures.md): Hedge, anytime Hedge and Fixed Share, plus separately controlled coefficients with target sharing, hard bounds, release cadence and a joint L1 movement penalty; requires the unreleased v5 source wheel |
+| Compare a complete adaptive decision procedure | [Causal comparisons and conservative fallback](docs/prequential-comparisons.md): separate prediction, coefficients, feasible execution and own-path charges; check reference actions/costs/clocks and preserve insufficient evidence; requires the unreleased v5 source wheel |
 | Freeze an experiment before inspecting results | [Domain-neutral evaluation protocol](docs/evaluation-protocol.md): declared candidate laws, explicit quantities, raw seed panels and independent-unit means, with source-first access history and conservative cached verification; requires the unreleased v5 source wheel |
 | Audit what a source actually supports | [Source admission](docs/corpus-admission.md): original evidence, explicit units and a 35-axis production-reality matrix |
 | Compare repeated CI experiments | [Raw build/seed records and paired repository-family means](docs/corpus-evaluation.md), explicit missingness and protected access |
@@ -1111,6 +1113,29 @@ Literature references:
 - Muennighoff, N.; Tazi, N.; Magne, L.; Reimers, N. (2023). MTEB: Massive Text Embedding Benchmark. EACL.
 
 ::: coleman.evaluation
+
+## Causal comparisons and conservative fallback
+
+Use the [complete CI walkthrough](../prequential-comparisons.md) for input tables,
+the causal cycle, matched component comparisons and inspectable output. Pure
+contracts are independently importable; the optional audit and execution layers
+compose existing replay, storage and inference.
+
+The baseline is an exact BASE configuration. A comparison disposition preserves
+its frozen fallback and never executes a production switch. Source admission,
+reference conformance and statistical support remain separate.
+
+::: coleman.evaluation.prequential.contracts
+
+::: coleman.evaluation.prequential.conformance
+
+::: coleman.evaluation.prequential.execution
+
+::: coleman.evaluation.prequential.evidence
+
+::: coleman.evaluation.prequential.diagnostics
+
+::: coleman.evaluation.prequential.comparison
 
 
 
@@ -8215,6 +8240,7 @@ flowchart LR
 | Question | Guide |
 | --- | --- |
 | How do I freeze the source, candidate laws, selection and inferential target before outcomes? | [Design an evaluation protocol](evaluation-protocol.md) |
+| How do I compare adaptive procedures, check reference behavior and retain a conservative fallback? | [Causal comparisons from inputs to decisions and evidence](prequential-comparisons.md) |
 | What does this source actually support? | [Source admission and reality matrix](corpus-admission.md) |
 | Did candidate methods receive the same conditions? | [Comparable baseline matrices](comparable-baselines.md) |
 | Are the metric calculations correct? | [Independent metric references](corpus-evaluation.md), [decision benchmarks](decision-benchmarks.md) |
@@ -8794,6 +8820,11 @@ coefficients. It needs no runner, registry, replay session or local store. The
 controlled learner adds an explicit target, boxes, movement and release policy
 under a separately bound mathematical law. These APIs are part of the unreleased
 v5 source; they do not execute CI jobs or establish that adaptation improves them.
+
+To compare a complete procedure, continue with
+[causal comparisons and conservative fallback](prequential-comparisons.md).
+That workflow separates forecasts, coefficients, feasible domain actions and
+costs, checks reference behavior and preserves inconclusive results.
 
 Start with the [standalone reference example](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/learning/references.py).
 It constructs all three reference methods, applies the same public synthetic
@@ -11053,6 +11084,7 @@ native runner and typed contracts, but collect different kinds of evidence.
 | Register bounded application operations | [Application API](application-api.md) | Shared library services and an optional MCP transport |
 | Add a policy, hook or artifact | [Extensions](extensibility.md), [artifact API](api/artifacts.md) | Native lifecycle callbacks and typed result publication |
 | Compose independently evolving CI recipes | [Recipe lifecycle and ownership](registry-lifecycle.md) | Prospective eligibility, original feedback epochs and opt-in complete checkpoints in the v5 source |
+| Compare adaptive decisions before replacing a workflow | [Causal comparisons and conservative fallback](prequential-comparisons.md) | Separate forecasts, coefficients, feasible actions and own-path costs, with reference conformance and protected evidence |
 | Inspect a proposed CI schedule | [Operational pilot](operational-pilot.md) | Decision intent, selected work and independent accounting |
 | Distinguish serial and parallel costs | [Resource replay](resource-replay.md) | Explicit reservations, occupancy, overhead and released work |
 | Record prospective recommendations | [Shadow evaluation](prospective-shadow.md) | Frozen pre-outcome recommendations while the required suite continues |
@@ -14068,6 +14100,254 @@ Use the native policy/agent interfaces and lifecycle hooks described in
 [extensions and parallelism](extensibility.md). Reuse orchestration, sinks and
 checkpoints. Document update state, randomness, feedback assumptions and the
 conditions under which a score is meaningful.
+
+
+
+### FILE: docs/prequential-comparisons.md
+
+# Compare adaptive decisions with a conservative fallback
+
+An adaptive method can improve its learning score while producing a worse CI
+decision after constraints and costs. Compare the complete procedure: eligible
+inputs, forecasts, coefficients, feasible actions and the outcomes on each
+method's own path. Retain the existing workflow when the evidence does not
+justify a change.
+
+This guide connects [expert mixtures](expert-mixtures.md),
+[causal replay](causal-replay.md) and the
+[frozen evaluation protocol](evaluation-protocol.md). The initial execution
+profile maps full-information expert coefficients to a **separate deterministic
+finite choice**, with explicit feasibility and offline modeled execution.
+
+## Begin with complete inputs
+
+The runnable example contains four authored worlds. Each pair is the modeled
+duration of the `fast` and `full` expert plans, in seconds:
+
+| World | First outcome | Second outcome | Final outcome |
+| --- | --- | --- | --- |
+| `world-0` | `(2, 6)` | `(2, 6)` | `(6, 2)` |
+| `world-1` | `(6, 2)` | `(6, 2)` | `(2, 6)` |
+| `world-2` | `(4, 4)` | `(4, 4)` | `(4, 4)` |
+| `world-3` | `(1, 7)` | `(7, 1)` | `(3, 5)` |
+
+These are deliberately published model inputs. They are neither recorded CI
+executions nor independent historical repositories. The driver retains the
+complete table; each decision receives its permitted past inputs. The public
+source is declared already exposed.
+
+Each world starts with fresh complete owners and equal expert coefficients.
+The learning loss is duration divided by a declared eight-second scale. That
+dimensionless loss is separate from seconds, confidence and probability.
+The primary comparison observes **one named final decision per world**. Prefix
+decisions remain inspectable; they do not become extra independent observations
+or silently enter a cumulative primary metric.
+
+The fixed predictor supplies `(4, 4)` seconds. Its online counterpart updates an
+expanding mean from earlier mature, received complete panels. The host owns that
+predictor and includes its state in the checkpoint.
+
+## Freeze the treatment and its component comparisons
+
+The example declares these modes before loading protected outcomes:
+
+| Mode | Controlled change |
+| --- | --- |
+| `fixed` | Keep equal coefficients through the zero-rate endpoint |
+| `plain` | Apply constant-rate Hedge |
+| `target` | Add the declared-target share |
+| `bounded` | Add expert coefficient bounds |
+| `movement` | Add hard movement allowances |
+| `cadence` | Release a sum-loss block every two accepted panels |
+| `penalized` | Add positive L1 under the same hard controls |
+| `online` | Change only the supplied predictor to a past-panel online predictor |
+| `accounting_off` | Keep the matched controller and predictor, with zero modeled reconfiguration charge |
+
+Named matched pairs isolate the intended component. They do not establish a
+complete factorial study. The no-intervention proposal is a named diagnostic
+counterfactual: an infeasible proposed plan is never a deployable candidate or a
+falsely feasible execution.
+
+Freeze the complete family, BASE configurations, initialization, target-share
+strength, bounds, movement allowances, cadence, lambda, predictor updates,
+execution/accounting rules and tuning/resource budgets. Retain every inspected
+development setting, including unsuccessful ones. Choose lambda on development
+evidence and bind it to the selected rule.
+
+The example uses round cadence. UTC interval cadence and its required
+target/bounds/L1 combinations have a separate
+[expert-mixture execution qualification](expert-mixtures.md); a round comparison
+does not establish interval-controlled domain accounting.
+
+## Follow one causal cycle
+
+```mermaid
+flowchart TD
+    S["Eligible source view and received past outcomes"] --> F["Frozen or online host forecast"]
+    F --> P["Unchanged coefficient replay: p"]
+    P --> Q["Distinct domain proposal: q"]
+    Q --> X["Finite feasibility intervention: executed x"]
+    X --> O["Later domain outcomes and own-path charges"]
+    P --> L["Original complete expert-loss feedback"]
+    L --> U["Permitted learner update or held block"]
+    U --> P
+    O --> F
+    P --> C["Accepted collection: complete replay + domain/predictor/accounting"]
+    O --> C
+    O --> R["Complete raw candidate/member/seed panel"]
+    R --> I{"Supported inference assumptions?"}
+    I -->|"yes"| E["Existing protected protocol and complete hypothesis family"]
+    I -->|"no"| D["Source-audited descriptive evidence"]
+    V["Reference action/cost/time conformance"] --> A["Scoped comparison disposition + retained fallback"]
+    E --> A
+    D --> A
+```
+
+1. Apply feedback only under its declared availability, maturity, first receipt
+   and application clocks. Derive forecasts from that past.
+2. Emit the expert coefficients through the existing causal engine. Its complete
+   expert-loss feedback still belongs to the original coefficient action.
+3. Pass the complete earlier record to the separate domain owner. It proposes a
+   finite CI plan, checks resource constraints and records its modeled execution
+   and intervention. Ties use the example's declared full-plan tie-break.
+4. Retain later outcomes separately. A scalar outcome for the chosen plan cannot
+   supply the complete losses of every expert.
+5. Acknowledge complete replay and domain owners through the existing local
+   state store, including predictor state, pending outputs and accounting usage.
+
+`execute_prequential_step` supplies the typed two-stage call. Direct calls mutate
+owners in order; a later failure may follow an emitted coefficient. Durable use
+places the calls on fresh owners inside `LocalStateStore.commit_transition`.
+Failed staging retains the old accepted head. External commands need their own
+host reconciliation; the offline callback does not promise exactly-once
+external execution.
+
+## Keep loss, outcome and charges separate
+
+An independent calculation illustrates why the distinction matters:
+
+| Quantity | Fixed `(1/2, 1/2)` | Changed `(3/4, 1/4)` |
+| --- | --- | --- |
+| Linear combination of modeled `(2, 6)` seconds | `4 s` | `3 s` |
+| Common affine loss at an `8 s` scale | `1/2` | `3/8` |
+| Full coefficient L1 from the fixed origin | `0` | `1/2` |
+| Reconfiguration model at `4 s / full L1` | `0 s` | `2 s` |
+| Modeled seconds including that charge | `4 s` | `5 s` |
+
+The gross improvement becomes net harm under this declared model. This is an
+arithmetic fixture, not a physical CI charge. The learner's `lambda * L1` stays
+inside its objective; it is never a paid fee, measured CPU time or executed-book
+turnover.
+
+The affine equality requires a common fixed scale and a linear quantity. A
+nonlinear loss can instead give an inequality: the square of the mean of
+`(0, 1)` is `1/4`, while the mean square is `1/2`. Constraints, clipping,
+different fitted scales and path costs need their own derivation. For signed
+outcomes, use the existing [past-only transform](objectives.md), bind the
+producing scale and report clipping. A bounded surrogate cannot supply bounds
+for a raw or net target.
+
+## Run the public flow outside the checkout
+
+Use CPython 3.14 and a noneditable wheel from this source. The
+[base installation guide](core-installation.md) explains the dependency boundary.
+From the checkout:
+
+```bash
+work=$(mktemp -d)
+uv build --wheel --python 3.14 --out-dir "$work/wheels"
+uv venv --python 3.14 "$work/env"
+uv pip install --python "$work/env/bin/python" "$work"/wheels/*.whl
+mkdir "$work/example"
+cp examples/prequential/*.py "$work/example/"
+cd "$work/example"
+"$work/env/bin/python" -I -B ci.py "$work/evidence"
+```
+
+The [complete six-file example](https://github.com/jacksonpradolima/coleman/tree/release/v5/examples/prequential)
+retains nine modes, four worlds, three decisions per world and **36 raw final
+cells**. Physical resource costs remain unavailable without measurements.
+
+Read the output on separate axes:
+
+| Output | Meaning in this example |
+| --- | --- |
+| Source scope | Constructed, publicly exposed model inputs |
+| Reference conformance | Proposal/action, feasibility, component and clock checks |
+| Primary metric | Final decision's modeled net seconds, minimize |
+| Independent-unit declaration | Four authored worlds; seeds and rounds add no units |
+| Comparison scope | Descriptive only because the public source is already exposed |
+| Family conclusions | Insufficient evidence for the declared minimum |
+| Eligible candidate list | Empty |
+| Retained fallback | The exact frozen `fixed` baseline |
+| Adoption | No automatic switch |
+
+A deliberately divergent action, cost or time mapping blocks conformance even
+when the final score agrees. Complete discrepancies stay inspectable. Numerical
+reference tolerances are frozen per quantity, with exact comparison by default;
+they are separate from scientific practical-equivalence margins.
+
+## Resume the original comparison
+
+Retain the original design, selected rule, full family and source-clock tape.
+Resume both owners, including pending feedback and predictor/accounting history.
+Exact retries must neither invoke another decision nor charge a logical action
+twice.
+
+Reopening checks the original source, method definitions, copied example code
+and selected runtime, including a header saved before the first state store
+existed. Changed definitions reject continuation. Reading original artifacts is
+separate from executing them in a compatible environment or a reviewed new
+experiment lineage.
+
+The tape retains original decision and observation clocks. Those same inputs can
+reproduce complete logical state; a new process's OS timestamps and resource
+use are separate observations. Imports and reproductions preserve original
+provenance and exposure. They do not create another fresh confirmation.
+
+Source-access and checkpoint publication use separate existing ledgers. An
+interruption may consume access without completing a report. Keep that history
+through failures, resume, imports and cached disclosure. Consult
+[state recovery](state-recovery.md) for acknowledgements and
+[the protocol](evaluation-protocol.md) for access reservations.
+
+## Return a conclusion that matches the evidence
+
+`ReferenceConformancePlan` freezes the reference recipe, complete opportunity
+catalogue, quantities and tolerances before reading protected reference outputs.
+The later report embeds both actual traces and rederives every check.
+`ComparisonPlan` binds the design, exact BASE baseline, required contrasts,
+terminal cell mapping and fallback. `SelectionManifest.rule` binds that plan
+before the existing protected freeze, avoiding a circular identity.
+
+When an original record contains several measurements, the terminal component
+selects the panel's named primary measurement. The comparison checks that
+selector, value and missingness against the quantity used by the statistical
+engine, so conformance and inference describe the same outcome.
+
+For supported independent-unit assumptions, `ProtocolAudit` retains the complete
+panel and applies the existing bounded or explicitly justified paired-t route.
+It preserves the complete multiple-testing family. A qualified positive
+comparison may identify candidates within its declared scope; harm, equivalence
+and inconclusive results remain valid outcomes.
+
+For unsupported dependence, assignment, stopping or bounds, use `DiagnosticAudit`.
+It reserves source access before loading a bounded complete `DiagnosticPanel`.
+It invents no protected freeze, confidence interval or p-value. Later supported
+use sees the same retained exposure. Existing unsupported `ProtocolAudit`
+requests still return before invoking their loader.
+
+`assess_comparison` separates conformance, source/access eligibility, inference,
+eligible candidates and fallback. Persisted consumers call
+`ComparisonDisposition.validate_for` with the complete original inputs. A valid
+schema or admission fingerprint cannot prove scientific independence, source
+authenticity or empirical usefulness. The disposition performs no production
+action.
+
+Continue with the [evaluation API](api/evaluation.md),
+[bounded paired assumptions](bounded-paired-evaluation.md),
+[source admission](corpus-admission.md) and
+[research reading path](research.md#sequential-evaluation-and-selection).
 
 
 
@@ -17632,6 +17912,41 @@ A source paper describes the original study. COLEMAN's adapter guides separately
 state byte pins, units, exclusions and current qualification limits. Use both;
 do not infer missing source clocks or test inventories from a publication's
 aggregate statistics.
+
+## Sequential evaluation and selection
+
+**Dawid. _Statistical Theory: The Prequential Approach._ Journal of the Royal
+Statistical Society, Series A, 147(2), 1984.**
+[Original publisher record](https://academic.oup.com/jrsssa/article/147/2/278/7106293).
+
+Dawid develops sequential probability forecasting. The
+[causal-comparison workflow](prequential-comparisons.md) uses a declared
+prediction/decision, outcome and update order as an engineering design. That
+ordering alone provides no calibration or inferential guarantee for an arbitrary
+expert coefficient vector or executed decision.
+
+**Cawley and Talbot. _On Over-fitting in Model Selection and Subsequent Selection
+Bias in Performance Evaluation._ Journal of Machine Learning Research 11(70),
+2079–2107, 2010.**
+[Original article](https://www.jmlr.org/papers/v11/cawley10a.html).
+
+Their study explains how optimizing a finite-data selection criterion can bias
+later comparisons. The engineering response here is to freeze the complete
+procedure and family, retain all inspected development settings and preserve
+protected-source exposure through retries and imports. These controls depend on
+truthful source declarations and mediated access; they do not discover outside
+inspections automatically.
+
+**Hadad, Hirshberg, Zhan, Wager and Athey. _Confidence intervals for policy
+evaluation in adaptive experiments._ Proceedings of the National Academy of
+Sciences 118(15), e2014602118, 2021.**
+[Original article](https://pmc.ncbi.nlm.nih.gov/articles/PMC8054003/).
+
+The paper demonstrates inferential problems under adaptive data collection and
+develops an estimator under its stated conditions. COLEMAN's existing fixed
+independent-unit routes do not implement that estimator. Unsupported dependence,
+assignment or stopping remains explicit descriptive evidence until an applicable
+inference procedure is independently qualified.
 
 ## Evaluation and interpretation
 

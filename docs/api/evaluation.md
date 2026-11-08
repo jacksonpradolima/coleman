@@ -21,3 +21,26 @@ Literature references:
 - Muennighoff, N.; Tazi, N.; Magne, L.; Reimers, N. (2023). MTEB: Massive Text Embedding Benchmark. EACL.
 
 ::: coleman.evaluation
+
+## Causal comparisons and conservative fallback
+
+Use the [complete CI walkthrough](../prequential-comparisons.md) for input tables,
+the causal cycle, matched component comparisons and inspectable output. Pure
+contracts are independently importable; the optional audit and execution layers
+compose existing replay, storage and inference.
+
+The baseline is an exact BASE configuration. A comparison disposition preserves
+its frozen fallback and never executes a production switch. Source admission,
+reference conformance and statistical support remain separate.
+
+::: coleman.evaluation.prequential.contracts
+
+::: coleman.evaluation.prequential.conformance
+
+::: coleman.evaluation.prequential.execution
+
+::: coleman.evaluation.prequential.evidence
+
+::: coleman.evaluation.prequential.diagnostics
+
+::: coleman.evaluation.prequential.comparison

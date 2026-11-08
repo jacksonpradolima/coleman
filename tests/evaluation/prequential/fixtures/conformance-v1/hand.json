@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "scope": "constructed mechanism; not historical CI or physical work",
+  "durations_seconds": [2, 6],
+  "candidate_coefficients": ["3/4", "1/4"],
+  "baseline_coefficients": ["1/2", "1/2"],
+  "frozen_common_scale_seconds": 8,
+  "modeled_seconds_per_full_coefficient_l1": 4,
+  "expected_candidate_gross_seconds": 3,
+  "expected_candidate_surrogate": "3/8",
+  "expected_baseline_gross_seconds": 4,
+  "expected_baseline_surrogate": "1/2",
+  "expected_full_coefficient_l1": "1/2",
+  "expected_modeled_charge_seconds": 2,
+  "expected_candidate_net_seconds": 5,
+  "expected_baseline_net_seconds": 4,
+  "square_at_mean": "1/4",
+  "mean_of_squares": "1/2"
+}

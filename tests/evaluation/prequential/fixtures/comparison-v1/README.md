@@ -1,0 +1,3 @@
+# Comparison v1 authored wires
+
+These two standard-JSON inputs were authored without importing a COLEMAN module or invoking its constructors/serializers. Source/design/selection fields reuse the existing public authored design-v1 fixture. SHA-256 joins use standard-library sorted compact JSON over those inputs. Baseline configuration uses its original BASE configuration JSON, never a projected candidate. The frozen terminal mapping names each original build/seed explicitly and the plan intentionally has no selection fingerprint. The locator body digest is an authored identified value; this fixture does not claim that an artifact was published or any source was read. Neither fixture supplies a statistical result or empirical admission.
