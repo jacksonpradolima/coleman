@@ -3,10 +3,12 @@
 import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing, contextmanager
 from threading import Event
 
 import pytest
 
+from coleman.application.workflow_store import _sqlite_command
 from coleman.application.workflows import WorkflowService
 from coleman.workflows.lifecycle import ExecutePlan
 from tests.workflows.test_execution import setup_workflow, wait
@@ -33,6 +35,25 @@ class _StatusProbe:
             raise
 
 
+@contextmanager
+def _exclusive_writer(store):
+    """Block actual readers, unlike an ordinary concurrent WAL writer.
+
+    Only this fault producer chooses exclusive mode. It uses the original
+    bounded metadata BEGIN helper and keeps the observer's existing45 seconds.
+    Closing the real connection releases its connection-local exclusive lock.
+    https://www.sqlite.org/wal.html#sometimes_queries_return_sqlite_busy_in_wal_mode
+    """
+    deadline = time.monotonic() + 45
+    with closing(store.connect(deadline=deadline)) as connection:
+        assert connection.execute("PRAGMA locking_mode=EXCLUSIVE").fetchone()[0] == "exclusive"
+        _sqlite_command(connection, lambda: connection.execute("BEGIN IMMEDIATE"), deadline=deadline)
+        try:
+            yield connection
+        finally:
+            connection.rollback()
+
+
 def test_wait_retries_actual_sqlite_contention_without_repeating_native_work(tmp_path):
     service, preview = setup_workflow(tmp_path, policies=("Random",), seeds=(42,))
     job = service.execute(ExecutePlan(schema_version=1, request_id="observed-busy", plan_id=preview.plan_id))
@@ -44,9 +65,9 @@ def test_wait_retries_actual_sqlite_contention_without_repeating_native_work(tmp
     probe = _StatusProbe(service, release)
 
     def writer():
-        # The real connection is created, used and closed in this thread. Its
-        # existing bounded transaction waits for a real failed status attempt.
-        with service.store.transaction(deadline=time.monotonic() + 45):
+        # Ordinary WAL writers allow status reads. This real exclusive owner
+        # makes reads genuinely unavailable until the existing retry observes it.
+        with _exclusive_writer(service.store):
             acquired.set()
             assert release.wait(timeout=45)
 

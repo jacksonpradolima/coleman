@@ -32,6 +32,7 @@ learning rule or performance claim.
 | Source | Complete versioned `HedgeInputs` definition | Exact original panels and virgin complete learner state |
 | Work target | Three accepted full panels | Inner learner update count, independent of storage publications |
 | Publication batch | Two panels per transition | Operational batching; it changes neither panel order nor mathematical updates |
+| Coordinate seed | Explicit `None` | This deterministic Hedge example has no RNG; absence is distinct from seed `0` |
 | Operational limits | One coordinate, two physical attempts, three worker starts, 60 seconds per start | Separate finite ceilings; attempts are not independent observations |
 | Scientific protocol | Explicit `None` | Constructed mechanism demonstration, without protected inference or adoption |
 
@@ -45,7 +46,7 @@ eligibility and objective definitions instead of renaming these CI loss rows.
 ```mermaid
 flowchart TD
     H["CLI/MCP: inherited host directory and reviewed approval"] --> P
-    I["Concrete configuration, source and ordered coordinates"] --> P["Approved image and concrete codec validation"]
+    I["Concrete configuration, source, coordinates and declared seeds"] --> P["Approved image and concrete codec validation"]
     P --> Q["Common finite queue and actual kernel ownership"]
     Q --> A["Reserve a physical attempt before work"]
     A --> L["Existing learner: original panel to updated state"]
@@ -68,6 +69,29 @@ once; a second call refuses before additional coordinate effects.
 The [expert-mixture guide](expert-mixtures.md) explains the update and its
 scientific assumptions. A direct `Hedge` instance needs no plan, workspace,
 registration, installed-image scan, transport or checkpoint store.
+
+### Carry a coordinate seed without reseeding
+
+A task coordinate can declare an unsigned 64-bit seed. `0` is a valid seed;
+`None` means that no seed is declared. Compilation preserves the value separately
+from the coordinate body, through `CoordinateWork.seed` to `CoordinateContext.seed`.
+Readback, reconciliation, progress verification and publication receive that
+same context; advancement receives it as `AttemptContext.coordinate.seed`.
+Different coordinates retain their own seed on fresh work, a cached prefix and
+resumed execution. The complete coordinate identity already includes the seed.
+
+An applicable stochastic provider initializes its owned RNG once for a virgin
+trajectory and checkpoints the complete generator state. Continuation restores
+that state instead of restarting the stream for every callback or attempt.
+For a standard-library generator, the existing `capture_random` and
+`restore_random` functions in `coleman.state.random_state` retain its complete
+state. The coordinator neither chooses an undeclared seed nor reseeds a global
+generator. Existing native constructor/checkpoint RNG restoration stays native.
+
+The example above remains deterministic: exposing a seed does not make Hedge
+consume randomness. Delivery alone does not prove that an arbitrary provider
+used the seed, make repeated runs independent, or authenticate a historical
+artifact's producer assertions.
 
 ## Approve an installed executor explicitly
 
@@ -247,6 +271,38 @@ generic tasks, decode an unavailable provider's concrete result or reconstruct
 approval from SQL. Opening with a different profile or generic cap policy
 refuses. Cancelled workers retain capacity until their actual lock is released;
 expired bytes retain output reservations until successful cleanup.
+
+## Inspect progress while work continues
+
+Reopening an existing host reads its immutable profile and caps together, then
+checks the supplied values. Matching metadata needs no SQLite writer reservation.
+Ordinary status inspection reads a consistent metadata snapshot and probes the
+actual worker lock, allowing a concurrent WAL writer to continue publishing.
+These are point-in-time observations; the lock can change after the probe.
+
+A running job without observed ownership needs a state transition. The service
+closes its read connection, acquires the original writer transaction and checks
+both the current job and kernel lock again. A concurrent completion, cancellation
+or newly acquired worker lock is preserved. Only a job that is still running and
+unowned becomes interrupted.
+
+```mermaid
+flowchart TD
+    A["Inspect status"] --> R["Read metadata snapshot and probe kernel lock"]
+    R --> Q{"Running without observed ownership?"}
+    Q -->|no| S["Return observed status"]
+    Q -->|yes| W["Close read and acquire writer"]
+    W --> V["Read current job and kernel lock again"]
+    V --> C{"Still running and unowned?"}
+    C -->|no| S
+    C -->|yes| I["Record interruption"]
+    I --> S
+```
+
+First registration and actual metadata changes retain the original one-second
+fail-fast SQLite wait. Storage failures remain explicit. Reading retained
+settings grants no execution approval, and a status observation is separate from
+a complete result or an acknowledged mathematical checkpoint.
 
 ## Use the same service from a CLI or MCP client
 

@@ -345,6 +345,7 @@ def prepare_native_program(
             TaskFrontier(profile=_FRONTIER, coordinate=Reference(id=trial.trial_id, version="1"), position=steps),
             trial,
             root / "evidence" / trial.trial_id[7:] / job.stage,
+            seed=trial.seed,
         )
         for trial in trials
     )

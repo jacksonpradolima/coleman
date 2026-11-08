@@ -32,6 +32,9 @@ class CoordinateWork[W]:
         Trial; no native plan or value is converted into a generic wire record.
     artifact_directory : pathlib.Path
         Trusted driver/adapter-selected local directory under the owned job.
+    seed : int or None, optional
+        Exact declared uint64 seed, including valid zero, or None when
+        undeclared. Forwarded to the coordinate context without RNG operations.
 
     Notes
     -----
@@ -46,6 +49,7 @@ class CoordinateWork[W]:
     target: TaskFrontier
     value: W
     artifact_directory: Path
+    seed: int | None = None
 
 
 @dataclass(frozen=True)

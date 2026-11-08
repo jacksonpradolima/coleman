@@ -63,8 +63,10 @@ def test_installed_wheel_without_model_and_optional_sdk(tmp_path):
     program = tmp_path / "qualified.py"
     program.write_text("""
 import asyncio,importlib.util,json,sqlite3,sys,time
+from contextlib import closing
 from pathlib import Path
 import coleman
+from coleman.application.workflow_store import _sqlite_command
 from coleman.application.workflows import WorkflowService
 from coleman.application.workflow_registry import owned_fixture
 from coleman.workflows.contracts import PlanningRequest
@@ -100,9 +102,17 @@ if sys.argv[1]=="base":
     from threading import Event
     acquired,release,busy_observed=Event(),Event(),Event()
     def hold_writer():
-        with service.store.transaction(deadline=time.monotonic()+10):
-            acquired.set()
-            assert release.wait(15),"Coordinated writer was not released"
+        # A normal WAL writer permits read-only status. This connection-local
+        # exclusive fault genuinely blocks readers without changing any budget.
+        deadline=time.monotonic()+10
+        with closing(service.store.connect(deadline=deadline)) as connection:
+            assert connection.execute("PRAGMA locking_mode=EXCLUSIVE").fetchone()[0]=="exclusive"
+            _sqlite_command(connection,lambda:connection.execute("BEGIN IMMEDIATE"),deadline=deadline)
+            try:
+                acquired.set()
+                assert release.wait(15),"Coordinated writer was not released"
+            finally:
+                connection.rollback()
     with ThreadPoolExecutor(max_workers=2) as pool:
         holder=pool.submit(hold_writer)
         try:

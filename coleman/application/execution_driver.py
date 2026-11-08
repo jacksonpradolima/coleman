@@ -203,7 +203,12 @@ class _Worker:
         for index, work in enumerate(program.coordinates):
             self.check()
             context = CoordinateContext(
-                program.context, work.coordinate_fingerprint, work.reference, work.target, work.artifact_directory
+                program.context,
+                work.coordinate_fingerprint,
+                work.reference,
+                work.target,
+                work.artifact_directory,
+                seed=work.seed,
             )
             result = program.executor.read_completed(work.value, context)
             if result is None:

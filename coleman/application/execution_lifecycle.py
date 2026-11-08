@@ -194,7 +194,30 @@ def reconcile_record(store: WorkflowStore, job_id: str, owner: str) -> tuple[vie
     tuple
         Known job and actual lock-ownership observation. A dead running worker
         becomes interrupted; no queued or interrupted work starts here.
+
+    Raises
+    ------
+    KeyError, ValueError, OSError, sqlite3.Error
+        Missing/nonowned or corrupt metadata, unsafe lock storage or SQLite
+        failure. An actual interruption transition retains the original
+        one-second fail-fast write wait; other errors propagate unchanged.
+
+    Notes
+    -----
+    Read the job in a consistent read transaction, then probe its actual kernel
+    lock. These are observations, not an atomic cross-resource ownership claim.
+    Nonrunning jobs and observed live owners need no writer reservation. Only
+    a possibly orphaned running job enters the original write transaction,
+    after closing the read connection. It rechecks both current metadata and
+    the kernel lock before changing running to interrupted. A negative probe
+    never authorizes execution; scheduling retains its separate owned claim.
     """
+    with closing(store.connect()) as connection:
+        connection.execute("BEGIN")
+        job = owned_record(store, connection, job_id, owner)
+        active = worker_active(store.root, job.job_id)
+    if job.state != "running" or active:
+        return job, active
     with store.transaction() as connection:
         job = owned_record(store, connection, job_id, owner)
         active = worker_active(store.root, job.job_id)

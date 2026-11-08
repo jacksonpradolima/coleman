@@ -259,6 +259,7 @@ def prepare_task_program(
             item.target,
             value,
             context.job_root / "evidence" / item.fingerprint.removeprefix("sha256:"),
+            seed=item.seed,
         )
         for item, value in zip(current.coordinates, coordinates, strict=True)
     )

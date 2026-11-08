@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from typing import Annotated, Literal
 
 from pydantic import Field
@@ -146,7 +147,7 @@ def require_current_profile(connection: sqlite3.Connection, current: HostBootstr
 def bind_host(
     store: WorkflowStore, current: HostBootstrapProfile | None, requested: TaskHostPolicy | None
 ) -> TaskHostPolicy:
-    """Serialize first generic-host equality registration without loading code.
+    """Read immutable host equality or serialize its first registration.
 
     Parameters
     ----------
@@ -167,30 +168,86 @@ def bind_host(
     ValueError
         Concurrent/conflicting approval or changed immutable policy. Both
         settings are committed together; a first-profile race has one winner.
+    sqlite3.Error, OSError
+        Storage/read failure. An actual first registration can additionally
+        contend for the writer; its original one-second fail-fast wait remains
+        unchanged.
 
     Notes
     -----
     Registration is equality metadata only. Capture and concrete bootstrap
     validation occur separately outside SQL before planning, admission or work.
     A failed subsequent capture does not silently replace an immutable profile.
+    Existing registration is read in one consistent SQL statement without
+    acquiring the writer reservation. With no registration, provider-free
+    inspection returns ephemeral caps and writes no approval. A supplied first
+    profile enters the original write transaction and rechecks the complete
+    pair before insertion, retaining one winner for concurrent registration.
     """
     profile = None if current is None else HostBootstrapProfile.model_validate(current)
     policy = None if requested is None else TaskHostPolicy.model_validate(requested)
+    with closing(store.connect()) as connection:
+        retained = _retained_host_policy(connection, profile, policy)
+    if retained is not None:
+        return retained
+    if profile is None:
+        return policy or TaskHostPolicy(schema_version=1, contract="coleman-tasks-v1", artifact_type="host_policy")
     with store.transaction() as connection:
-        retained_profile, retained_policy = stored_profile(connection), stored_policy(connection)
-        if (retained_profile is None) != (retained_policy is None):
-            raise ValueError("Incomplete generic host equality metadata; no implicit repair")
-        if retained_policy is not None:
-            if policy is not None and policy != retained_policy:
-                raise ValueError("Existing generic host policy cannot be silently replaced")
-            if profile is not None and profile != retained_profile:
-                raise ValueError("Existing generic bootstrap profile cannot be silently replaced")
-            return retained_policy
+        retained = _retained_host_policy(connection, profile, policy)
+        if retained is not None:
+            return retained
         selected = policy or TaskHostPolicy(schema_version=1, contract="coleman-tasks-v1", artifact_type="host_policy")
-        if profile is not None:
-            connection.execute("INSERT INTO settings VALUES (?,?)", (_PROFILE, profile.to_json()))
-            connection.execute("INSERT INTO settings VALUES (?,?)", (_POLICY, selected.to_json()))
+        connection.execute("INSERT INTO settings VALUES (?,?)", (_PROFILE, profile.to_json()))
+        connection.execute("INSERT INTO settings VALUES (?,?)", (_POLICY, selected.to_json()))
         return selected
+
+
+def _retained_host_policy(
+    connection: sqlite3.Connection, current: HostBootstrapProfile | None, requested: TaskHostPolicy | None
+) -> TaskHostPolicy | None:
+    """Read and match both equality settings from one SQL statement snapshot.
+
+    Parameters
+    ----------
+    connection : sqlite3.Connection
+        Caller-owned read connection or first-registration write transaction.
+    current : HostBootstrapProfile or None
+        Already validated supplied approval, never inferred from retained data.
+    requested : TaskHostPolicy or None
+        Already validated explicit caps, or no requested policy replacement.
+
+    Returns
+    -------
+    TaskHostPolicy or None
+        Matching retained caps, or no registration when both keys are absent.
+
+    Raises
+    ------
+    ValueError, TypeError, sqlite3.Error
+        Corrupt/incomplete retained settings, policy conflict, profile conflict
+        or read failure. Profile parsing precedes policy parsing; conflicts
+        retain their original policy-before-profile check order.
+
+    Notes
+    -----
+    One SELECT keeps the pair consistent across concurrent commits. A present
+    key with invalid content is parsed and refused rather than treated absent.
+    This function neither writes nor grants provider execution authority.
+    """
+    payloads = dict(
+        connection.execute("SELECT name,payload FROM settings WHERE name IN (?,?)", (_PROFILE, _POLICY)).fetchall()
+    )
+    profile = None if _PROFILE not in payloads else HostBootstrapProfile.from_json(payloads[_PROFILE])
+    policy = None if _POLICY not in payloads else TaskHostPolicy.from_json(payloads[_POLICY])
+    if (profile is None) != (policy is None):
+        raise ValueError("Incomplete generic host equality metadata; no implicit repair")
+    if policy is None:
+        return None
+    if requested is not None and requested != policy:
+        raise ValueError("Existing generic host policy cannot be silently replaced")
+    if current is not None and current != profile:
+        raise ValueError("Existing generic bootstrap profile cannot be silently replaced")
+    return policy
 
 
 def validate_task_caps(connection: sqlite3.Connection, plan: TaskPlan) -> None:

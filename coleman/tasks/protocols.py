@@ -174,6 +174,15 @@ class CoordinateContext:
         do not rewrite retained native build counters or coordinate wires.
     artifact_directory : pathlib.Path
         Driver-selected per-coordinate directory, outside metadata transactions.
+    seed : int or None, optional
+        Exact declared uint64 seed for this coordinate. Zero is valid; None
+        means no seed is declared. It is separate from global preparation.
+
+    Notes
+    -----
+    The coordinator never seeds or reseeds a global RNG. A provider may use the
+    seed to initialize its owned RNG once, then restore its complete owned state
+    on continuation instead of reseeding for each attempt.
     """
 
     preparation: PreparationContext
@@ -181,6 +190,7 @@ class CoordinateContext:
     reference: Reference
     target: TaskFrontier
     artifact_directory: Path
+    seed: int | None = None
 
 
 @dataclass(frozen=True)
