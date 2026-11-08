@@ -93,12 +93,17 @@ def test_installed_actual_nine_mode_comparison_has_explicit_five_components_and_
     proof = installed_prequential["proof"]
     summary = proof["summary"]
     assert len(summary["candidate_modes"]) == 9
-    assert summary["raw_cells"] == 36 and summary["decisions_per_world"] == 3
-    assert summary["conformance"] == "pass" and summary["comparison_status"] == "descriptive_only"
-    assert summary["retained_fallback"] == "fixed" and summary["automatic_adoption"] is False
+    assert summary["raw_cells"] == 36
+    assert summary["decisions_per_world"] == 3
+    assert summary["conformance"] == "pass"
+    assert summary["comparison_status"] == "descriptive_only"
+    assert summary["retained_fallback"] == "fixed"
+    assert summary["automatic_adoption"] is False
     assert summary["confirmatory_eligible"] is False
-    assert proof["scalar_oracle_decisions"] == 108 and proof["installed_modules"] > 0
-    assert len(proof["snapshots"]) == 36 and all(len(states) == 2 for states in proof["snapshots"].values())
+    assert proof["scalar_oracle_decisions"] == 108
+    assert proof["installed_modules"] > 0
+    assert len(proof["snapshots"]) == 36
+    assert all(len(states) == 2 for states in proof["snapshots"].values())
     assert proof["reference_drift_diagnostics"] == {"action": "fail", "cost": "fail", "time": "fail"}
 
 
@@ -210,7 +215,8 @@ def test_actual_two_process_writers_have_one_domain_execution_and_retained_or_st
         assert loser.returncode == 0, loser_output + loser_error
         winner_result, loser_result = json.loads(winner_output), json.loads(loser_output)
         if divergent:
-            assert loser_result["callbacks"] == 0 and "rejected" in loser_result
+            assert loser_result["callbacks"] == 0
+            assert "rejected" in loser_result
         else:
             assert loser_result == winner_result
         assert not (case / "loser-calls.log").exists()

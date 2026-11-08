@@ -34,30 +34,36 @@ if TYPE_CHECKING:
         execute_prequential_step,
     )
 
+_COMPARISON_MODULE = "coleman.evaluation.prequential.comparison"
+_CONFORMANCE_MODULE = "coleman.evaluation.prequential.conformance"
+_CONTRACTS_MODULE = "coleman.evaluation.prequential.contracts"
+_EVIDENCE_MODULE = "coleman.evaluation.prequential.evidence"
+_EXECUTION_MODULE = "coleman.evaluation.prequential.execution"
+
 _EXPORTS = {
-    "ComparisonDisposition": ("coleman.evaluation.prequential.comparison", "ComparisonDisposition"),
-    "ComparisonPlan": ("coleman.evaluation.prequential.comparison", "ComparisonPlan"),
-    "assess_comparison": ("coleman.evaluation.prequential.comparison", "assess_comparison"),
-    "MetricTolerance": ("coleman.evaluation.prequential.conformance", "MetricTolerance"),
-    "ReferenceConformancePlan": ("coleman.evaluation.prequential.conformance", "ReferenceConformancePlan"),
-    "ReferenceConformanceReport": ("coleman.evaluation.prequential.conformance", "ReferenceConformanceReport"),
-    "check_reference_conformance": ("coleman.evaluation.prequential.conformance", "check_reference_conformance"),
-    "ComponentObservation": ("coleman.evaluation.prequential.contracts", "ComponentObservation"),
-    "ConformanceLimits": ("coleman.evaluation.prequential.contracts", "ConformanceLimits"),
-    "ConformanceTrace": ("coleman.evaluation.prequential.contracts", "ConformanceTrace"),
-    "DomainExecutionReceipt": ("coleman.evaluation.prequential.contracts", "DomainExecutionReceipt"),
-    "ExecutionKey": ("coleman.evaluation.prequential.contracts", "ExecutionKey"),
-    "StepEvidence": ("coleman.evaluation.prequential.contracts", "StepEvidence"),
+    "ComparisonDisposition": (_COMPARISON_MODULE, "ComparisonDisposition"),
+    "ComparisonPlan": (_COMPARISON_MODULE, "ComparisonPlan"),
+    "assess_comparison": (_COMPARISON_MODULE, "assess_comparison"),
+    "MetricTolerance": (_CONFORMANCE_MODULE, "MetricTolerance"),
+    "ReferenceConformancePlan": (_CONFORMANCE_MODULE, "ReferenceConformancePlan"),
+    "ReferenceConformanceReport": (_CONFORMANCE_MODULE, "ReferenceConformanceReport"),
+    "check_reference_conformance": (_CONFORMANCE_MODULE, "check_reference_conformance"),
+    "ComponentObservation": (_CONTRACTS_MODULE, "ComponentObservation"),
+    "ConformanceLimits": (_CONTRACTS_MODULE, "ConformanceLimits"),
+    "ConformanceTrace": (_CONTRACTS_MODULE, "ConformanceTrace"),
+    "DomainExecutionReceipt": (_CONTRACTS_MODULE, "DomainExecutionReceipt"),
+    "ExecutionKey": (_CONTRACTS_MODULE, "ExecutionKey"),
+    "StepEvidence": (_CONTRACTS_MODULE, "StepEvidence"),
     "DiagnosticAudit": ("coleman.evaluation.prequential.diagnostics", "DiagnosticAudit"),
-    "DiagnosticEvidence": ("coleman.evaluation.prequential.evidence", "DiagnosticEvidence"),
-    "DiagnosticLocator": ("coleman.evaluation.prequential.evidence", "DiagnosticLocator"),
-    "DiagnosticPanel": ("coleman.evaluation.prequential.evidence", "DiagnosticPanel"),
-    "DiagnosticView": ("coleman.evaluation.prequential.evidence", "DiagnosticView"),
-    "DomainExecutionContext": ("coleman.evaluation.prequential.execution", "DomainExecutionContext"),
-    "DomainExecutor": ("coleman.evaluation.prequential.execution", "DomainExecutor"),
-    "DomainStepPlan": ("coleman.evaluation.prequential.execution", "DomainStepPlan"),
-    "PrequentialStep": ("coleman.evaluation.prequential.execution", "PrequentialStep"),
-    "execute_prequential_step": ("coleman.evaluation.prequential.execution", "execute_prequential_step"),
+    "DiagnosticEvidence": (_EVIDENCE_MODULE, "DiagnosticEvidence"),
+    "DiagnosticLocator": (_EVIDENCE_MODULE, "DiagnosticLocator"),
+    "DiagnosticPanel": (_EVIDENCE_MODULE, "DiagnosticPanel"),
+    "DiagnosticView": (_EVIDENCE_MODULE, "DiagnosticView"),
+    "DomainExecutionContext": (_EXECUTION_MODULE, "DomainExecutionContext"),
+    "DomainExecutor": (_EXECUTION_MODULE, "DomainExecutor"),
+    "DomainStepPlan": (_EXECUTION_MODULE, "DomainStepPlan"),
+    "PrequentialStep": (_EXECUTION_MODULE, "PrequentialStep"),
+    "execute_prequential_step": (_EXECUTION_MODULE, "execute_prequential_step"),
 }
 
 __all__ = [

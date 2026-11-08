@@ -167,6 +167,12 @@ class Session:
         if replay.state.decision_count != len(domain.receipts) or replay.state.update_count != domain.count:
             raise ValueError("Joint replay/domain counters differ in the accepted collection")
         producers = {row.fingerprint: row for row in replay.state.decisions}
+        self._restore_emissions(domain, producers)
+        self._restore_observations(replay, domain, producers)
+        return replay, domain
+
+    def _restore_emissions(self, domain, producers) -> None:
+        """Rebuild immutable emission metadata after original producer/accounting checks."""
         previous = (0.5, 0.5)
         for ordinal, receipt in enumerate(domain.receipts):
             if receipt.coefficient_record_fingerprint not in producers:
@@ -187,6 +193,9 @@ class Session:
             previous = weights
         if domain.last_coefficients != previous:
             raise ValueError("Accepted last coefficients differ from the original replay history")
+
+    def _restore_observations(self, replay, domain, producers) -> None:
+        """Rebuild complete originals from actual selected applications and raw history."""
         applications = {row.application.executed.fingerprint: row.application for row in replay.state.updates}
         for step, seconds in zip(domain.observations, domain.expert_history, strict=True):
             ordinal = step.receipt.executed.proposal.request.round
@@ -204,7 +213,6 @@ class Session:
                 feedback=application.feedback,
                 expert_seconds=seconds,
             )
-        return replay, domain
 
     def command(self, phase: str, ordinal: int | None, at: datetime | None) -> CommitRequest:
         """Create a complete CAS request before initialization or emission.
@@ -553,31 +561,43 @@ class Session:
 
         def transition(stage):
             """Stage selected feedback and verify exact original domain retention before ACK."""
-            replay = stage.owner(self.replay_binding)
-            domain = stage.owner(self.domain_binding)
-            replay.session.admit_feedback((original.feedback,))
-            replay.session.advance(eligible_through=component.timing.usable_at, apply_at=component.applied_at)
-            applications = tuple(
-                row.application
-                for row in replay.session.state.updates
-                if row.application.feedback.fingerprint == original.feedback.fingerprint
-            )
-            if len(applications) != 1 or applications[0].apply_at != component.applied_at:
-                raise ValueError("Domain observation requires its actual selected replay application")
-            snapshot = domain.observe(original.step, original.expert_seconds)
-            if (
-                replay.session.state.decision_count != len(snapshot.receipts)
-                or replay.session.state.update_count != snapshot.count
-            ):
-                raise ValueError("Staged replay/domain observations disagree before acknowledgement")
-            retained = tuple(row for row in snapshot.observations if row.receipt.key == original.step.receipt.key)
-            if len(retained) != 1 or retained[0].to_json() != original.step.to_json():
-                raise ValueError("Staged domain observation differs from the exact original applied evidence")
-            if snapshot.expert_history[snapshot.observations.index(retained[0])] != original.expert_seconds:
-                raise ValueError("Staged domain raw expert history differs from the actual original full panel")
+            self._apply_in_stage(stage, original, component)
             produced.append(original.step)
 
         accepted = self.store.commit_transition(offered, self.bindings, transition, compatibility=self.environment)
+        return self._complete_observation(accepted, produced, original, ordinal)
+
+    def _apply_in_stage(self, stage, original, component) -> None:
+        """Apply actual replay feedback, then validate the domain successor before ACK."""
+        replay = stage.owner(self.replay_binding)
+        domain = stage.owner(self.domain_binding)
+        replay.session.admit_feedback((original.feedback,))
+        replay.session.advance(eligible_through=component.timing.usable_at, apply_at=component.applied_at)
+        applications = tuple(
+            row.application
+            for row in replay.session.state.updates
+            if row.application.feedback.fingerprint == original.feedback.fingerprint
+        )
+        if len(applications) != 1 or applications[0].apply_at != component.applied_at:
+            raise ValueError("Domain observation requires its actual selected replay application")
+        snapshot = domain.observe(original.step, original.expert_seconds)
+        self._require_applied_domain(replay, snapshot, original)
+
+    def _require_applied_domain(self, replay, snapshot, original) -> None:
+        """Require joint counters and exact retained original bytes in the staged owners."""
+        if (
+            replay.session.state.decision_count != len(snapshot.receipts)
+            or replay.session.state.update_count != snapshot.count
+        ):
+            raise ValueError("Staged replay/domain observations disagree before acknowledgement")
+        retained = tuple(row for row in snapshot.observations if row.receipt.key == original.step.receipt.key)
+        if len(retained) != 1 or retained[0].to_json() != original.step.to_json():
+            raise ValueError("Staged domain observation differs from the exact original applied evidence")
+        if snapshot.expert_history[snapshot.observations.index(retained[0])] != original.expert_seconds:
+            raise ValueError("Staged domain raw expert history differs from the actual original full panel")
+
+    def _complete_observation(self, accepted, produced, original, ordinal) -> StepEvidence:
+        """Handle actual new versus retained ACK without replaying or rewinding state."""
         if accepted.status == "new":
             if len(produced) != 1 or accepted.accepted_head != accepted.current_head:
                 raise RuntimeError("Observation acknowledgement differs from its immutable staged result")

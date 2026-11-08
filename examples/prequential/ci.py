@@ -37,6 +37,8 @@ from coleman.state.storage_contracts import (
     CommitRequest,
 )
 
+JSON_SUFFIX = ".json"
+
 __all__ = (
     "MODEL",
     "PROFILE",
@@ -249,7 +251,7 @@ def _prepared_result(root: Path, frozen: FrozenExample, audit: ProtocolAudit, lo
         tape = SourceTape(
             schema_version=1,
             ticks=tuple(
-                _read(root / "ticks" / (world + "-" + str(ordinal) + ".json"), SourceTick)
+                _read(root / "ticks" / (world + "-" + str(ordinal) + JSON_SUFFIX), SourceTick)
                 for ordinal in range(3)
                 for world in WORLDS
             ),
@@ -334,7 +336,7 @@ def _produce(
     )
     _write(
         root,
-        "work/completed-" + invocation.attempt_id + ".json",
+        "work/completed-" + invocation.attempt_id + JSON_SUFFIX,
         AttemptLedger(
             schema_version=1,
             stage="protected",
@@ -357,7 +359,7 @@ def _prepare_invocation(root: Path, frozen: FrozenExample):
     ):
         raise ValueError("Actual loader output references exceed the frozen global budget")
     invocation = Invocation(schema_version=1, attempt_id=uuid4().hex, started_at=datetime.now(UTC))
-    _write(root, "work/invocation-" + invocation.attempt_id + ".json", invocation)
+    _write(root, "work/invocation-" + invocation.attempt_id + JSON_SUFFIX, invocation)
     return invocation, prior_attempts
 
 
@@ -395,20 +397,20 @@ def _open_sessions(root: Path, frozen: FrozenExample) -> dict[tuple[str, str], S
 
 def _emission_tick(root: Path, ordinal: int) -> EmissionTick:
     """Persist a common actual tick before any candidate emits this round."""
-    clock_path = root / "ticks" / ("emission-" + str(ordinal) + ".json")
+    clock_path = root / "ticks" / ("emission-" + str(ordinal) + JSON_SUFFIX)
     if clock_path.exists():
         tick = _read(clock_path, EmissionTick)
         if tick.ordinal != ordinal:
             raise ValueError("Retained emission tick belongs to another round")
         return tick
     tick = EmissionTick(schema_version=1, ordinal=ordinal, decision_at=datetime.now(UTC))
-    _write(root, "ticks/emission-" + str(ordinal) + ".json", tick)
+    _write(root, "ticks/emission-" + str(ordinal) + JSON_SUFFIX, tick)
     return tick
 
 
 def _source_delivery(root: Path, sessions: dict, world: str, tick: EmissionTick, evaluation: str) -> SourceTick:
     """Retain all original outcomes after emission and before their applications."""
-    relative = "ticks/" + world + "-" + str(tick.ordinal) + ".json"
+    relative = "ticks/" + world + "-" + str(tick.ordinal) + JSON_SUFFIX
     if (root / relative).exists():
         delivery = _read(root / relative, SourceTick)
     else:
@@ -458,7 +460,7 @@ def _previous_attempts(root: Path, previous: list[Path]) -> tuple[PhysicalAttemp
     attempts = []
     for path in previous:
         original = _read(path, Invocation, 16 * 1024)
-        completed = root / "work" / ("completed-" + original.attempt_id + ".json")
+        completed = root / "work" / ("completed-" + original.attempt_id + JSON_SUFFIX)
         if completed.exists():
             attempts.extend(_read(completed, AttemptLedger).attempts)
         else:

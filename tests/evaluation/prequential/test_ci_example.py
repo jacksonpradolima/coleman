@@ -6,9 +6,12 @@ noneditable installed package; these tests do not duplicate that expensive run.
 
 import importlib.util
 import json
+import math
 import shutil
+import struct
 import sys
 from datetime import UTC, datetime, timedelta
+from fractions import Fraction
 from pathlib import Path
 
 import pytest
@@ -19,7 +22,8 @@ def ci_example():
     name = "authored_prequential_ci_source_test"
     path = Path(__file__).parents[3] / "examples/prequential/ci.py"
     spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
     spec.loader.exec_module(module)
@@ -67,8 +71,10 @@ def test_declared_complete_family_units_and_matched_controls(ci_example):
     design, selection, plan = example.declarations()
     assert len(design.candidates) == 9
     assert len(design.protected_members) == len({row.unit_id for row in design.protected_members}) == 4
-    assert design.raw_cells == 36 and design.seeds == (0,)
-    assert len(design.hypotheses) == 8 and len(plan.conformance_plan.opportunities) == 12
+    assert design.raw_cells == 36
+    assert design.seeds == (0,)
+    assert len(design.hypotheses) == 8
+    assert len(plan.conformance_plan.opportunities) == 12
     assert len(plan.cell_result_opportunities) == 4
     assert len(design.metrics) == 5
     assert design.scope.prehistory == "known_exposed"
@@ -86,9 +92,11 @@ def test_declared_complete_family_units_and_matched_controls(ci_example):
 
 def test_frozen_header_reuses_original_selection_before_any_source_read(ci_example, tmp_path):
     first, resumed = ci_example.frozen_declarations(tmp_path)
-    assert resumed is False and not (tmp_path / "audit").exists()
+    assert resumed is False
+    assert not (tmp_path / "audit").exists()
     again, resumed = ci_example.frozen_declarations(tmp_path)
-    assert resumed is True and first.to_json() == again.to_json()
+    assert resumed is True
+    assert first.to_json() == again.to_json()
     assert first.selection.actual_selected_at == again.selection.actual_selected_at
     assert not (tmp_path / "audit").exists()
 
@@ -123,7 +131,8 @@ def test_header_only_drift_refuses_before_access_or_stores(ci_example, tmp_path,
         ValueError, match="Current candidate laws or source interpretation|Current runtime or copied example code"
     ):
         example.run(tmp_path)
-    assert not (tmp_path / "audit").exists() and not (tmp_path / "sessions").exists()
+    assert not (tmp_path / "audit").exists()
+    assert not (tmp_path / "sessions").exists()
     assert before == {
         str(path.relative_to(tmp_path)): path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()
     }
@@ -191,7 +200,8 @@ def test_online_forecasts_use_only_prior_applied_full_panels(ci_example, actual_
     )
     diagnostics = ci_example._trajectory_diagnostics((trace,))
     terminal = diagnostics["terminal_by_candidate"]["online"][0]
-    assert terminal["world"] == "world-0" and terminal["round"] == 2
+    assert terminal["world"] == "world-0"
+    assert terminal["round"] == 2
     assert len(terminal["measurements"]) == 5
     trajectory = diagnostics["complete_trajectories"]["online"][0]
     assert len(trajectory["decisions"]) == 3
@@ -332,12 +342,69 @@ def test_cross_owner_payload_fault_refuses_before_joint_ack(ci_example, actual_c
 def test_missing_components_and_future_input_versions_refuse(ci_example, actual_cell):
     original = actual_cell[-1][0]
     empty = type(original.step).model_validate(original.step.model_copy(update={"components": ()}))
+    incomplete = original.model_copy(update={"step": empty})
     with pytest.raises(ValueError, match="every explicit domain component"):
-        ci_example.ObservationInput.model_validate(original.model_copy(update={"step": empty}))
+        ci_example.ObservationInput.model_validate(incomplete)
     data = json.loads(original.to_json())
     data["schema_version"] = 2
+    future = json.dumps(data)
     with pytest.raises(ValueError):
-        ci_example.ObservationInput.from_json(json.dumps(data))
+        ci_example.ObservationInput.from_json(future)
+
+
+def test_exact_zero_recognition_matches_independent_finite_rational_oracle(ci_example):
+    smallest = math.ulp(0.0)
+    values = [
+        0.0,
+        -0.0,
+        smallest,
+        -smallest,
+        4 * smallest,
+        5 * smallest,
+        8 * smallest,
+        sys.float_info.min,
+        math.nextafter(sys.float_info.min, 0.0),
+        0.1,
+        1.0,
+        8.0,
+        sys.float_info.max,
+    ]
+    for value in values:
+        assert ci_example.PROFILE._is_zero(value) is (Fraction(value).numerator == 0)
+        scaled = value / 8.0
+        assert ci_example.PROFILE._is_zero(scaled) is (Fraction(scaled).numerator == 0)
+
+
+@pytest.mark.parametrize(
+    "duration,rejected",
+    [
+        pytest.param(0.0, False, id="positive-zero"),
+        pytest.param(-0.0, False, id="negative-zero"),
+        pytest.param(math.ulp(0.0), True, id="smallest-subnormal-underflows"),
+        pytest.param(4 * math.ulp(0.0), True, id="half-ulp-tie-underflows"),
+        pytest.param(5 * math.ulp(0.0), False, id="surviving-subnormal"),
+        pytest.param(8 * math.ulp(0.0), False, id="scaled-subnormal-exact"),
+    ],
+)
+def test_complete_original_normalization_preserves_zero_and_rejects_nonzero_erasure(
+    ci_example, actual_cell, duration, rejected
+):
+    owner, original = actual_cell[-2], actual_cell[-1][0]
+    primary = ci_example._primary(original.step)
+    panel = (original.expert_seconds[0], duration)
+    evaluation = primary.original.record.provenance.evaluation_fingerprint
+    visible, applied = primary.timing.available_at, primary.applied_at
+    before = owner.store.read_head()
+    if rejected:
+        with pytest.raises(ValueError, match="cannot silently erase a nonzero expert duration"):
+            owner.prepare_observation(0, panel, evaluation, available_at=visible, apply_at=applied)
+    else:
+        accepted = owner.prepare_observation(0, panel, evaluation, available_at=visible, apply_at=applied)
+        assert struct.pack("!d", accepted.expert_seconds[1]) == struct.pack("!d", duration)
+        assert struct.pack("!d", accepted.feedback.batch.feedback.rows[1].values[0].value) == struct.pack(
+            "!d", duration / 8.0
+        )
+    assert owner.store.read_head() == before
 
 
 def test_independent_resource_bound_oracle_rejects_equal_action_and_outcome_drift(ci_example, actual_cell):

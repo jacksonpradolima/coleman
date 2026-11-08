@@ -53,6 +53,17 @@ from . import model
 
 MODEL = model
 
+
+def _is_zero(value: float) -> bool:
+    """Recognize both binary64 signed zeros exactly after finite-value validation.
+
+    A finite float is its exact integer ratio p/q with q positive. Testing the
+    numerator preserves every nonzero subnormal; an epsilon would erase valid
+    durations and conceal underflow in the seconds-to-loss normalization.
+    """
+    return value.as_integer_ratio()[0] == 0
+
+
 TABLE = (
     ((2.0, 6.0), (2.0, 6.0), (6.0, 2.0)),
     ((6.0, 2.0), (6.0, 2.0), (2.0, 6.0)),
@@ -219,7 +230,7 @@ class ObservationInput(PrequentialContract):
             raise ValueError("Reproduced expert seconds differ from their original bounded losses")
         if any(value < 0.0 or value > 8.0 for value in self.expert_seconds):
             raise ValueError("The authored duration source is bounded to zero through eight seconds")
-        if any(value != 0.0 and value / 8.0 == 0.0 for value in self.expert_seconds):
+        if any(not _is_zero(value) and _is_zero(value / 8.0) for value in self.expert_seconds):
             raise ValueError("This binary64 normalization cannot silently erase a nonzero expert duration")
 
 

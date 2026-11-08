@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from coleman.evaluation.design.audit import ProtocolAudit
+from coleman.evaluation.design.evidence import OriginalRecordEvidence
 from coleman.evaluation.design.reports import ProtocolReport
 from coleman.evaluation.prequential.comparison import ComparisonDisposition, ComparisonPlan, assess_comparison
 from coleman.evaluation.prequential.conformance import check_reference_conformance
@@ -35,7 +36,8 @@ def test_public_preflight_accepts_exact_acyclic_inputs_without_changing_wire(tmp
     before = plan.to_json(), design.to_json(), selection.to_json()
     audit = ProtocolAudit(tmp_path)
     assert plan.validate_for(design, selection) is None
-    assert (plan.to_json(), design.to_json(), selection.to_json()) == before
+    actual = plan.to_json(), design.to_json(), selection.to_json()
+    assert actual == before
     assert audit.sources.history(design.scope).receipts == ()
     assert list(tmp_path.iterdir()) == []
 
@@ -293,7 +295,7 @@ def test_heterogeneous_no_skill_retains_all_signed_unit_outcomes(tmp_path):
 
 def test_missing_unit_is_not_dropped_even_above_minimum_sample_count(tmp_path):
     design, selection, plan = comparison_declarations(units=24)
-    values = hand_values(design, 0.0, 1.0)
+    values: dict[tuple[str, str, int], float | None] = dict(hand_values(design, 0.0, 1.0))
     member = design.protected_members[0]
     values["candidate", member.member_id, 7] = None
     report = run_protocol(tmp_path, design, selection, values)
@@ -378,7 +380,8 @@ def test_retry_group_retains_failed_charge_once_for_later_successful_outputs(tmp
     before = report.to_json(), conformance.to_json()
     result = assess_comparison(plan, conformance, report)
     assert result.status == "insufficient_evidence"
-    assert (report.to_json(), conformance.to_json()) == before
+    actual = report.to_json(), conformance.to_json()
+    assert actual == before
     failed = next(attempt for attempt in report.panel.ledger.attempts if attempt.state == "failed")
     success = next(
         attempt
@@ -445,4 +448,90 @@ def test_retry_charge_cannot_borrow_outputs_from_another_group_or_candidate(tmp_
     before = report.to_json(), conformance.to_json()
     with pytest.raises(ValueError, match="physical group ledger"):
         assess_comparison(plan, conformance, report)
-    assert (report.to_json(), conformance.to_json()) == before
+    actual = report.to_json(), conformance.to_json()
+    assert actual == before
+
+
+def _terminal_primary_inputs(root, primary_value, shadow_value, candidate_value, units):
+    """Keep a named raw estimand and a distinct same-unit quantity in each original."""
+    design, selection, plan = comparison_declarations(units=units)
+    values: dict[tuple[str, str, int], float | None] = dict(hand_values(design, 0.0, candidate_value))
+    for member in design.protected_members:
+        values["baseline", member.member_id, 7] = primary_value
+    primary_name = design.primary_metric
+    shadow_name = "shadow-" + primary_name
+
+    def load():
+        panel = protected_panel(design, selection, values=values)
+        rows = []
+        for row in panel.rows:
+            if row.candidate_id == "baseline":
+                primary = row.record.measurement(primary_name)
+                shadow = type(primary).model_validate(
+                    primary.model_copy(update={"name": shadow_name, "value": shadow_value, "status": "observed"})
+                )
+                record = changed(row.record, measurements=(*row.record.measurements, shadow))
+                row = changed(row, evidence=OriginalRecordEvidence.from_record(record))
+            rows.append(row)
+        return changed(panel, rows=tuple(rows))
+
+    report = ProtocolAudit(root).evaluate(design, selection, load, actor="named-terminal-primary", mode="produced")
+    assert isinstance(report, ProtocolReport)
+    named = conformance_for(plan, report.panel)
+    steps = []
+    for step in named.actual_trace.steps:
+        components = []
+        for component in step.components:
+            shadow = component.original.record.measurement(shadow_name)
+            value = type(component.value).model_validate(
+                component.value.model_copy(update={"value": shadow.value, "status": shadow.status})
+            )
+            components.append(
+                type(component).model_validate(
+                    component.model_copy(update={"measurement_name": shadow_name, "value": value})
+                )
+            )
+        steps.append(changed(step, components=tuple(components)))
+    selected_shadow = check_reference_conformance(
+        plan.conformance_plan,
+        changed(named.reference_trace, steps=tuple(steps)),
+        changed(named.actual_trace, steps=tuple(steps)),
+    )
+    return plan, report, named, selected_shadow
+
+
+@pytest.mark.parametrize(
+    ("primary", "shadow", "candidate", "units"),
+    [(0.0, 1.0, 1.0, 24), (1.0, 0.0, 0.0, 2), (None, 0.0, 1.0, 2), (0.0, 0.0, 1.0, 2)],
+    ids=[
+        "observed-zero-primary",
+        "observed-nonzero-primary",
+        "unavailable-primary-is-not-zero",
+        "equal-value-alias-still-not-primary",
+    ],
+)
+def test_terminal_primary_refuses_different_same_unit_measurement(tmp_path, primary, shadow, candidate, units):
+    plan, report, _, conformance = _terminal_primary_inputs(tmp_path, primary, shadow, candidate, units)
+    # Generic semantic labels may select another measurement. That valid generic
+    # contract and reference agreement cannot replace the protected named estimand.
+    assert conformance.status == "pass"
+    before = report.to_json(), conformance.to_json()
+    with pytest.raises(ValueError, match="named raw primary measurement"):
+        assess_comparison(plan, conformance, report)
+    actual = report.to_json(), conformance.to_json()
+    assert actual == before
+
+
+@pytest.mark.parametrize(
+    ("primary", "expected"),
+    [(0.0, "insufficient_evidence"), (None, "unknown_conformance")],
+    ids=["observed-zero", "unavailable-remains-unknown"],
+)
+def test_named_terminal_primary_with_secondary_measurement_preserves_original_status(tmp_path, primary, expected):
+    plan, report, conformance, _ = _terminal_primary_inputs(tmp_path, primary, 1.0, 1.0, 2)
+    before = report.to_json(), conformance.to_json()
+    result = assess_comparison(plan, conformance, report)
+    assert result.status == expected
+    assert result.eligible_candidates == ()
+    actual = report.to_json(), conformance.to_json()
+    assert actual == before

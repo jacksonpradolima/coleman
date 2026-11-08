@@ -48,10 +48,12 @@ def test_retained_retry_after_progress_preserves_original_prior_and_all_complete
     first_opportunity = ci.opportunity(direct, 0, 0)
     original = execute_prequential_step(replay, domain, first_opportunity, plan=step_plan())
     execute_prequential_step(replay, domain, ci.opportunity(direct, 1, 1), plan=step_plan(1))
-    before = replay.export_continuation().to_json(), domain.export_state().to_json()
+    expected_replay = replay.export_continuation().to_json()
+    expected_domain = domain.export_state().to_json()
     repeated = execute_prequential_step(replay, domain, first_opportunity, plan=step_plan())
     assert repeated.to_json() == original.to_json()
-    assert (replay.export_continuation().to_json(), domain.export_state().to_json()) == before
+    assert replay.export_continuation().to_json() == expected_replay
+    assert domain.export_state().to_json() == expected_domain
     assert (direct.export_state().decision_count, domain.state.calls) == (2, 2)
     assert original.domain.prior_domain_state_fingerprint != domain.export_state().fingerprint
 
@@ -62,21 +64,28 @@ def test_changed_retained_law_or_source_is_rejected_before_any_new_decision(fiel
     domain = FiniteDomain()
     opportunity = ci.opportunity(direct, 0, 0)
     execute_prequential_step(replay, domain, opportunity, plan=step_plan())
-    before = replay.export_continuation().to_json(), domain.export_state().to_json()
+    expected_replay = replay.export_continuation().to_json()
+    expected_domain = domain.export_state().to_json()
     value = binding("changed-adapter") if field == "adapter" else "sha256:" + "9" * 64
+    incompatible_plan = changed(step_plan(), **{field: value})
     with pytest.raises(ValueError, match="predeclared"):
-        execute_prequential_step(replay, domain, opportunity, plan=changed(step_plan(), **{field: value}))
-    assert (replay.export_continuation().to_json(), domain.export_state().to_json()) == before
+        execute_prequential_step(replay, domain, opportunity, plan=incompatible_plan)
+    assert replay.export_continuation().to_json() == expected_replay
+    assert domain.export_state().to_json() == expected_domain
 
 
 def test_existing_domain_key_cannot_turn_unrelated_new_opportunity_into_a_retry():
     ci, direct, replay = session()
     domain = FiniteDomain()
     execute_prequential_step(replay, domain, ci.opportunity(direct, 0, 0), plan=step_plan())
-    before = replay.export_continuation().to_json(), domain.export_state().to_json()
+    expected_replay = replay.export_continuation().to_json()
+    expected_domain = domain.export_state().to_json()
+    unrelated = ci.opportunity(direct, 1, 1)
+    original_plan = step_plan()
     with pytest.raises(ValueError, match="matching coefficient"):
-        execute_prequential_step(replay, domain, ci.opportunity(direct, 1, 1), plan=step_plan())
-    assert (replay.export_continuation().to_json(), domain.export_state().to_json()) == before
+        execute_prequential_step(replay, domain, unrelated, plan=original_plan)
+    assert replay.export_continuation().to_json() == expected_replay
+    assert domain.export_state().to_json() == expected_domain
 
 
 @pytest.mark.parametrize(
@@ -98,8 +107,10 @@ def test_existing_domain_key_cannot_turn_unrelated_new_opportunity_into_a_retry(
 def test_real_host_join_failure_propagates_after_coefficient_without_false_atomicity(fault, reason):
     ci, direct, replay = session()
     domain = FiniteDomain(fault=fault)
+    opportunity = ci.opportunity(direct, 0, 0)
+    plan = step_plan()
     with pytest.raises(ValueError, match=reason):
-        execute_prequential_step(replay, domain, ci.opportunity(direct, 0, 0), plan=step_plan())
+        execute_prequential_step(replay, domain, opportunity, plan=plan)
     # The direct helper documents ordered mutations; the accepted store boundary
     # separately discards fresh staged owners on failure rather than faking undo.
     assert direct.export_state().decision_count == 1
@@ -109,8 +120,10 @@ def test_real_host_join_failure_propagates_after_coefficient_without_false_atomi
 def test_domain_snapshot_capacity_refuses_before_coefficient_mutation():
     ci, direct, replay = session()
     domain = FiniteDomain(state=DriverDomainState(schema_version=1, padding="x" * (16 * 1024**2)))
+    opportunity = ci.opportunity(direct, 0, 0)
+    plan = step_plan()
     with pytest.raises(ValueError, match="budget"):
-        execute_prequential_step(replay, domain, ci.opportunity(direct, 0, 0), plan=step_plan())
+        execute_prequential_step(replay, domain, opportunity, plan=plan)
     assert (direct.export_state().decision_count, domain.state.calls) == (0, 0)
 
 
@@ -137,8 +150,11 @@ def test_missing_concrete_domain_codec_refuses_before_any_coefficient_or_domain_
             pytest.fail("The direct driver must not restore or create another owner")
 
     ci, direct, replay = session()
+    invalid = InvalidExporter()
+    opportunity = ci.opportunity(direct, 0, 0)
+    plan = step_plan()
     with pytest.raises(TypeError, match="concrete"):
-        execute_prequential_step(replay, InvalidExporter(), ci.opportunity(direct, 0, 0), plan=step_plan())
+        execute_prequential_step(replay, invalid, opportunity, plan=plan)
     assert direct.export_state().decision_count == 0
 
 
@@ -154,10 +170,13 @@ def test_new_context_and_exchange_reject_future_versions_and_conflicting_full_pr
     for value in (step_plan(), context, result):
         wire = json.loads(value.to_json())
         wire["schema_version"] = 2
+        serialized = json.dumps(wire)
+        reader = type(value).from_json
         with pytest.raises(ValueError):
-            type(value).from_json(json.dumps(wire))
+            reader(serialized)
+    conflicting_domain = changed(result.domain, coefficient_record_fingerprint="sha256:" + "9" * 64)
     with pytest.raises(ValueError, match="producer"):
-        changed(result, domain=changed(result.domain, coefficient_record_fingerprint="sha256:" + "9" * 64))
+        changed(result, domain=conflicting_domain)
     assert DomainStepPlan.from_json(step_plan().to_json()).fingerprint == step_plan().fingerprint
 
 

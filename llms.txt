@@ -14320,6 +14320,11 @@ The later report embeds both actual traces and rederives every check.
 terminal cell mapping and fallback. `SelectionManifest.rule` binds that plan
 before the existing protected freeze, avoiding a circular identity.
 
+When an original record contains several measurements, the terminal component
+selects the panel's named primary measurement. The comparison checks that
+selector, value and missingness against the quantity used by the statistical
+engine, so conformance and inference describe the same outcome.
+
 For supported independent-unit assumptions, `ProtocolAudit` retains the complete
 panel and applies the existing bounded or explicitly justified paired-t route.
 It preserves the complete multiple-testing family. A qualified positive

@@ -236,7 +236,7 @@ def _reference_feasibility(world: int, ordinal: int):
         constraints=(constraint,),
     )
     result = MODEL.check_finite_feasibility(request)
-    expected_members = MODEL.PLANS if budgets[world][ordinal] == 8.0 else (MODEL.PLANS[0],)
+    expected_members = MODEL.PLANS if budgets[world][ordinal] >= 6.0 else (MODEL.PLANS[0],)
     if result.feasible_members != expected_members:
         raise RuntimeError("Reference finite checker differs from the independent two-plan arithmetic")
     return result

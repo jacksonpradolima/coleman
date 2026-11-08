@@ -172,16 +172,18 @@ def test_validate_for_rejects_detached_posthoc_tolerance_plan():
 
 def test_selected_limits_fail_for_actual_steps_checks_or_encoded_complete_envelope():
     limited_checks = plan(limits=ConformanceLimits(max_checks=1))
+    checks_reference, checks_actual = trace(), trace()
     with pytest.raises(ValueError, match="checks exceed"):
-        check_reference_conformance(limited_checks, trace(), trace())
+        check_reference_conformance(limited_checks, checks_reference, checks_actual)
     second = trace(receipt(key("build-2")))
     combined = ConformanceTrace(schema_version=1, recipe=trace().recipe, steps=trace().steps + second.steps)
     limited_steps = plan(limits=ConformanceLimits(max_steps=1))
     with pytest.raises(ValueError, match="step/component"):
         check_reference_conformance(limited_steps, combined, combined)
     limited_bytes = plan(limits=ConformanceLimits(max_bytes=8192))
+    bytes_reference, bytes_actual = trace(), trace()
     with pytest.raises(ValueError, match="byte budget|encoded-byte|byte capacity"):
-        check_reference_conformance(limited_bytes, trace(), trace())
+        check_reference_conformance(limited_bytes, bytes_reference, bytes_actual)
 
 
 def test_permuting_complete_steps_preserves_identity_but_appending_future_steps_changes_full_bundle():

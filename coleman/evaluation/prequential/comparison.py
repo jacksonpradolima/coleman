@@ -320,7 +320,17 @@ def _require_terminal_originals(
             raise ValueError("Terminal conformance primary differs from the original baseline raw cell")
         if primary.metric.model_dump_json() != panel.design.metric(panel.design.primary_metric).model_dump_json():
             raise ValueError("Terminal primary metric differs from its declared cell estimand")
+        _require_named_primary(primary, row.evidence, panel.design.primary_metric)
     _require_physical_costs(plan, conformance, panel)
+
+
+def _require_named_primary(primary: ComponentObservation, original: OriginalRecordEvidence, name: str) -> None:
+    """Bind the selected terminal quantity to the raw measurement used by inference."""
+    measurement = original.record.measurement(name)
+    actual = primary.measurement_name, primary.value.value, primary.value.status
+    expected = name, measurement.value, measurement.status
+    if actual != expected:
+        raise ValueError("Terminal conformance primary differs from the named raw primary measurement")
 
 
 def _require_physical_costs(
