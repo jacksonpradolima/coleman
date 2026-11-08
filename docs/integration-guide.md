@@ -12,6 +12,7 @@ native runner and typed contracts, but collect different kinds of evidence.
 | Register bounded application operations | [Application API](application-api.md) | Shared library services and an optional MCP transport |
 | Add a policy, hook or artifact | [Extensions](extensibility.md), [artifact API](api/artifacts.md) | Native lifecycle callbacks and typed result publication |
 | Compose independently evolving CI recipes | [Recipe lifecycle and ownership](registry-lifecycle.md) | Prospective eligibility, original feedback epochs and opt-in complete checkpoints in the v5 source |
+| Compare adaptive decisions before replacing a workflow | [Causal comparisons and conservative fallback](prequential-comparisons.md) | Separate forecasts, coefficients, feasible actions and own-path costs, with reference conformance and protected evidence |
 | Inspect a proposed CI schedule | [Operational pilot](operational-pilot.md) | Decision intent, selected work and independent accounting |
 | Distinguish serial and parallel costs | [Resource replay](resource-replay.md) | Explicit reservations, occupancy, overhead and released work |
 | Record prospective recommendations | [Shadow evaluation](prospective-shadow.md) | Frozen pre-outcome recommendations while the required suite continues |

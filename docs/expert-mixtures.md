@@ -6,6 +6,11 @@ controlled learner adds an explicit target, boxes, movement and release policy
 under a separately bound mathematical law. These APIs are part of the unreleased
 v5 source; they do not execute CI jobs or establish that adaptation improves them.
 
+To compare a complete procedure, continue with
+[causal comparisons and conservative fallback](prequential-comparisons.md).
+That workflow separates forecasts, coefficients, feasible domain actions and
+costs, checks reference behavior and preserves inconclusive results.
+
 Start with the [standalone reference example](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/learning/references.py).
 It constructs all three reference methods, applies the same public synthetic
 losses, reads a complete bounded snapshot and verifies identical continuation.

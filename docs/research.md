@@ -125,6 +125,41 @@ state byte pins, units, exclusions and current qualification limits. Use both;
 do not infer missing source clocks or test inventories from a publication's
 aggregate statistics.
 
+## Sequential evaluation and selection
+
+**Dawid. _Statistical Theory: The Prequential Approach._ Journal of the Royal
+Statistical Society, Series A, 147(2), 1984.**
+[Original publisher record](https://academic.oup.com/jrsssa/article/147/2/278/7106293).
+
+Dawid develops sequential probability forecasting. The
+[causal-comparison workflow](prequential-comparisons.md) uses a declared
+prediction/decision, outcome and update order as an engineering design. That
+ordering alone provides no calibration or inferential guarantee for an arbitrary
+expert coefficient vector or executed decision.
+
+**Cawley and Talbot. _On Over-fitting in Model Selection and Subsequent Selection
+Bias in Performance Evaluation._ Journal of Machine Learning Research 11(70),
+2079–2107, 2010.**
+[Original article](https://www.jmlr.org/papers/v11/cawley10a.html).
+
+Their study explains how optimizing a finite-data selection criterion can bias
+later comparisons. The engineering response here is to freeze the complete
+procedure and family, retain all inspected development settings and preserve
+protected-source exposure through retries and imports. These controls depend on
+truthful source declarations and mediated access; they do not discover outside
+inspections automatically.
+
+**Hadad, Hirshberg, Zhan, Wager and Athey. _Confidence intervals for policy
+evaluation in adaptive experiments._ Proceedings of the National Academy of
+Sciences 118(15), e2014602118, 2021.**
+[Original article](https://pmc.ncbi.nlm.nih.gov/articles/PMC8054003/).
+
+The paper demonstrates inferential problems under adaptive data collection and
+develops an estimator under its stated conditions. COLEMAN's existing fixed
+independent-unit routes do not implement that estimator. Unsupported dependence,
+assignment or stopping remains explicit descriptive evidence until an applicable
+inference procedure is independently qualified.
+
 ## Evaluation and interpretation
 
 | Original method reference | Role in the evaluation path |
