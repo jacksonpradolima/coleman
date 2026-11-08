@@ -19798,6 +19798,7 @@ eligibility and objective definitions instead of renaming these CI loss rows.
 
 ```mermaid
 flowchart TD
+    H["CLI/MCP: inherited host directory and reviewed approval"] --> P
     I["Concrete configuration, source and ordered coordinates"] --> P["Approved image and concrete codec validation"]
     P --> Q["Common finite queue and actual kernel ownership"]
     Q --> A["Reserve a physical attempt before work"]
@@ -20012,6 +20013,14 @@ python -I -B -m coleman.application.task_cli --workspace task-workspace --bootst
 python -I -B -m coleman.transports.task_mcp --workspace task-workspace --bootstrap host-bootstrap.json
 ```
 
+Start the CLI or MCP host from the operator-owned directory containing its
+workspace and reviewed bootstrap file. Both startup paths must resolve within
+that directory; an absolute outsider, sibling prefix or escaping symlink refuses
+before approval contents are read or a workspace is created. Clients cannot
+replace this directory through request JSON. Programmatic `TaskService` callers
+retain their existing explicit operator-selected root contract. This protects a
+fixed host namespace and still requires the documented trusted filesystem.
+
 The optional MCP host exposes nine `task_*` tools over the same `TaskCommands`
 edge. Requests and replies have a 1 MiB interactive ceiling; larger retained
 artifacts require explicit library/host access. Tool JSON accepts no workspace,
@@ -20184,10 +20193,10 @@ flowchart TD
     LocalStore --> Retained[Opt-in retained replay generation 2]
     Retained --> Replay
     LocalStore --> Storage[Existing immutable artifact publication]
-    Service[Existing application services with planned generic executor] --> Problem
+    Service[Application services and typed durable execution] --> Problem
     Service --> DirectLearner
     Service --> DirectSolver
-    Service --> Execution[Planned executor capabilities]
+    Service --> Execution[Implemented typed executor capabilities]
     Service --> Session[Planned optional durable generic session]
     Session --> State
     Session --> Storage

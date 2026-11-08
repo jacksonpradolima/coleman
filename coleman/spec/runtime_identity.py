@@ -198,19 +198,42 @@ def _root_requests(roots: tuple[tuple[str, frozenset[str]], ...]) -> dict[str, s
         raise ValueError("Dependency roots require one to 4096 declared entries")
     requested: dict[str, set[str]] = {}
     for root in roots:
-        if not isinstance(root, tuple) or len(root) != 2:
-            raise ValueError("Dependency roots require name/extra pairs")
-        name, extras = root
-        if not isinstance(name, str) or not _ROOT_NAME.fullmatch(name):
-            raise ValueError("Dependency root names must be canonical")
-        if not isinstance(extras, frozenset) or len(extras) > 128:
-            raise ValueError("Dependency root extras require a bounded frozenset")
-        if any(not isinstance(extra, str) or not _ROOT_NAME.fullmatch(extra) for extra in extras):
-            raise ValueError("Dependency root extras must be canonical")
+        name, extras = _root_entry(root)
         if name in requested:
             raise ValueError("Dependency root names must be unique")
         requested[name] = set(extras)
     return requested
+
+
+def _root_entry(root: tuple[str, frozenset[str]]) -> tuple[str, frozenset[str]]:
+    """Validate one declared root before its duplicate check or acquisition.
+
+    Parameters
+    ----------
+    root : tuple of str and frozenset of str
+        One proposed canonical distribution name and its selected extras.
+
+    Returns
+    -------
+    tuple of str and frozenset of str
+        The same name and extra objects after ordered shape/name/extra checks.
+
+    Raises
+    ------
+    ValueError
+        Invalid pair shape, noncanonical name, extra shape/capacity or spelling.
+        No installed metadata or provider code is accessed.
+    """
+    if not isinstance(root, tuple) or len(root) != 2:
+        raise ValueError("Dependency roots require name/extra pairs")
+    name, extras = root
+    if not isinstance(name, str) or not _ROOT_NAME.fullmatch(name):
+        raise ValueError("Dependency root names must be canonical")
+    if not isinstance(extras, frozenset) or len(extras) > 128:
+        raise ValueError("Dependency root extras require a bounded frozenset")
+    if any(not isinstance(extra, str) or not _ROOT_NAME.fullmatch(extra) for extra in extras):
+        raise ValueError("Dependency root extras must be canonical")
+    return name, extras
 
 
 def _walk_distribution_roots(

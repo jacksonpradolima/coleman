@@ -112,12 +112,13 @@ def test_optional_sdk_loading_explains_only_missing_top_level_sdk(tmp_path, monk
         raise ModuleNotFoundError("missing", name=missing)
 
     monkeypatch.setattr(task_mcp, "import_module", absent)
+    service = TaskService(tmp_path)
     if missing == "mcp":
         with pytest.raises(ImportError, match=r"\[mcp\]"):
-            task_mcp.create_task_server(TaskService(tmp_path))
+            task_mcp.create_task_server(service)
     else:
         with pytest.raises(ModuleNotFoundError) as caught:
-            task_mcp.create_task_server(TaskService(tmp_path))
+            task_mcp.create_task_server(service)
         assert caught.value.name == missing
 
 
@@ -125,6 +126,7 @@ def test_source_cli_metadata_round_trip_matches_same_library_service(tmp_path):
     """Exercise the real source console separately from installed qualification."""
     result = subprocess.run(
         [sys.executable, "-B", "-m", "coleman.application.task_cli", "--workspace", str(tmp_path), "discover"],
+        cwd=tmp_path,
         capture_output=True,
         text=True,
         timeout=30,

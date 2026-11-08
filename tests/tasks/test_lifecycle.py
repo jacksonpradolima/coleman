@@ -95,8 +95,9 @@ def test_cancelled_actual_kernel_owner_retains_queue_slot_until_release(tmp_path
     first = _retain(store, native, _native(native))
     lifecycle.cancel_record(store, first.job_id, first.owner)
     lifecycle.save_plan(store, task, "owner")
+    proposed = _task(task)
     with baseline_lock(tmp_path / "locks" / f"{first.job_id}.lock"), pytest.raises(WorkflowError, match="capacity"):
-        lifecycle.admit_record(store, task, _task(task))
+        lifecycle.admit_record(store, task, proposed)
     second = lifecycle.admit_record(store, task, _task(task))
     assert second.state == "queued"
 
@@ -116,8 +117,9 @@ def test_expired_actual_bytes_keep_output_reservation_until_successful_cleanup(t
     directory.mkdir(parents=True)
     (directory / "retained.bin").write_bytes(b"retained")
     lifecycle.save_plan(store, task, "owner")
+    proposed = _task(task)
     with pytest.raises(WorkflowError, match="reservation"):
-        lifecycle.admit_record(store, task, _task(task))
+        lifecycle.admit_record(store, task, proposed)
     assert lifecycle.cleanup_records(store, "owner", JobRecord) == (first.job_id,)
     assert not directory.exists()
     assert lifecycle.admit_record(store, task, _task(task)).state == "queued"
@@ -130,11 +132,13 @@ def test_one_worker_cannot_exceed_shared_active_memory_capacity(tmp_path):
     _, task = _plans()
     store = WorkflowStore(tmp_path, HostPolicy(schema_version=1, max_active_memory_bytes=67108864))
     lifecycle.save_plan(store, task, "owner")
+    proposed = _task(task)
     with pytest.raises(WorkflowError, match="aggregate active memory"):
-        lifecycle.admit_record(store, task, _task(task))
+        lifecycle.admit_record(store, task, proposed)
     with closing(store.connect()) as connection:
         records = store.records(connection)
-        assert isinstance(records, tuple) and not records
+        assert isinstance(records, tuple)
+        assert not records
 
 
 def test_native_facade_projects_only_native_but_rejects_generic_handle(tmp_path):
@@ -150,8 +154,9 @@ def test_native_facade_projects_only_native_but_rejects_generic_handle(tmp_path)
     assert task_service.status(second.job_id).job == second
     with pytest.raises(WorkflowError, match="task job"):
         task_service.status(first.job_id)
+    other_service = TaskService(tmp_path, owner="another")
     with pytest.raises(KeyError):
-        TaskService(tmp_path, owner="another").status(second.job_id)
+        other_service.status(second.job_id)
     # No scheduling call here: these fixtures qualify metadata, not actual providers.
 
 
@@ -161,20 +166,20 @@ def test_both_facades_reject_retained_key_from_the_other_family_before_bootstrap
     store = WorkflowStore(tmp_path)
     _retain(store, native, _native(native, request_id="native-key"))
     _retain(store, task, _task(task, request_id="task-key"))
+    native_service = WorkflowService(tmp_path, owner="owner")
+    native_request = ExecutePlan(schema_version=1, request_id="task-key", plan_id=native.fingerprint[7:])
     with pytest.raises(WorkflowError, match="Idempotency"):
-        WorkflowService(tmp_path, owner="owner").execute(
-            ExecutePlan(schema_version=1, request_id="task-key", plan_id=native.fingerprint[7:])
-        )
+        native_service.execute(native_request)
+    task_service = TaskService(tmp_path, owner="owner")
+    task_request = TaskExecuteRequest(
+        schema_version=1,
+        contract="coleman-tasks-v1",
+        artifact_type="execute_request",
+        request_id="native-key",
+        plan_id=task.fingerprint[7:],
+    )
     with pytest.raises(WorkflowError, match="Idempotency"):
-        TaskService(tmp_path, owner="owner").execute(
-            TaskExecuteRequest(
-                schema_version=1,
-                contract="coleman-tasks-v1",
-                artifact_type="execute_request",
-                request_id="native-key",
-                plan_id=task.fingerprint[7:],
-            )
-        )
+        task_service.execute(task_request)
 
 
 def test_outer_dead_worker_reconciles_without_provider_and_cancel_is_idempotent(tmp_path):
@@ -188,7 +193,8 @@ def test_outer_dead_worker_reconciles_without_provider_and_cancel_is_idempotent(
     assert result.job.state == "interrupted"
     assert result.job.error == "worker_ownership_lost"
     assert not result.worker_active
-    assert result.eta_seconds is None and result.eta_status == "unavailable"
+    assert result.eta_seconds is None
+    assert result.eta_status == "unavailable"
     assert service.cancel(job.job_id).job == result.job  # Already terminal.
     with service.store.transaction() as connection:
         service.store.save_record(connection, changed(result.job, state="queued", error=None))

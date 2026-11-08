@@ -24,6 +24,7 @@ FIXTURES = Path(__file__).parents[1] / "fixtures" / "tasks" / "v1"
 
 def test_stdin_status_uses_real_metadata_service_and_one_bounded_read(tmp_path, monkeypatch, capsys):
     """Bound the complete stdin request before reaching the real owned metadata."""
+    monkeypatch.chdir(tmp_path)
     reads = []
     command = TaskJobCommand(
         schema_version=1, contract="coleman-tasks-v1", artifact_type="job_command", job_id="missing-owned-job"
@@ -55,6 +56,7 @@ def test_stdin_status_uses_real_metadata_service_and_one_bounded_read(tmp_path, 
 
 def test_explicit_host_profile_registers_declarations_without_loading_provider(tmp_path, monkeypatch):
     """Constructed metadata establishes equality only, never installed approval."""
+    monkeypatch.chdir(tmp_path)
     selected = tmp_path / "operator.json"
     selected.write_bytes((FIXTURES / "bootstrap.json").read_bytes())
     monkeypatch.setattr(sys, "dont_write_bytecode", sys.dont_write_bytecode)
@@ -68,6 +70,7 @@ def test_explicit_host_profile_registers_declarations_without_loading_provider(t
 
 def test_excessive_operator_profile_refuses_before_workspace_creation(tmp_path, monkeypatch):
     """Oversized bootstrap input never initializes its requested workspace."""
+    monkeypatch.chdir(tmp_path)
     selected = tmp_path / "operator.json"
     selected.write_bytes(b" " * (16 * 1024 + 1))
     workspace = tmp_path / "workspace"
@@ -127,6 +130,7 @@ runpy.run_module(module, run_name='__main__')
         check=False,
     )
     assert result.returncode == 0, result.stderr
-    assert "--workspace" in result.stdout and "--bootstrap" in result.stdout
+    assert "--workspace" in result.stdout
+    assert "--bootstrap" in result.stdout
     assert not (tmp_path / "workspace.sqlite3").exists()
     assert not (tmp_path / "jobs").exists()

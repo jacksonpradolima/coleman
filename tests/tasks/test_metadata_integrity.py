@@ -231,8 +231,9 @@ def test_complete_image_requires_unique_roots_and_every_selected_dependency_extr
             roots=tuple(selected_root if item.name == root.name else item for item in original.recipe.roots),
         )
     before = original.to_json()
+    model_type = type(original)
     with pytest.raises(ValueError, match="unique complete root distributions|include every declared selection"):
-        type(original).model_validate(raw)
+        model_type.model_validate(raw)
     assert original.to_json() == before
 
 
@@ -242,5 +243,6 @@ def test_selected_extra_order_canonicalizes_but_duplicate_selection_never_does()
     second = changed(original, extras=("a-feature", "z-feature"))
     assert first.model_dump_json() == second.model_dump_json()
     duplicate = {**first.model_dump(), "extras": ("a-feature", "a-feature")}
+    model_type = type(first)
     with pytest.raises(ValueError, match="extras must be unique"):
-        type(first).model_validate(duplicate)
+        model_type.model_validate(duplicate)

@@ -179,8 +179,9 @@ def test_post_ack_callback_loss_reconciles_real_receipt_and_never_reobserves_acc
         assert progress.frontier.position == 2
         raise RuntimeError("response lost after actual ACK")
 
+    context = attempt(item)
     with pytest.raises(RuntimeError, match="response lost"):
-        item.prepared.advance(item.trajectory, attempt(item), lose_response)
+        item.prepared.advance(item.trajectory, context, lose_response)
     recovered = item.prepared.reconcile(item.coordinate)
     assert recovered.frontier.position == 2
     assert recovered.proof.receipt.status == "retained"
@@ -240,8 +241,9 @@ def test_numeric_refusal_does_not_ack_a_partial_batch_or_mutate_complete_math(so
     )
     item = case(source, tmp_path, config)
     callbacks = []
+    context = attempt(item)
     with pytest.raises(ValueError, match="numerically"):
-        item.prepared.advance(item.trajectory, attempt(item), callbacks.append)
+        item.prepared.advance(item.trajectory, context, callbacks.append)
     assert callbacks == []
     progress = item.prepared.reconcile(item.coordinate)
     assert progress.frontier.position == 0
@@ -333,8 +335,9 @@ def test_exact_preflight_bindings_refuse_before_guard_or_state_creation(source, 
     calls = []
     if kind == "source":
         context = dataclasses.replace(item.context, source=source.recipe.binding("foreign-source", {"x": 1}))
+        executor = source.package.bootstrap()
         with pytest.raises(ValueError, match="source"):
-            source.package.bootstrap().prepare(item.config, item.inputs, context)
+            executor.prepare(item.config, item.inputs, context)
     elif kind == "configuration":
         config = source.contracts.HedgeConfiguration.model_validate(
             {
@@ -345,8 +348,9 @@ def test_exact_preflight_bindings_refuse_before_guard_or_state_creation(source, 
                 },
             }
         )
+        executor = source.package.bootstrap()
         with pytest.raises(ValueError, match="configurations"):
-            source.package.bootstrap().prepare(config, item.inputs, item.context)
+            executor.prepare(config, item.inputs, item.context)
     else:
         coordinate, trajectory = item.coordinate, item.trajectory
         if kind == "trajectory":
@@ -385,8 +389,9 @@ def test_wrong_progress_and_missing_previous_store_refuse_without_fresh_fallback
     shutil.rmtree(item.coordinate.artifact_directory / "state")
     with pytest.raises(ValueError, match="missing"):
         item.prepared.reconcile(item.coordinate)
+    context = attempt(item)
     with pytest.raises(ValueError, match="fresh fallback"):
-        item.prepared.advance(item.trajectory, attempt(item), lambda _: None)
+        item.prepared.advance(item.trajectory, context, lambda _: None)
     assert not (item.coordinate.artifact_directory / "state").exists()
 
 
@@ -399,8 +404,9 @@ def test_batch_failure_keeps_previous_complete_state_and_zero_ack_callbacks(sour
         if len(checks) == 3:
             raise RuntimeError("second original panel interrupted")
 
+    context = attempt(item, guard)
     with pytest.raises(RuntimeError, match="second original"):
-        item.prepared.advance(item.trajectory, attempt(item, guard), callbacks.append)
+        item.prepared.advance(item.trajectory, context, callbacks.append)
     assert callbacks == []
     progress = item.prepared.reconcile(item.coordinate)
     assert progress.frontier.position == 0

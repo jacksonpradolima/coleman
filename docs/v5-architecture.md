@@ -128,10 +128,10 @@ flowchart TD
     LocalStore --> Retained[Opt-in retained replay generation 2]
     Retained --> Replay
     LocalStore --> Storage[Existing immutable artifact publication]
-    Service[Existing application services with planned generic executor] --> Problem
+    Service[Application services and typed durable execution] --> Problem
     Service --> DirectLearner
     Service --> DirectSolver
-    Service --> Execution[Planned executor capabilities]
+    Service --> Execution[Implemented typed executor capabilities]
     Service --> Session[Planned optional durable generic session]
     Session --> State
     Session --> Storage

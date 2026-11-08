@@ -198,10 +198,7 @@ def _schedule(
                     store.save_record(connection, updated)
                     # A queued child snapshot synchronizes with this commit before
                     # deciding to run; inherited ownership is already continuous.
-                    if bootstrap_profile is None:
-                        _spawn(store.root, "work", worker_descriptor, job.job_id)
-                    else:
-                        _spawn(store.root, "work", worker_descriptor, job.job_id, bootstrap_profile=bootstrap_profile)
+                    _spawn_owned_worker(store.root, worker_descriptor, job.job_id, bootstrap_profile)
                     active.append(updated)
                     memory += caps.max_memory_bytes
             except BaselineBusyError:
@@ -219,6 +216,28 @@ def _schedule(
             # admission cannot observe a retiring owner and strand queued work.
             os.close(supervisor_descriptor)
         return pending
+
+
+def _spawn_owned_worker(
+    root: Path, descriptor: int, job_id: str, bootstrap_profile: HostBootstrapProfile | None
+) -> None:
+    """Dispatch one owned worker with the original native call shape.
+
+    Parameters
+    ----------
+    root : pathlib.Path
+        Workspace whose actual job lock is already held by the caller.
+    descriptor : int
+        Open ownership descriptor inherited by the fixed worker process.
+    job_id : str
+        Exact queued job selected in the caller's metadata transaction.
+    bootstrap_profile : HostBootstrapProfile or None
+        Explicit current generic approval, or the unchanged native route.
+    """
+    if bootstrap_profile is None:
+        _spawn(root, "work", descriptor, job_id)
+    else:
+        _spawn(root, "work", descriptor, job_id, bootstrap_profile=bootstrap_profile)
 
 
 def _reconcile_ownership(store, connection, jobs, active) -> None:

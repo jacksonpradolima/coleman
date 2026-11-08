@@ -276,8 +276,9 @@ def test_existing_common_policy_cannot_be_replaced_on_reopen(tmp_path):
     store = WorkflowStore(tmp_path, policy)
     with closing(store.connect()) as connection:
         before = tuple(connection.iterdump())
+    replacement = HostPolicy(schema_version=1, max_jobs=4)
     with pytest.raises(ValueError, match="cannot be silently replaced"):
-        WorkflowStore(tmp_path, HostPolicy(schema_version=1, max_jobs=4))
+        WorkflowStore(tmp_path, replacement)
     with closing(store.connect()) as connection:
         assert tuple(connection.iterdump()) == before
     assert WorkflowStore(tmp_path, policy).policy == policy

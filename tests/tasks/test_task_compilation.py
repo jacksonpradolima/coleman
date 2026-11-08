@@ -117,8 +117,9 @@ def test_recovered_malformed_declaration_is_not_promoted_to_typed_progress(tmp_p
     _, progress, context = _values(tmp_path)
     malformed = CommittedProgress(progress.plan_fingerprint, progress.coordinate_fingerprint, progress.frontier, {})
     verifier = _Verifier(lambda *_args: None, lambda _context: malformed)
+    selected = _Progress(verifier, _ProofCodec())
     with pytest.raises(ValueError):
-        _Progress(verifier, _ProofCodec()).reconcile(context)
+        selected.reconcile(context)
 
 
 def test_optional_progress_requires_both_concrete_codec_and_actual_verifier():
@@ -148,5 +149,6 @@ def test_prepared_local_state_capabilities_refuse_before_any_reservation(missing
         values["progress_verifier"] = None
     else:
         values[missing] = None
+    prepared = SimpleNamespace(**values)
     with pytest.raises((ValueError, TypeError)):
-        _require_prepared(SimpleNamespace(**values), plan)
+        _require_prepared(prepared, plan)

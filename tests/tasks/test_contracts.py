@@ -154,8 +154,9 @@ def test_protocol_and_seed_require_explicit_not_applicable_instead_of_omission()
         TaskPlan.model_validate(raw)
     coordinate = _raw()["coordinates"][1]
     coordinate.pop("seed")
+    missing_seed = {**_raw(), "coordinates": [coordinate]}
     with pytest.raises(ValueError, match="seed"):
-        TaskPlan.model_validate({**_raw(), "coordinates": [coordinate]})
+        TaskPlan.model_validate(missing_seed)
 
 
 def test_plan_rejects_budget_overflow_duplicate_ids_foreign_target_and_profile():

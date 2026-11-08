@@ -101,6 +101,42 @@ def _direct_states(source) -> tuple[str, ...]:
     return tuple(states)
 
 
+def _sqlite_must_propagate(error: sqlite3.OperationalError) -> bool:
+    """Identify errors outside the observer's numeric BUSY/LOCKED retry scope.
+
+    Parameters
+    ----------
+    error : sqlite3.OperationalError
+        Actual failed metadata observation, retaining its original numeric code.
+
+    Returns
+    -------
+    bool
+        True unless the primary or extended code is integer BUSY or LOCKED.
+        No storage operation, text matching or exception replacement occurs.
+    """
+    code = getattr(error, "sqlite_errorcode", 0)
+    return not isinstance(code, int) or code & 0xFF not in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED)
+
+
+def _pause_before_poll(deadline: float) -> None:
+    """Sleep only within the existing monotonic observation window.
+
+    Parameters
+    ----------
+    deadline : float
+        Original observer deadline in monotonic seconds; never extended here.
+
+    Notes
+    -----
+    Sleeps for at most 0.025 seconds or the positive remaining allowance. It
+    performs no metadata operation and preserves sleep/clock errors unchanged.
+    """
+    remaining = deadline - time.monotonic()
+    if remaining > 0:
+        time.sleep(min(0.025, remaining))
+
+
 def wait_for_completion(
     service: TaskService, request: TaskExecuteRequest, *, observation_seconds: float = 120.0
 ) -> TaskJobView:
@@ -141,8 +177,7 @@ def wait_for_completion(
         try:
             current = service.execute(request) if view is None else service.status(view.job.job_id)
         except sqlite3.OperationalError as error:
-            code = getattr(error, "sqlite_errorcode", 0)
-            if not isinstance(code, int) or code & 0xFF not in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED):
+            if _sqlite_must_propagate(error):
                 raise
         else:
             view = current
@@ -151,9 +186,7 @@ def wait_for_completion(
                 and not view.worker_active
             ):
                 return view
-        remaining = deadline - time.monotonic()
-        if remaining > 0:
-            time.sleep(min(0.025, remaining))
+        _pause_before_poll(deadline)
     raise TimeoutError("Observation window ended; retry the same retained request ID")
 
 

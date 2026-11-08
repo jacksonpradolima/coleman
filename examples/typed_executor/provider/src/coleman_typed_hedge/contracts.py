@@ -105,7 +105,7 @@ class HedgeTrajectory(FixtureValue):
         if payload.configuration.profile != "hedge-constant" or len(payload.configuration.prior.weights) > 8:
             raise ValueError("Hedge trajectory requires the constant reference profile")
         if payload.weights != normalize_positive_prior(payload.configuration.prior.weights) or any(
-            value != 0.0 for value in (*payload.cumulative_losses, *payload.compensations)
+            value.as_integer_ratio()[0] != 0 for value in (*payload.cumulative_losses, *payload.compensations)
         ):
             raise ValueError("Hedge trajectory initial state must contain the unmodified prior")
         config = payload.configuration

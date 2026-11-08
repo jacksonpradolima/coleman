@@ -135,8 +135,10 @@ def test_provider_free_open_never_reconstitutes_stored_approval(tmp_path):
     with pytest.raises(ValueError, match="explicit current"):
         metadata_only.plan(request)
     reconnected, expired = metadata_only.reconnect(), metadata_only.cleanup()
-    assert isinstance(reconnected, tuple) and not reconnected
-    assert isinstance(expired, tuple) and not expired
+    assert isinstance(reconnected, tuple)
+    assert not reconnected
+    assert isinstance(expired, tuple)
+    assert not expired
 
 
 def test_first_profile_race_has_one_winner_and_no_partial_policy(tmp_path):
@@ -193,14 +195,16 @@ def test_generic_policy_is_immutable_and_incomplete_settings_refuse(tmp_path):
         larger = _changed(_plan(), limits=_changed(_plan().limits, max_invocations=policy.caps.max_invocations))
         validate_task_caps(connection, larger)
     different = _changed(policy, caps=_changed(policy.caps, max_output_bytes=policy.caps.max_output_bytes + 1))
+    profile = _profile()
     with pytest.raises(ValueError, match="policy cannot"):
-        bind_host(store, _profile(), different)
+        bind_host(store, profile, different)
     with store.transaction() as connection:
         connection.execute("DELETE FROM settings WHERE name='task_policy_v1'")
     with pytest.raises(ValueError, match="Incomplete"):
         bind_host(store, None, None)
+    plan = _plan()
     with closing(store.connect()) as connection, pytest.raises(ValueError, match="not registered"):
-        validate_task_caps(connection, _plan())
+        validate_task_caps(connection, plan)
 
 
 def test_queued_generic_job_requires_current_profile_even_if_sql_contains_it(tmp_path):

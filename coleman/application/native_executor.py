@@ -35,6 +35,7 @@ from coleman.workflows.contracts import ExperimentPlan, Trial, WorkflowError
 from coleman.workflows.lifecycle import TrialResult, WorkflowReport, report_assumptions
 
 _COMPLETE_RECEIPT = "complete.json"
+_MISSING_COMMITTED_CHECKPOINT = "Previously committed native checkpoint is missing; implicit reset is forbidden"
 _FRONTIER = DefinitionBinding(
     reference=Reference(id="coleman-native-processed-builds", version="1"),
     definition_fingerprint=fingerprint({"profile": "native-workflow-build-ordinal-v1", "unit": "processed_build"}),
@@ -78,7 +79,7 @@ def _marker_position(root: Path, trial_id: str) -> int | None:
     if not markers:
         return None
     if len(markers) != 1:
-        raise WorkflowError("Previously committed native checkpoint is missing; implicit reset is forbidden")
+        raise WorkflowError(_MISSING_COMMITTED_CHECKPOINT)
     marker = markers[0]
     validate_source_storage(marker)
     with marker.open("rb") as stream:
@@ -99,7 +100,7 @@ def _marker_position(root: Path, trial_id: str) -> int | None:
         raise WorkflowError("Native checkpoint is not owned by this exact workflow root/execution")
     validate_source_storage(expected)
     if not expected.is_file():
-        raise WorkflowError("Previously committed native checkpoint is missing; implicit reset is forbidden")
+        raise WorkflowError(_MISSING_COMMITTED_CHECKPOINT)
     return position
 
 
@@ -129,7 +130,7 @@ class _NativeProgress:
         minimum = job.checkpoint_step if job.current_trial == context.coordinate_fingerprint else 0
         if step is None:
             if minimum:
-                raise WorkflowError("Previously committed native checkpoint is missing; implicit reset is forbidden")
+                raise WorkflowError(_MISSING_COMMITTED_CHECKPOINT)
             return None
         if step < minimum:
             raise WorkflowError("Native checkpoint is older than its acknowledged workflow frontier")

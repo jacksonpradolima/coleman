@@ -145,10 +145,7 @@ def _owned_paths(item: Distribution, paths: tuple[str, ...]) -> tuple[str, ...]:
     for raw in paths:
         path = PurePosixPath(raw)
         if ".." in path.parts:
-            parts = list(path.parts)
-            while parts and parts[0] == "..":
-                parts.pop(0)
-            if len(parts) == 2 and parts[0] == "bin" and parts[1] in launchers:
+            if _generated_launcher(path, launchers):
                 continue
             raise ValueError("Executor RECORD path escapes its owned installation root")
         if path.is_absolute() or path.as_posix() != raw or "\\" in raw or not path.parts or ":" in path.parts[0]:
@@ -157,6 +154,28 @@ def _owned_paths(item: Distribution, paths: tuple[str, ...]) -> tuple[str, ...]:
             raise ValueError("Executor directory-wheel profile does not support executable path files")
         owned.append(raw)
     return tuple(owned)
+
+
+def _generated_launcher(path: PurePosixPath, launchers: set[str]) -> bool:
+    """Recognize only a declared generated launcher above the owned root.
+
+    Parameters
+    ----------
+    path : pathlib.PurePosixPath
+        RECORD path already observed to contain an upward component.
+    launchers : set of str
+        Names from this distribution's console/gui entry-point declarations.
+
+    Returns
+    -------
+    bool
+        Whether removing leading upward components leaves exactly bin/name
+        with that name in the declared launcher set. No file is accessed.
+    """
+    parts = list(path.parts)
+    while parts and parts[0] == "..":
+        parts.pop(0)
+    return len(parts) == 2 and parts[0] == "bin" and parts[1] in launchers
 
 
 def _walk_root(root: Path, top: str, budget: ResourceBudget):

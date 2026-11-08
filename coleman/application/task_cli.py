@@ -11,17 +11,51 @@ from coleman.application.tasks import TaskService
 from coleman.tasks.identity import HostBootstrapProfile
 
 
+def _startup_path(value: Path, *, directory: Path) -> Path:
+    """Resolve a startup path inside the independently inherited host directory.
+
+    Parameters
+    ----------
+    value : pathlib.Path
+        Absolute or relative host argument; existing symlinks are resolved.
+    directory : pathlib.Path
+        Canonical inherited current directory, never another command argument.
+
+    Returns
+    -------
+    pathlib.Path
+        Canonical path at or below the host directory, including missing leaves.
+
+    Raises
+    ------
+    ValueError
+        The canonical path escapes the inherited directory namespace.
+    OSError
+        The path cannot be resolved in the trusted local filesystem.
+
+    Notes
+    -----
+    This namespace guard assumes the documented trusted filesystem. It does not
+    provide race-free confinement against concurrent hostile filesystem changes.
+    """
+    selected = value.resolve()
+    if not selected.is_relative_to(directory):
+        raise ValueError("Task host startup paths must remain within the inherited current directory")
+    return selected
+
+
 def open_task_service(workspace: Path, *, bootstrap: Path | None, owner: str) -> TaskService:
     """Open explicit operator setup before accepting task command JSON.
 
     Parameters
     ----------
     workspace : pathlib.Path
-        Trusted host-owned local workspace, never selected by tool JSON.
+        Host workspace within the inherited current directory after canonical
+        resolution, never selected by tool JSON.
     bootstrap : pathlib.Path or None
-        Trusted reviewed small approval file, or provider-free inspection mode.
-        File contents are bounded at 16 KiB before decoding; they are not loaded
-        from workspace settings and never contain a command supplied by a client.
+        Reviewed small approval file within that same startup namespace, or
+        provider-free inspection mode. Contents are bounded at 16 KiB before
+        decoding, never loaded from workspace settings or command JSON.
     owner : str
         Host-supplied local security principal, independent of per-request fields.
 
@@ -44,9 +78,16 @@ def open_task_service(workspace: Path, *, bootstrap: Path | None, owner: str) ->
     Start with Python -B or PYTHONDONTWRITEBYTECODE=1: setting this flag here
     cannot undo caches already created by earlier console startup imports.
     Existing native console commands do not change their interpreter settings.
+    Both paths resolve against the independently inherited current directory;
+    absolute outsiders and symlinks escaping it refuse before reading approval
+    contents or creating the workspace. Library TaskService roots retain their
+    existing trusted-operator contract.
     """
     sys.dont_write_bytecode = True
 
+    directory = Path.cwd().resolve()
+    workspace = _startup_path(workspace, directory=directory)
+    bootstrap = None if bootstrap is None else _startup_path(bootstrap, directory=directory)
     profile = None
     if bootstrap is not None:
         with bootstrap.open("rb") as stream:

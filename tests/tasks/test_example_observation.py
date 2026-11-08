@@ -19,7 +19,8 @@ def _example():
     """Load only the public host observer; no provider, store or job is created."""
     path = Path(__file__).parents[2] / "examples" / "typed_executor" / "ci.py"
     spec = importlib.util.spec_from_file_location("typed_ci_observer_example", path)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -99,8 +100,10 @@ def test_other_sqlite_failures_propagate_without_retries(example, code):
         calls.append("execute")
         raise error
 
+    service = cast(Any, SimpleNamespace(execute=execute))
+    request = _request()
     with pytest.raises(sqlite3.OperationalError) as caught:
-        example.wait_for_completion(cast(Any, SimpleNamespace(execute=execute)), _request())
+        example.wait_for_completion(service, request)
     assert caught.value is error
     assert calls == ["execute"]
 
@@ -117,8 +120,9 @@ def test_contention_exhausts_original_observation_window_without_budget_growth(e
         raise _busy(sqlite3.SQLITE_BUSY)
 
     request = _request()
+    service = cast(Any, SimpleNamespace(execute=execute))
     with pytest.raises(TimeoutError, match="same retained request"):
-        example.wait_for_completion(cast(Any, SimpleNamespace(execute=execute)), request, observation_seconds=0.05)
+        example.wait_for_completion(service, request, observation_seconds=0.05)
     assert now[0] == 0.05
     assert calls == [request.request_id, request.request_id]
 
@@ -126,5 +130,7 @@ def test_contention_exhausts_original_observation_window_without_budget_growth(e
 @pytest.mark.parametrize("seconds", (0.0, -1.0, 120.001, float("inf"), float("nan"), True))
 def test_observation_capacity_rejects_invalid_values_before_work(example, seconds):
     """Keep positive finite seconds distinct from bool, zero and nonfinite input."""
+    service = cast(Any, None)
+    request = _request()
     with pytest.raises(ValueError, match="allowance"):
-        example.wait_for_completion(cast(Any, None), _request(), observation_seconds=seconds)
+        example.wait_for_completion(service, request, observation_seconds=seconds)

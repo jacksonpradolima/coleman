@@ -359,8 +359,10 @@ def test_scientific_boundary_may_reuse_zero_or_load_once_and_rejects_duplicate_e
     worker = SimpleNamespace(drive_coordinates=lambda _program: effects.append("load"))
     program = SimpleNamespace(executor=SimpleNamespace(boundary=Scope()))
     if loads == 2:
+        typed_worker = cast(Any, worker)
+        typed_program = cast(Any, program)
         with pytest.raises(WorkflowError, match="more than once"):
-            driver._produce(cast(Any, worker), cast(Any, program))
+            driver._produce(typed_worker, typed_program)
         assert effects == ["load"]
     else:
         assert driver._produce(cast(Any, worker), cast(Any, program)) == "complete"
@@ -400,6 +402,7 @@ def test_missing_protected_native_prefix_refuses_at_read_preflight_before_an_att
     )
     prepared = _NativePrepared(cast(Any, native), cast(Any, None), cast(Any, None))
     context = SimpleNamespace(artifact_directory=tmp_path / "evidence" / "absent")
+    selected = cast(Any, context)
     with pytest.raises(WorkflowError, match="cannot reset missing native learning state"):
-        prepared.read_completed(trial, cast(Any, context))
+        prepared.read_completed(trial, selected)
     assert not (tmp_path / "attempts").exists()

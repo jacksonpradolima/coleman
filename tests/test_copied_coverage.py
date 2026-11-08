@@ -469,7 +469,8 @@ def test_selftest_child_preserves_warmed_parent_branch_events(tmp_path):
     source.parent.mkdir()
     source.write_text("def choose(value):\n    if value:\n        return 7\n    return -3\n", encoding="utf-8")
     specification = importlib.util.spec_from_file_location("copied_coverage_outer_probe", source)
-    assert specification is not None and specification.loader is not None
+    assert specification is not None
+    assert specification.loader is not None
     module = importlib.util.module_from_spec(specification)
     specification.loader.exec_module(module)
     choose = module.choose

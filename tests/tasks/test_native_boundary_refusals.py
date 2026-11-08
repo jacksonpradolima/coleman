@@ -131,8 +131,9 @@ def test_changed_registered_source_refuses_before_native_input_publication(admit
     source = service.store.root / "datasets" / f"{plan.dataset.sha256[7:]}.parquet"
     source.write_bytes(source.read_bytes() + b"changed after registration")
     destination = service.store.root / "jobs" / job.job_id
+    deadline = time.monotonic() + 30
     with pytest.raises(WorkflowError, match="Registered dataset changed"):
-        native.prepare_native_program(service.store, job, plan, deadline=time.monotonic() + 30, guard=lambda: None)
+        native.prepare_native_program(service.store, job, plan, deadline=deadline, guard=lambda: None)
     assert not (destination / "inputs").exists()
     assert not (destination / "native").exists()
 
@@ -186,8 +187,9 @@ def test_missing_native_active_minimum_and_unpublished_coordinate_never_become_c
     with pytest.raises(WorkflowError, match="implicit reset"):
         verifier.reconcile(context)
     # The absent retained publication is checked before a candidate value is used.
+    missing = cast(Any, None)
     with pytest.raises(WorkflowError, match="Published native coordinate"):
-        prepared.publish_coordinate(trial, cast(Any, None), context)
+        prepared.publish_coordinate(trial, missing, context)
     assert not (context.artifact_directory / "complete.json").exists()
 
 
@@ -295,10 +297,9 @@ def test_protected_native_boundary_requires_retained_handoff_before_loading_coor
     claimed = JobRecord.model_validate(
         changed(job, plan_id=preview.plan_id, stage="evaluation", total_trials=len(protected.trials))
     )
+    deadline = time.monotonic() + 30
     with pytest.raises(FileNotFoundError):
-        native.prepare_native_program(
-            service.store, claimed, protected, deadline=time.monotonic() + 30, guard=lambda: None
-        )
+        native.prepare_native_program(service.store, claimed, protected, deadline=deadline, guard=lambda: None)
     assert not (service.store.root / "jobs" / job.job_id / "native").exists()
     assert not (service.store.root / "jobs" / job.job_id / "complete.json").exists()
 

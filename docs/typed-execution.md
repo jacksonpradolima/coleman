@@ -44,6 +44,7 @@ eligibility and objective definitions instead of renaming these CI loss rows.
 
 ```mermaid
 flowchart TD
+    H["CLI/MCP: inherited host directory and reviewed approval"] --> P
     I["Concrete configuration, source and ordered coordinates"] --> P["Approved image and concrete codec validation"]
     P --> Q["Common finite queue and actual kernel ownership"]
     Q --> A["Reserve a physical attempt before work"]
@@ -257,6 +258,14 @@ python -I -B -m coleman.application.task_cli --workspace task-workspace --bootst
 python -I -B -m coleman.application.task_cli --workspace task-workspace --bootstrap host-bootstrap.json plan --request - < planning-request.json
 python -I -B -m coleman.transports.task_mcp --workspace task-workspace --bootstrap host-bootstrap.json
 ```
+
+Start the CLI or MCP host from the operator-owned directory containing its
+workspace and reviewed bootstrap file. Both startup paths must resolve within
+that directory; an absolute outsider, sibling prefix or escaping symlink refuses
+before approval contents are read or a workspace is created. Clients cannot
+replace this directory through request JSON. Programmatic `TaskService` callers
+retain their existing explicit operator-selected root contract. This protects a
+fixed host namespace and still requires the documented trusted filesystem.
 
 The optional MCP host exposes nine `task_*` tools over the same `TaskCommands`
 edge. Requests and replies have a 1 MiB interactive ceiling; larger retained
