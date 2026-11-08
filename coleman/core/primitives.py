@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from decimal import Decimal
 from typing import Annotated, Any
 
@@ -47,16 +48,109 @@ def canonical_json(payload: Any) -> str:
     -----
     Performs no filesystem access, rounding or ``default=str`` coercion.
     This is COLEMAN JSON v1, not RFC 8785 cross-language JCS. The caller must
-    bound payload size/depth before using untrusted data.
+    bound payload size/depth before using untrusted data. Plain built-in trees
+    are validated before one complete encoding. Subclasses, large integers,
+    non-finite values and deeper trees retain the original recursive encoder;
+    the fast-path routing depth is not a new acceptance limit.
+    """
+    if not _plain_json_tree(payload):
+        return _legacy_canonical_json(payload)
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+
+
+def _plain_json_tree(payload: Any, remaining: int = 64) -> bool:
+    """Select hook-free built-ins without rejecting or normalizing other input.
+
+    Parameters
+    ----------
+    payload : object
+        Original value; no subclass hook or conversion is invoked here.
+    remaining : int, optional
+        Remaining container budget for this routing pass, default 64. Exhaustion
+        selects the original encoder rather than imposing an acceptance limit.
+
+    Returns
+    -------
+    bool
+        Whether one final standard encoding can handle the plain tree. Integers
+        above 2048 bits use the original routine, including its digit-limit and
+        error-order behavior, even when that integer would encode successfully.
+
+    Notes
+    -----
+    Exact type checks avoid invoking user container, comparison or conversion
+    hooks during this preflight. A false result sends the entire original root
+    to the legacy routine, preserving its error order and subtype callbacks.
+    The routing budget avoids traversing deep/cyclic inputs before that routine.
+    """
+    payload_type = type(payload)
+    if payload_type is dict:
+        return remaining > 0 and _plain_json_object(payload, remaining - 1)
+    if payload_type is list:
+        return remaining > 0 and all(_plain_json_tree(value, remaining - 1) for value in payload)
+    if payload_type is float:
+        return math.isfinite(payload)
+    if payload_type is int:
+        return int.bit_length(payload) <= 2048
+    return payload is None or payload_type is str or payload_type is bool
+
+
+def _plain_json_object(payload: dict[Any, Any], remaining: int) -> bool:
+    """Inspect each exact key and value in their original insertion order.
+
+    Parameters
+    ----------
+    payload : dict
+        Already identified built-in dictionary, never a user-defined mapping.
+    remaining : int
+        Routing budget for its values; it does not reject the original root.
+
+    Returns
+    -------
+    bool
+        False at the first nonplain key/value so original encoding can decide
+        which error or subtype hook precedes later siblings.
+    """
+    for key, value in payload.items():
+        key_type = type(key)
+        if key_type is not str or not _plain_json_tree(value, remaining):
+            return False
+    return True
+
+
+def _legacy_canonical_json(payload: Any) -> str:
+    """Retain the original recursive encoding, subtype hooks and error order.
+
+    Parameters
+    ----------
+    payload : object
+        Entire original root, including uncommon integer values or subclasses.
+
+    Returns
+    -------
+    str
+        Original COLEMAN JSON v1 text, with unchanged standard encoder options.
+
+    Raises
+    ------
+    ValueError, TypeError
+        Original invalid key, value, numeric or standard encoding failures.
+    RecursionError
+        Cyclic or excessively deep recursion under the original runtime policy.
+
+    Notes
+    -----
+    Subtype callbacks propagate their own failures. Keeping self-recursion in
+    this routine preserves their order before later sibling values are visited.
     """
     if isinstance(payload, dict):
         for key, value in payload.items():
             if not isinstance(key, str):
                 raise ValueError("Canonical JSON object keys must be strings")
-            canonical_json(value)
+            _legacy_canonical_json(value)
     elif isinstance(payload, list):
         for value in payload:
-            canonical_json(value)
+            _legacy_canonical_json(value)
     elif payload is not None and not isinstance(payload, str | bool | int | float):
         raise TypeError("Canonical input must contain only JSON values")
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
