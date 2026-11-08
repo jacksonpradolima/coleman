@@ -26,6 +26,15 @@ The optional replay layer accepts a logical feedback round once under its
 declared contract. The local store protects acknowledged progress across
 process interruption.
 
+The [expert-mixture example](expert-mixtures.md) applies the same boundaries to
+actual shipped learners. A controlled snapshot retains its fixed law, actual
+emitted origin/version, explicit support mask, complete pending loss block,
+separate accepted/release counters and exact period movement ledger. The
+unresolved output-failure frontier also survives later held observations and
+restart; only a successful nonempty release clears it. The
+32-instance example uses independent actual method owners under the existing
+collection protocol; those owners do not create independent research samples.
+
 ## Continue one consumer before adding a store
 
 Install the reviewed source wheel using the

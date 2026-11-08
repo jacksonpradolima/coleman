@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "arithmetic": "symbolic-rational-fixtures-v1",
+  "meaning": "half-squared-proximity-plus-full-L1-coefficient-variation-not-paid-cost",
+  "derivation": "Locally derived shifted box/simplex KKT problem, independently certified by feasible exchange directions and strong convexity; not a Hedge regret theorem.",
+  "cases": [
+    {
+      "id": "three-expert-interior-held-coordinate",
+      "proposal": ["1/2", "3/10", "1/5"],
+      "old": ["1/3", "1/3", "1/3"],
+      "lower": ["0", "0", "0"],
+      "upper": ["1", "1", "1"],
+      "strength": "1/20",
+      "minimum": ["13/30", "10/30", "7/30"],
+      "dual": "1/60",
+      "objective": "1/75",
+      "full_L1": "1/5"
+    },
+    {
+      "id": "active-cap-and-held-coordinate",
+      "proposal": ["1/2", "3/10", "1/5"],
+      "old": ["1/3", "1/3", "1/3"],
+      "lower": ["0", "0", "0"],
+      "upper": ["2/5", "1", "1"],
+      "strength": "1/20",
+      "minimum": ["2/5", "1/3", "4/15"],
+      "dual": "-1/60",
+      "objective": "13/900",
+      "full_L1": "2/15"
+    }
+  ],
+  "limits": "Authored rational calculations; binary64 API inputs are separately converted with Fraction.from_float. A finite grid corroborates only its grid minimum; convexity and KKT certify the continuous optimum."
+}

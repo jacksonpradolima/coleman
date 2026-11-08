@@ -306,6 +306,13 @@ decision/update clocks and delayed-feedback compatibility. Its BOLD/QPM-D
 guarantees do not transfer to this generic replay layer or its user-owned
 consumer. No learner or distributed stream engine is introduced by this API.
 
+For actual shipped full-information methods, follow the
+[expert-mixture replay example](expert-mixtures.md). Its thin optional adapter
+passes the original `ReplayApplication` eligibility and application clocks to
+the method. Interval releases occur inside the captured post-drain decision,
+so the resulting state belongs to the same continuation; an external release
+cannot be silently paired with older replay metadata.
+
 Continue with the [replay API](api/replay.md), the
 [decision contract walkthrough](decision-contracts.md) and
 [point-in-time observations](point-in-time-observations.md).

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "arithmetic": "exact-emitted-binary64-path-v1",
+  "delta": "1/36028797018963968",
+  "allowances": ["1", "2", "2"],
+  "emissions_in_delta_units": [
+    ["0", "18014398509481984", "18014398509481984"],
+    ["18014398509481982", "18014398509481984", "2"],
+    ["0", "36028797018963960", "8"],
+    ["1", "36028797018963960", "7"],
+    ["5", "36028797018963960", "3"]
+  ],
+  "true_first_usage_after_release_3": "36028797018963965/36028797018963968",
+  "nearest_first_usage_after_release_3": "9007199254740991/9007199254740992",
+  "true_first_usage_after_release_4": "36028797018963969/36028797018963968",
+  "nearest_first_usage_after_release_4": "1",
+  "maximum_admissible_final_first_coordinate_in_delta_units": "4",
+  "limits": "Coefficient-path accounting only, not a Hedge trajectory, financial fee, trade, risk or efficacy result."
+}

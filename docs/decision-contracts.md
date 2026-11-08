@@ -7,7 +7,9 @@ dimension for suites that did not run.
 
 The v5 integration source provides immutable contracts in `coleman.core` for
 these distinctions. This is an implemented contract layer on `release/v5`,
-**not a published v5 wheel or an implementation of the planned generic learners**.
+**not a published v5 wheel**. The separately documented [expert-mixture methods](expert-mixtures.md)
+implement full-information learning on top of these contracts; other generic
+learning families retain their own implementation and qualification boundaries.
 Build this source's wheel to try the examples. Existing TCPCI runs and their
 [measurement artifacts](domain-results.md) retain their own contracts.
 

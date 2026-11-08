@@ -16,14 +16,19 @@ processing, explicit information/application frontiers and caller-owned typed
 continuation. The [owned-state and recovery foundation](state-recovery.md) adds
 pure concrete snapshots, opt-in bounded replay retention and a separate local
 acknowledgement adapter over complete component collections. It supplies no
-learner or external-effect executor.
-Generic learners, adapters and broader durable execution services below
+learner or external-effect executor. The separate [full-information learning layer](expert-mixtures.md)
+provides constant Hedge, current-rate cumulative anytime Hedge, excluding-origin
+Fixed Share and named controlled coefficient variants, including the joint L1
+movement output. These mathematical owners work without the optional direct,
+clock-plan, replay or persistence adapters.
+Other generic learning families, adapters and broader durable execution services below
 remain planned until individually qualified. The original implementation baseline
 is COLEMAN **4.20.0**, commit
 `1edbee874129aa85e26e592d9649826e85e1ac6b`. Examples explicitly identified as
 existing use that source. Proposed namespaces and call sequences below are design
 contracts to qualify in subsequent work, except for the explicitly linked
-implemented contract, objective, native-evidence, replay and state layers. No v5 release wheel has been published.
+implemented contract, objective, native-evidence, replay, state and expert-learning
+layers. No v5 release wheel has been published.
 
 Read the [compatibility and migration policy](v5-compatibility.md) alongside this
 specification. Use the [current getting-started guide](getting-started.md) for the
@@ -56,7 +61,8 @@ new weights; direct MAB asks for one action, supplies that action's outcome and
 exports/restores its algorithm/RNG state; direct solving supplies a problem and
 receives a checked result. The [contract guide](decision-contracts.md) now publishes
 the direct structural protocol signatures and an executable CI contract cycle.
-The actual generic learning methods remain separate implementation work.
+Use the [expert-mixture input → update → output walkthrough](expert-mixtures.md)
+for the implemented full-information methods and their exact support limits.
 
 Use the [objective guide](objectives.md) to keep raw outcomes, physical resources,
 bounded losses and user-declared preferences distinct. Its conversion, loss and
@@ -95,7 +101,11 @@ explicit acceptance protocol.
 
 ```mermaid
 flowchart TD
-    Host[User application or notebook] --> DirectLearner[Planned direct learner and MAB capabilities]
+    Host[User application or notebook] --> DirectLearner[Pure full-information expert learners]
+    Host --> MAB[Other planned learner and MAB capabilities]
+    DirectLearner --> JointOutput[Pure bounded-simplex projection or joint L1 output]
+    JointOutput --> Objectives
+    MAB --> Contracts
     Host --> DirectSolver[Existing finite solvers; broader solver boundary planned]
     Host --> Problem[Planned typed problem adapters including CI]
     Host --> Replay[Optional bounded causal replay]
@@ -170,7 +180,7 @@ feedback is separately supported and does not require a learner.
 | Complete ranking | Legacy offline CI evaluation; generic full-information ranking learner unsupported | Legacy scheduled-test reward semantics only; generic ranking semi-bandit unsupported | Generic ranking learner unsupported | Existing fixed/random ranking execution; no adaptive update |
 | Discrete choice | Generic full-vector discrete learner unsupported; an explicit adapter may expose only the selected outcome to a qualified chosen-only method | Required genuine chosen-action UCB/Exp3; unused full-vector members are not imputed | Required genuine chosen-action UCB/Exp3 with declared bounded scalar outcome | Fixed choice/abstention only; no adaptive update |
 | Subset/slate | Generic online full-information subset learner unsupported; modeled coverage belongs to the static solver route | Required real subset/acquisition baseline within its qualified visibility contract; general combinatorial semi-bandit guarantees unsupported | General slate bandit unsupported | Existing finite coverage solving; no adaptive update |
-| Simplex mixture | Required Hedge and one precisely specified Fixed Share reference with complete eligible bounded expert losses | Unsupported for those full-information references | Unsupported for those full-information references | Fixed/equal mixture only; no adaptive update |
+| Simplex mixture | Implemented Hedge, cumulative anytime Hedge, excluding-origin Fixed Share and separately controlled variants with complete eligible bounded expert losses; see [qualified support](expert-mixtures.md) | Unsupported for those full-information methods | Unsupported for those full-information methods | Fixed/equal mixture only; no adaptive update |
 | Continuous feasible vector | A loss vector alone is unsupported; required projected first-order updates use a separately typed convex objective/gradient oracle | Unsupported without a separately qualified oracle/estimator | General bandit convex optimization unsupported | Static constrained solve when all required objective inputs are supplied |
 | Information acquisition | Generic online full-vector acquisition learner unsupported; complete modeled scores belong to a separate static problem | Required equal-allocation/successive-halving baseline with purchased observation/fidelity feedback | Unsupported unless that exact aggregate observation is admitted by the implemented baseline | Stop/abstain or a declared nonadaptive purchase plan |
 

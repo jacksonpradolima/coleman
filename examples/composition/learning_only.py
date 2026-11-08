@@ -219,7 +219,7 @@ def main() -> None:
                 "coverage": "full_panel",
                 "choices": [cast(ChoiceAction, decision.action).chosen.id for decision in report.decisions],
                 "accepted_panels": len(report.feedback),
-                "builtin_methods": "pending-368",
+                "builtin_methods": "not-exercised-user-owned-protocol-example",
             }
         )
     )

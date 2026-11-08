@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "basis": "authored-synthetic-CI-loss-and-counterfactual-resource-mechanics",
+  "loss_unit": "1",
+  "initial_coefficients": ["1/2", "1/2"],
+  "ideal_eta": "log(3)",
+  "api_eta": "The API receives binary64 math.log(3); ideal rational substitutions below have an explicit numeric comparison envelope.",
+  "streams": {
+    "reversal": [["0", "1"], ["0", "1"], ["0", "1"], ["1", "0"], ["1", "0"], ["1", "0"]],
+    "no_skill": [["1/2", "1/2"], ["1/2", "1/2"], ["1/2", "1/2"], ["1/2", "1/2"]],
+    "cost_dominated": [["0", "1"], ["0", "1"], ["0", "1"], ["0", "1"]]
+  },
+  "external_resource_model": {
+    "origin": "modeled_counterfactual",
+    "unit": "s",
+    "seconds_per_normalized_mixture_loss": "10",
+    "seconds_per_full_coefficient_L1_emission": "100",
+    "terminal_convention": "Every actual emitted coefficient change is charged, including the declared terminal update. Held panels charge zero. This fixed convention is shared by every method.",
+    "limits": "Constructed proxy/reconfiguration seconds, not measured physical CPU or wall time, paid fees, lambda times movement, financial trading or executed-book turnover."
+  },
+  "methods": {
+    "fixed": {"kind": "explicit-nonlearning-baseline", "coefficients": ["1/2", "1/2"]},
+    "plain": {"kind": "actual-constant-Hedge"},
+    "anchored": {"kind": "actual-controlled-projection", "alpha": "1/4", "target": ["3/4", "1/4"]},
+    "bounded": {"kind": "actual-controlled-projection", "lower": ["1/4", "1/4"], "upper": ["3/4", "3/4"], "per_release_movement": ["1/8", "1/8"]},
+    "cadenced": {"kind": "actual-controlled-projection", "accepted_panels_per_release": 2},
+    "penalized": {"kind": "actual-controlled-L1", "lambda": "1/8"}
+  },
+  "hand_substitutions": {
+    "cost_dominated_plain": {
+      "first_coefficients_before_panels": ["1/2", "3/4", "9/10", "27/28"],
+      "last_first_coefficient": "81/82",
+      "gross_normalized_loss": "31/35",
+      "full_coefficient_L1": "40/41",
+      "modeled_total_seconds": "30542/287",
+      "fixed_gross_normalized_loss": "2",
+      "fixed_total_seconds": "20"
+    },
+    "reversal_first_coefficients": {
+      "plain_before_panels": ["1/2", "3/4", "9/10", "27/28", "9/10", "3/4"],
+      "cadenced_before_panels": ["1/2", "1/2", "9/10", "9/10", "9/10", "9/10"]
+    },
+    "no_skill_anchored": {
+      "last_first_coefficient": "687/1024",
+      "gross_normalized_loss": "2",
+      "full_coefficient_L1": "175/512"
+    },
+    "share_conventions": {
+      "q": ["7/10", "3/10"], "alpha": "1/10", "declared_target": ["2/5", "3/5"],
+      "declared_target_output": ["67/100", "33/100"],
+      "excluding_origin_output": ["33/50", "17/50"]
+    }
+  },
+  "scientific_limits": "Finite authored mechanics, no empirical independent units, adaptive-win requirement, reference regret inheritance, probability calibration, financial execution adapter or causal efficacy claim."
+}

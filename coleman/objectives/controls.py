@@ -3,18 +3,29 @@
 from __future__ import annotations
 
 from fractions import Fraction
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import Field, model_validator
 
 from coleman.core.base import CoreContract, CoreImmutable
 from coleman.core.identity import Reference, ordered_references
-from coleman.core.numeric import SIMPLEX_TOLERANCE, Binary64, SimplexProfile
-from coleman.core.primitives import MAX_MEMBERS, canonical_json
+from coleman.core.numeric import Binary64, SimplexProfile
+from coleman.core.primitives import MAX_MEMBERS, canonical_json, fingerprint
+from coleman.core.reading import bounded_json_bytes
 from coleman.core.temporal import Timestamp
 from coleman.core.units import UnitSemantics
 from coleman.objectives.arithmetic import PROFILE, checked_fraction
 from coleman.objectives.bindings import DefinitionBinding, SemanticDefinition
+from coleman.objectives.movement import (
+    ExactCoefficientVariation,
+    ExactExpertInterval,
+    ExactMixtureIntervals,
+    _binary64_atoms,
+    _exact_intersection,
+    _exact_path_remaining,
+    _intersection_reason,
+    _same_members,
+)
 from coleman.objectives.preferences import (
     COEFFICIENT_SEMANTICS,
     CoefficientWeights,
@@ -493,12 +504,6 @@ def _fraction_semantics(semantics: UnitSemantics) -> None:
         raise ValueError("Controls require canonical coefficient-fraction semantics")
 
 
-def _same_members(expected: tuple[Reference, ...], actual: tuple[Reference, ...]) -> None:
-    """Require complete canonical expert identity and semantic-version equality."""
-    if expected != actual:
-        raise ValueError("Controls require the same complete expert IDs and versions")
-
-
 def _movement_limits(
     origin: CoefficientOrigin, movement: MovementAllowance, usage: MovementUsage | None
 ) -> tuple[tuple[Fraction, Fraction], ...]:
@@ -611,19 +616,7 @@ def _mixture_facts(
     tuple[EffectiveExpertBound, ...], Literal["nonempty", "empty_coordinate", "simplex_sum", "period_budget"], bool
 ]:
     """Derive original rational feasibility before projecting display endpoints."""
-    expected = tuple(bound.member for bound in bounds.bounds)
-    _same_members(expected, tuple(weight.member for weight in origin.weights))
-    if movement is None:
-        if usage is not None:
-            raise ValueError("Period usage requires a declared movement allowance")
-        limits = tuple((Fraction(0), Fraction(1)) for _ in bounds.bounds)
-    else:
-        _same_members(expected, tuple(limit.member for limit in movement.limits))
-        limits = _movement_limits(origin, movement, usage)
-    intervals = tuple(
-        (max(Fraction(bound.lower), interval[0]), min(Fraction(bound.upper), interval[1]))
-        for bound, interval in zip(bounds.bounds, limits, strict=True)
-    )
+    intervals, limits = _effective_intervals(bounds, origin, movement, usage)
     effective = tuple(
         EffectiveExpertBound(
             member=bound.member,
@@ -635,29 +628,369 @@ def _mixture_facts(
     return effective, _intersection_reason(intervals, limits), _exact_intersection(intervals)
 
 
-def _intersection_reason(
-    intervals: tuple[tuple[Fraction, Fraction], ...], limits: tuple[tuple[Fraction, Fraction], ...]
-) -> Literal["nonempty", "empty_coordinate", "simplex_sum", "period_budget"]:
-    """Classify the computed stored-rational box/simplex intersection."""
-    if any(lower > upper for lower, upper in limits):
-        return "period_budget"
-    if any(lower > upper for lower, upper in intervals):
-        return "empty_coordinate"
-    lower_sum, upper_sum = _endpoint_sums(intervals)
-    if lower_sum > 1 + SIMPLEX_TOLERANCE or upper_sum < 1 - SIMPLEX_TOLERANCE:
-        return "simplex_sum"
-    return "nonempty"
+def _effective_intervals(
+    bounds: ExpertBounds,
+    origin: CoefficientOrigin,
+    movement: MovementAllowance | None,
+    usage: MovementUsage | None,
+    exact_path: ExactPathUsage | None = None,
+) -> tuple[tuple[tuple[Fraction, Fraction], ...], tuple[tuple[Fraction, Fraction], ...]]:
+    """Share original geometry while preserving the legacy validation sequence."""
+    expected = tuple(bound.member for bound in bounds.bounds)
+    _same_members(expected, tuple(weight.member for weight in origin.weights))
+    if exact_path is not None:
+        if movement is None or usage is not None:
+            raise ValueError("Exact path usage requires movement and excludes legacy usage")
+        limits = _path_intervals(origin, movement, exact_path)
+    elif movement is None:
+        if usage is not None:
+            raise ValueError("Period usage requires a declared movement allowance")
+        limits = tuple((Fraction(0), Fraction(1)) for _ in bounds.bounds)
+    else:
+        _same_members(expected, tuple(limit.member for limit in movement.limits))
+        limits = _movement_limits(origin, movement, usage)
+    intervals = tuple(
+        (max(Fraction(bound.lower), interval[0]), min(Fraction(bound.upper), interval[1]))
+        for bound, interval in zip(bounds.bounds, limits, strict=True)
+    )
+    return intervals, limits
 
 
-def _endpoint_sums(intervals: tuple[tuple[Fraction, Fraction], ...]) -> tuple[Fraction, Fraction]:
-    """Sum original rational effective endpoints, independent of input order."""
-    return (
-        sum((lower for lower, _ in intervals), Fraction()),
-        sum((upper for _, upper in intervals), Fraction()),
+EXACT_PATH_PROFILE = "emitted-binary64-absolute-variation-grid-v1"
+EXACT_INTERVAL_PROFILE = "stored-binary64-effective-intervals-v1"
+MAX_CONTROL_BYTES = 16 * 1024 * 1024
+
+
+class ExactPathUsage(CoreContract):
+    """Bind exact per-period variation to its supplied emission frontier.
+
+    Attributes
+    ----------
+    profile : {'emitted-binary64-absolute-variation-grid-v1'}
+        Fixed quantum and full absolute emitted-coordinate variation.
+    semantics : UnitSemantics
+        Canonical coefficient-fraction units.
+    interval : Reference
+        Explicit period identity, never inferred from time or a restart.
+    movement : MovementAllowance
+        Complete per-interval accumulated-absolute allowance definition.
+    period_origin : CoefficientOrigin
+        Complete actual emitted origin at the start of this period.
+    through_origin : DefinitionBinding
+        Exact current emitted snapshot, including original signed-zero bytes.
+    through_release : Reference or None
+        Last successful nonempty release, or null for the initial zero ledger.
+    used : tuple of ExactCoefficientVariation
+        Complete canonical member counts, each no greater than its allowance.
+
+    Notes
+    -----
+    Imports attest to history; the owner preserves monotone period/releases.
+    Content is capped at 16 MiB before parsing counts; 4096 members times 632
+    digits need not fit a smaller state envelope. MovementUsage v1 is unchanged.
+    """
+
+    profile: Literal["emitted-binary64-absolute-variation-grid-v1"] = EXACT_PATH_PROFILE
+    semantics: UnitSemantics
+    interval: Reference
+    movement: MovementAllowance
+    period_origin: CoefficientOrigin
+    through_origin: DefinitionBinding
+    through_release: Reference | None
+    used: Annotated[tuple[ExactCoefficientVariation, ...], Field(min_length=1, max_length=MAX_MEMBERS)]
+
+    @model_validator(mode="after")
+    def _path(self) -> Self:
+        """Bound exact counts and bind the complete declared accounting profile."""
+        _fraction_semantics(self.semantics)
+        if (self.movement.scope, self.movement.measure) != ("per_interval", "accumulated_absolute"):
+            raise ValueError("Exact path usage requires per-interval accumulated absolute movement")
+        ordered_references(tuple(item.member for item in self.used))
+        ordered = tuple(sorted(self.used, key=lambda item: item.member.id))
+        expected = tuple(weight.member for weight in self.period_origin.weights)
+        _same_members(expected, tuple(item.member for item in ordered))
+        _same_members(expected, tuple(item.member for item in self.movement.limits))
+        object.__setattr__(self, "used", ordered)
+        if len(canonical_json(self.model_dump(mode="json")).encode("utf-8")) > MAX_CONTROL_BYTES:
+            raise ValueError("Exact movement content exceeds the 16 MiB byte ceiling")
+        for item, limit in zip(ordered, self.movement.limits, strict=True):
+            if int(item.atoms_decimal) > _binary64_atoms(limit.maximum):
+                raise ValueError("Exact accumulated movement exceeds its declared allowance")
+        if self.through_release is None and (
+            self.through_origin != self.period_origin.binding or any(int(item.atoms_decimal) for item in ordered)
+        ):
+            raise ValueError("An initial exact ledger requires its period origin and zero usage")
+        return self
+
+    @classmethod
+    def from_json(cls, payload: str | bytes) -> Self:
+        """Read bounded versioned exact movement content without migration.
+
+        Parameters
+        ----------
+        payload : str or bytes
+            Complete duplicate-key guarded JSON, at most 16 MiB and depth 64.
+
+        Returns
+        -------
+        Self
+            Revalidated exact accounting attestation.
+
+        Raises
+        ------
+        ValueError, TypeError
+            Invalid shape, version, units, identities, counts or capacity.
+        """
+        return super().from_json(bounded_json_bytes(payload, MAX_CONTROL_BYTES))
+
+    @classmethod
+    def model_validate_json(  # pylint: disable=too-many-arguments
+        cls,
+        json_data: str | bytes | bytearray,
+        *,
+        strict: bool | None = None,
+        extra: Literal["allow", "ignore", "forbid"] | None = None,
+        context: Any | None = None,
+        by_alias: bool | None = None,
+        by_name: bool | None = None,
+    ) -> Self:
+        """Bound alternate JSON ingress before decoding or count conversion.
+
+        Parameters
+        ----------
+        json_data : str or bytes or bytearray
+            Complete UTF-8 content at most 16 MiB/depth 64; bytearrays copy only
+            after byte admission.
+        strict : {True} or None, optional
+            Existing core strict mode; False cannot relax this contract.
+        extra : {'forbid'} or None, optional
+            Existing unknown-field policy; relaxation rejects.
+        context : object or None, optional
+            Explicit validation context, never persisted.
+        by_alias, by_name : bool or None, optional
+            Standard core field-name selection.
+
+        Returns
+        -------
+        Self
+            Revalidated versioned exact accounting attestation.
+
+        Raises
+        ------
+        ValueError, TypeError, UnicodeError
+            Bounds, UTF-8, duplicate keys, versions or typed invariants fail.
+        """
+        if type(json_data) is bytearray:  # pylint: disable=unidiomatic-typecheck
+            if len(json_data) > MAX_CONTROL_BYTES:
+                raise ValueError("Exact movement JSON exceeds the 16 MiB byte ceiling")
+            json_data = bytes(json_data)
+        if not isinstance(json_data, str | bytes):
+            raise TypeError("Exact movement JSON requires built-in str, bytes or bytearray")
+        encoded = bounded_json_bytes(json_data, MAX_CONTROL_BYTES)
+        return super().model_validate_json(
+            encoded, strict=strict, extra=extra, context=context, by_alias=by_alias, by_name=by_name
+        )
+
+
+def _path_remaining(
+    origin: CoefficientOrigin, movement: MovementAllowance, usage: ExactPathUsage
+) -> tuple[Fraction, ...]:
+    """Join complete definitions before using the shared exact path arithmetic."""
+    if usage.movement.binding != movement.binding or usage.through_origin != origin.binding:
+        raise ValueError("Exact path usage does not bind this movement law and current origin")
+    expected = tuple(weight.member for weight in origin.weights)
+    _same_members(expected, tuple(weight.member for weight in usage.period_origin.weights))
+    _same_members(expected, tuple(limit.member for limit in movement.limits))
+    return _exact_path_remaining(
+        tuple(weight.value for weight in origin.weights),
+        tuple(weight.value for weight in usage.period_origin.weights),
+        tuple(item.atoms_decimal for item in usage.used),
+        tuple(limit.maximum for limit in movement.limits),
     )
 
 
-def _exact_intersection(intervals: tuple[tuple[Fraction, Fraction], ...]) -> bool:
-    """Distinguish original exact-real feasibility from numerical admission."""
-    lower_sum, upper_sum = _endpoint_sums(intervals)
-    return all(lower <= upper for lower, upper in intervals) and lower_sum <= 1 <= upper_sum
+def _path_intervals(
+    origin: CoefficientOrigin, movement: MovementAllowance, usage: ExactPathUsage
+) -> tuple[tuple[Fraction, Fraction], ...]:
+    """Center authoritative path allowances on the actual current emission."""
+    return tuple(
+        (Fraction(weight.value) - allowance, Fraction(weight.value) + allowance)
+        for weight, allowance in zip(origin.weights, _path_remaining(origin, movement, usage), strict=True)
+    )
+
+
+def initial_exact_path_usage(
+    *, interval: Reference, movement: MovementAllowance, origin: CoefficientOrigin
+) -> ExactPathUsage:
+    """Create an explicit zero ledger for a newly admitted period.
+
+    Parameters
+    ----------
+    interval : Reference
+        Host-admitted new period identity and version.
+    movement : MovementAllowance
+        Complete per-interval accumulated-absolute law.
+    origin : CoefficientOrigin
+        Actual emitted coefficients at the period boundary.
+
+    Returns
+    -------
+    ExactPathUsage
+        Zero counts with the complete period origin and null release frontier.
+
+    Raises
+    ------
+    ValueError
+        Incompatible declarations, units, members or capacity.
+
+    Notes
+    -----
+    The owner admits new periods and rejects resets, retries and rewinds.
+    """
+    current = CoefficientOrigin.model_validate(origin)
+    declared = MovementAllowance.model_validate(movement)
+    return ExactPathUsage(
+        schema_version=1,
+        semantics=COEFFICIENT_SEMANTICS,
+        interval=Reference.model_validate(interval),
+        movement=declared,
+        period_origin=current,
+        through_origin=current.binding,
+        through_release=None,
+        used=tuple(ExactCoefficientVariation(member=weight.member, atoms_decimal="0") for weight in current.weights),
+    )
+
+
+def advance_exact_path_usage(
+    *, usage: ExactPathUsage, origin: CoefficientOrigin, emitted: CoefficientOrigin, release: Reference
+) -> ExactPathUsage:
+    """Charge actual emitted binary64 deltas once to a supplied exact ledger.
+
+    Parameters
+    ----------
+    usage : ExactPathUsage
+        Complete previously retained period ledger.
+    origin : CoefficientOrigin
+        Exact current origin bound by the ledger.
+    emitted : CoefficientOrigin
+        Candidate next committed emitted vector, including its version.
+    release : Reference
+        New successful nonempty release identity; immediate repeats reject.
+
+    Returns
+    -------
+    ExactPathUsage
+        New immutable counts and frontier, including zero charges for holds.
+
+    Raises
+    ------
+    ValueError
+        Wrong joins, repeated release, underspecified history or overspending.
+
+    Notes
+    -----
+    The owner atomically publishes coefficients, ledger and consumed releases,
+    and rejects nonadjacent old releases/period resets. Failed proposals, held
+    deliveries and empty intervals do not call this operation.
+    """
+    previous = ExactPathUsage.model_validate(usage)
+    current = CoefficientOrigin.model_validate(origin)
+    following = CoefficientOrigin.model_validate(emitted)
+    next_release = Reference.model_validate(release)
+    _path_remaining(current, previous.movement, previous)
+    _same_members(
+        tuple(weight.member for weight in current.weights), tuple(weight.member for weight in following.weights)
+    )
+    if next_release == previous.through_release:
+        raise ValueError("Exact movement cannot charge the same release twice")
+    used = tuple(
+        ExactCoefficientVariation(
+            member=old.member,
+            atoms_decimal=str(int(item.atoms_decimal) + abs(_binary64_atoms(new.value) - _binary64_atoms(old.value))),
+        )
+        for old, new, item in zip(current.weights, following.weights, previous.used, strict=True)
+    )
+    return ExactPathUsage(
+        schema_version=1,
+        semantics=previous.semantics,
+        interval=previous.interval,
+        movement=previous.movement,
+        period_origin=previous.period_origin,
+        through_origin=following.binding,
+        through_release=next_release,
+        used=used,
+    )
+
+
+def exact_mixture_intervals(
+    bounds: ExpertBounds,
+    origin: CoefficientOrigin,
+    *,
+    movement: MovementAllowance | None = None,
+    usage: MovementUsage | None = None,
+    exact_path: ExactPathUsage | None = None,
+) -> ExactMixtureIntervals[MixtureIntersection]:
+    """Derive exact shared boxes for projection and joint L1 output.
+
+    Parameters
+    ----------
+    bounds : ExpertBounds
+        Complete well-formed static boxes.
+    origin : CoefficientOrigin
+        Actual current emitted vector and exact version.
+    movement : MovementAllowance or None, optional
+        Explicit hard movement law, independently absent from soft penalties.
+    usage : MovementUsage or None, optional
+        Existing legacy attestation with unchanged v1 validation semantics.
+    exact_path : ExactPathUsage or None, optional
+        Authoritative exact emitted-path usage, mutually exclusive with usage.
+
+    Returns
+    -------
+    ExactMixtureIntervals
+        Exact-S disposition and original rational endpoints. A legacy feasible
+        status with exact_feasible false remains separately visible.
+
+    Raises
+    ------
+    ValueError
+        Malformed or incompatible declarations, joins or bounded content.
+
+    Notes
+    -----
+    This operation emits no coefficients and consumes no release. Exact path
+    intervals and the ledger updater use the same unrounded atom accounting.
+    """
+    declared = ExpertBounds.model_validate(bounds)
+    current = CoefficientOrigin.model_validate(origin)
+    checked_movement = None if movement is None else MovementAllowance.model_validate(movement)
+    checked_usage = None if usage is None else MovementUsage.model_validate(usage)
+    checked_path = None if exact_path is None else ExactPathUsage.model_validate(exact_path)
+    payload = {
+        "profile": EXACT_INTERVAL_PROFILE,
+        "bounds": declared.model_dump(mode="json"),
+        "origin": current.model_dump(mode="json"),
+        "movement": None if checked_movement is None else checked_movement.model_dump(mode="json"),
+        "usage": None if checked_usage is None else checked_usage.model_dump(mode="json"),
+        "exact_path": None if checked_path is None else checked_path.model_dump(mode="json"),
+    }
+    if len(canonical_json(payload).encode("utf-8")) > MAX_CONTROL_BYTES:
+        raise ValueError("Exact geometry exceeds the 16 MiB complete-input byte ceiling")
+    intervals, limits = _effective_intervals(declared, current, checked_movement, checked_usage, checked_path)
+    reason = _intersection_reason(intervals, limits)
+    if reason == "nonempty" and not _exact_intersection(intervals):
+        reason = "simplex_sum"
+    legacy = None
+    if checked_path is None:
+        legacy = check_mixture_intersection(declared, current, movement=checked_movement, usage=checked_usage)
+    return ExactMixtureIntervals(
+        profile=EXACT_INTERVAL_PROFILE,
+        inputs_fingerprint=fingerprint(payload),
+        intervals=tuple(
+            ExactExpertInterval(bound.member, lower, upper)
+            for bound, (lower, upper) in zip(declared.bounds, intervals, strict=True)
+        ),
+        status="feasible" if reason == "nonempty" else "infeasible",
+        reason=reason,
+        legacy_intersection=legacy,
+    )

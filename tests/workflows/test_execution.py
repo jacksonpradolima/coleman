@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import sqlite3
 import subprocess
 import sys
 import time
@@ -32,10 +33,16 @@ def setup_workflow(root, **choices):
 def wait(service, job_id, expected="completed"):
     deadline = time.monotonic() + 45
     while time.monotonic() < deadline:
-        view = service.status(job_id)
-        if view.state not in ("queued", "running") and not view.worker_active:
-            assert view.state == expected, [path.read_text() for path in service.store.root.rglob("failure-*.json")]
-            return view
+        try:
+            view = service.status(job_id)
+        except sqlite3.OperationalError as error:
+            code = getattr(error, "sqlite_errorcode", None)
+            if type(code) is not int or (code & 0xFF) not in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED):
+                raise
+        else:
+            if view.state not in ("queued", "running") and not view.worker_active:
+                assert view.state == expected, [path.read_text() for path in service.store.root.rglob("failure-*.json")]
+                return view
         time.sleep(0.025)
     pytest.fail("Durable workflow did not reach its expected terminal boundary")
 
