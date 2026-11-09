@@ -9,6 +9,7 @@ native runner and typed contracts, but collect different kinds of evidence.
 | Your need | Start here | What it gives you |
 | --- | --- | --- |
 | Run recorded test histories | [First experiment](getting-started.md), [library API](api/experiment-api.md) | Native ranking, modeled budgets, results and checkpoint continuation |
+| Map a test ranking inside your own application | [Independent TCPCI problem](tcpci-problems.md) | Typed inputs, an exact modeled-duration prefix and inspectable proposal/slate/feedback; no runner or workspace required |
 | Register bounded application operations | [Application API](application-api.md) | Shared library services and an optional MCP transport |
 | Run a learner as a durable task | [Typed adaptive execution](typed-execution.md) | Approved concrete codecs, installed provider identity and complete-state recovery through the same coordinator as TCPCI |
 | Add a policy, hook or artifact | [Extensions](extensibility.md), [artifact API](api/artifacts.md) | Native lifecycle callbacks and typed result publication |

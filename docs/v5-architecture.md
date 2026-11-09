@@ -25,6 +25,10 @@ The [typed task execution route](typed-execution.md) adds explicit operator-appr
 installed executors over the same durable scheduler and work loop as native TCPCI.
 Its separately versioned task inputs/results and named work frontiers do not
 replace direct learner APIs or reinterpret native checkpoint counters.
+The [independent TCPCI problem mapping](tcpci-problems.md) now maps a complete
+ranking into an ordered affordable prefix using explicit estimated serial-work
+quotes. It reuses core feedback records and optional direct learners/solvers;
+mapping itself neither executes tests nor owns their learning or persistence.
 Other generic learning families, adapters and broader execution profiles below
 remain planned until individually qualified. The original implementation baseline
 is COLEMAN **4.20.0**, commit
@@ -111,7 +115,9 @@ flowchart TD
     JointOutput --> Objectives
     MAB --> Contracts
     Host --> DirectSolver[Existing finite solvers; broader solver boundary planned]
-    Host --> Problem[Planned typed problem adapters including CI]
+    Host --> Problem[Independent typed TCPCI ranking and slate mapping]
+    Host --> OtherProblems[Other planned domain adapters]
+    OtherProblems --> Contracts
     Host --> Replay[Optional bounded causal replay]
     Replay --> Contracts
     Replay --> Objectives
@@ -135,7 +141,7 @@ flowchart TD
     Service --> Session[Planned optional durable generic session]
     Session --> State
     Session --> Storage
-    Evidence[Existing protected evaluation with planned generic protocol] --> Storage
+    Evidence[Protected evaluation and frozen generic comparison protocols] --> Storage
     Transport[Existing CLI and optional MCP] --> Service
     Legacy[Existing native CI facade with planned migration boundary] --> Service
     Host --> NativeCapture[Explicit native choose-and-freeze CI edge]
@@ -320,8 +326,9 @@ flowchart LR
 
 Start with one maintained distribution and logical modularity. The implemented
 `coleman.core` namespace contains minimal contracts, temporal/numeric primitives
-and direct-use structural protocols. Independently usable learning methods remain
-planned. It may have internal submodules;
+and direct-use structural protocols. The separately implemented expert learners
+and TCPCI mapping depend on those leaves; additional learning families remain
+planned. These namespaces may have internal submodules;
 there is no requirement to publish one wheel per abstraction. Existing import
 paths remain subject to the explicit compatibility policy.
 

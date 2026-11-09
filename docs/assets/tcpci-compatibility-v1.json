@@ -1,0 +1,1337 @@
+{
+  "schema_version": 1,
+  "artifact_type": "tcpci_compatibility_inventory",
+  "scope": "Static 38-row compatibility contract/evidence index, not a runtime dispatcher, automatic converter, code approval or final qualification receipt.",
+  "baselines": {
+    "v4": {
+      "version": "4.20.0",
+      "source_commit": "1edbee874129aa85e26e592d9649826e85e1ac6b"
+    },
+    "entry": {
+      "source_commit": "3ad8e9e94d658e910adaad4a85ba7395e5ad7abc",
+      "tree": "0b13c2d1de29eee5306a9d5440b9c4b08c4e5011"
+    }
+  },
+  "evidence_scope": "qualified-in-source refers to bounded existing source/tests and their integrated evidence, not a stable v5 release or a final qualification receipt for this delivery. Current-source references are paths; only retained fixtures are byte-pinned. Final installed/commit evidence is separate.",
+  "profiles": {
+    "native-ci": {
+      "extras": [
+        "ci"
+      ],
+      "status": "qualified-in-source",
+      "runtime": "Native APIs and matching installed CI dependencies; new durable native plans use SelectedInstalledRuntime version 2 with fixed ci selection.",
+      "limits": "Bounded existing native/source/installed tests, not arbitrary configurations, platforms, extensions or old-state adoption."
+    },
+    "native-analytics": {
+      "extras": [
+        "analytics"
+      ],
+      "status": "qualified-in-source",
+      "runtime": "Matching native table schemas and dependencies.",
+      "limits": "Queries/report behavior only; no calibration or efficacy certificate."
+    },
+    "native-extension-interface": {
+      "extras": [
+        "ci"
+      ],
+      "status": "interface-only",
+      "runtime": "Trusted native source extensions/hooks.",
+      "limits": "Existing call-shape/callback tests; arbitrary custom source/process combinations, binaries and pickles need their own qualification."
+    },
+    "application-source": {
+      "extras": [
+        "ci"
+      ],
+      "status": "qualified-in-source",
+      "runtime": "coleman-application-v1 ephemeral registered native/finite-solver service.",
+      "limits": "Registry narrower than RunSpec; restart is not resume; imported evidence grants no execution."
+    },
+    "native-mcp": {
+      "extras": [
+        "ci",
+        "mcp"
+      ],
+      "status": "qualified-in-source",
+      "runtime": "Optional actual in-process/stdio tools over shared services.",
+      "limits": "7 original tools plus 14 workflow tools; separate 9-tool task server. No model endpoint or hosted multiuser authority."
+    },
+    "base-math": {
+      "extras": [],
+      "status": "qualified-in-source",
+      "runtime": "Base Python>=3.14 with exact typed protocol/units/version.",
+      "limits": "Pure math/records; not native execution, arbitrary optional backends or scientific efficacy."
+    },
+    "analytics-inference": {
+      "extras": [
+        "analytics"
+      ],
+      "limits": "Paired-t inference additionally requires its frozen independent-unit and normal-differences assumptions. Installing dependencies grants no source admission, efficacy or new protected access. Base bounded-Hoeffding/descriptive/record paths remain separate.",
+      "runtime": "Existing protected/design paired_t_holm_bonferroni_ci_v1 implementation with the declared analytics NumPy/SciPy closure.",
+      "status": "qualified-in-source"
+    },
+    "base-local": {
+      "extras": [],
+      "status": "qualified-in-source",
+      "runtime": "Base with trusted local SQLite/filesystem and supported POSIX ownership where required.",
+      "limits": "Complete concrete owners/codecs/ACK. No rollback detection without independent minima or arbitrary external-effect exactly-once."
+    },
+    "domain-reader": {
+      "extras": [],
+      "status": "qualified-in-source",
+      "runtime": "Known canonical JSON schema/semantic generation.",
+      "limits": "Content/declared-lineage validation, never producer authentication or checkpoint adoption."
+    },
+    "legacy-evidence": {
+      "extras": [
+        "ci"
+      ],
+      "status": "qualified-in-source",
+      "runtime": "Known retained native JSON/Parquet schemas; runtime version 1 remains readable.",
+      "limits": "Read-only across incompatible producers; never grants execution or resets source exposure."
+    },
+    "pinned-original": {
+      "extras": [],
+      "status": "pinned-original",
+      "runtime": "Original trusted wheel/lock/input/configuration/producer/runtime and original checkpoint/workspace root.",
+      "limits": "Intentional historical continuation route; imported state is not executable under a changed environment."
+    },
+    "clickhouse-interface": {
+      "extras": [
+        "clickhouse"
+      ],
+      "status": "interface-only",
+      "runtime": "Optional client/native row schema.",
+      "limits": "Mocked-client tests do not qualify live server commits. Domain-record operations remain unsupported."
+    },
+    "telemetry-interface": {
+      "extras": [
+        "telemetry"
+      ],
+      "status": "interface-only",
+      "runtime": "NoOp/interface/optional SDK configuration and dashboard files.",
+      "limits": "No actual OTLP receiver delivery or dashboard-service qualification inferred from fake-stack tests."
+    },
+    "generic-directory-wheel": {
+      "extras": [],
+      "status": "qualified-in-source",
+      "runtime": "directory-wheel-closure-v1 trusted immutable directory installation on supported local POSIX CPython.",
+      "example_python_flags": [
+        "-I",
+        "-B"
+      ],
+      "checked_context": {
+        "implementation": "cpython",
+        "bytecode_writes": false,
+        "optimization": 0,
+        "standard_meta_finders": [
+          "BuiltinImporter",
+          "FrozenImporter",
+          "PathFinder"
+        ],
+        "standard_path_hooks": true,
+        "standard_cache_location": true
+      },
+      "limits": "Actual stdlib-venv flow; uv-venv extra finder refuses before provider load. uv pip into stdlib venv is distinct. Stored profile equality is never current operator approval.",
+      "inventory_profile": "directory-wheel-closure-v1"
+    }
+  },
+  "entry_exports": {
+    "coleman/spec/__init__.py": [
+      "AlgorithmSpec",
+      "BudgetMode",
+      "BudgetSpec",
+      "CheckpointSpec",
+      "ContextualInformationSpec",
+      "ExecutionSpec",
+      "ExperimentSpec",
+      "HCSConfigurationSpec",
+      "HooksSpec",
+      "ResultsSpec",
+      "RunSpec",
+      "SweepAxis",
+      "SweepSpec",
+      "TelemetrySpec",
+      "compute_run_id",
+      "expand_sweep",
+      "load_spec",
+      "resolve_requested_names",
+      "resolve_packs",
+      "save_resolved"
+    ],
+    "coleman/application/__init__.py": [
+      "ApplicationError",
+      "ApplicationService",
+      "Caller",
+      "Configuration",
+      "Handle",
+      "JobView",
+      "Limits",
+      "Parameters",
+      "PortableNativeProvenance",
+      "ResultBundle",
+      "ServerPolicy",
+      "Submit",
+      "default_registry",
+      "register_experiment"
+    ],
+    "coleman/workflows/__init__.py": [
+      "DatasetManifest",
+      "ExperimentPlan",
+      "PlanningRequest",
+      "ScheduleBudget",
+      "WorkflowLimits",
+      "make_plan"
+    ],
+    "coleman/evaluation/__init__.py": [
+      "EvaluationMetric",
+      "NAPFDMetric",
+      "NAPFDVerdictMetric",
+      "APFDcMetric",
+      "PrecisionAtKMetric",
+      "RecallAtKMetric",
+      "AveragePrecisionAtKMetric",
+      "ReciprocalRankAtKMetric",
+      "NDCGAtKMetric"
+    ],
+    "coleman/telemetry/__init__.py": [
+      "Telemetry",
+      "NoOpTelemetry",
+      "get_telemetry"
+    ]
+  },
+  "native_inventory": {
+    "policies": [
+      "BayesianUCB",
+      "BootstrappedThompson",
+      "ChangeDetectionUCB",
+      "CombinatorialThompson",
+      "CombinatorialUCB",
+      "ContextualEpsilonGreedy",
+      "DecayEpsilonGreedy",
+      "DiscountedUCB",
+      "DuelingUCB",
+      "EXP3",
+      "EXP3IX",
+      "EpsilonDecreasing",
+      "EpsilonGreedy",
+      "FRRMAB",
+      "Greedy",
+      "KLUCB",
+      "LinTS",
+      "LinUCB",
+      "MOSSUCB",
+      "OptimisticGreedy",
+      "PHE",
+      "PairwiseThompsonRanking",
+      "PortfolioUCB",
+      "Pursuit",
+      "Random",
+      "SWContextualEpsilonGreedy",
+      "SWLinTS",
+      "SWLinUCB",
+      "SlMAB",
+      "SlidingWindowUCB",
+      "Softmax",
+      "ThompsonSampling",
+      "UCB",
+      "UCB1",
+      "UCB2",
+      "UCBTuned",
+      "UCBV"
+    ],
+    "rewards": [
+      "APFDc",
+      "DiscountedFailure",
+      "RNFail",
+      "ReciprocalRank",
+      "TimeRank",
+      "TopKRNFail"
+    ],
+    "factory_failures": [
+      "SWContextualEpsilonGreedy",
+      "SWLinTS",
+      "SlMAB"
+    ],
+    "agent_routes": 41,
+    "source_mechanisms": 46,
+    "exact_markers": 11,
+    "single_trace_unqualified": [
+      "FRRMAB"
+    ],
+    "numeric_scope": "same_host_cpython_3_14_6_macos_arm64_native_pins"
+  },
+  "tool_catalogues": {
+    "application": {
+      "source": "coleman/transports/mcp.py",
+      "owner": "create_server",
+      "names": [
+        "discover",
+        "submit",
+        "status",
+        "cancel",
+        "result",
+        "export_result",
+        "import_result"
+      ]
+    },
+    "workflow_additions": {
+      "source": "coleman/transports/workflow_tools.py",
+      "owner": "register_workflow_tools",
+      "names": [
+        "workflow_discover",
+        "plan_experiment",
+        "execute_plan",
+        "experiment_status",
+        "cancel_experiment",
+        "resume_experiment",
+        "inspect_experiment",
+        "evaluate_experiment",
+        "experiment_report",
+        "export_experiment",
+        "import_experiment_evidence",
+        "read_experiment_evidence",
+        "list_experiment_artifacts",
+        "read_experiment_artifact"
+      ]
+    },
+    "separate_tasks": {
+      "source": "coleman/transports/task_mcp.py",
+      "owner": "create_task_server",
+      "names": [
+        "task_discover",
+        "task_plan",
+        "task_execute",
+        "task_status",
+        "task_cancel",
+        "task_resume",
+        "task_report",
+        "task_reconnect",
+        "task_cleanup"
+      ]
+    }
+  },
+  "frozen_evidence": {
+    "native-preservation": {
+      "path": "tests/fixtures/native-semantics/v1/source-preservation.json",
+      "sha256": "f052e248fcdbc6ec0b90c47b84f96d4f07f322e47834502b0a9ff719032aa669",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "native-dispatch": {
+      "path": "tests/fixtures/native-semantics/v1/legacy-dispatch.json",
+      "sha256": "c45d6d5b9e4dc814ce168272212e43be30fd4e7db6a8382d0dd0b63d43eb0626",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "native-catalog": {
+      "path": "tests/fixtures/native-semantics/v1/catalog-lookups.json",
+      "sha256": "4ecd301a64d94c7103dd327da1c165088d997c2c48d6490557ce1d38f4edd018",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "native-row": {
+      "path": "tests/fixtures/domain-results/native-v3.2.json",
+      "sha256": "f8fe82dd6155a7547f279222c6be2b09e11dfb6de943956ca933ca9a5df51119",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "native-parquet": {
+      "path": "tests/fixtures/domain-results/native-v3.2.parquet",
+      "sha256": "938dc0c87204a99b3b649642d67a372d25017daea60aad981bbb7519b62748a4",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "domain-record": {
+      "path": "tests/fixtures/domain-results/record-v1.json",
+      "sha256": "4fd9dcc26589ac8efe1dbca58c909d788927a73e9bc20ceb086ab459534e4fa9",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "domain-digests": {
+      "path": "tests/fixtures/domain-results/digests-v1.json",
+      "sha256": "ed498260b3a24558bcf17a179fecca0b2b622c0c340b00954c8350789c3faefe",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "native-exp3": {
+      "path": "tests/fixtures/native-semantics/v1/exp3-decision.json",
+      "sha256": "d535daa618b62db231178ab1b0bf9162a8d58a46b4a9560e807dc12da4f70e2d",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "native-context": {
+      "path": "tests/fixtures/native-semantics/v1/contextual-decision.json",
+      "sha256": "a091c81d4c5794017b3987984c208ba0b6984b08212968f6704551c3a92b1995",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "native-window": {
+      "path": "tests/fixtures/native-semantics/v1/window-decision.json",
+      "sha256": "7e5520bf2aa0b4c54b8fd3fe3d64ca6d1b76fa718b505db45ef7e32fd77764a3",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "application-coverage": {
+      "path": "tests/fixtures/application/coverage-v1.json",
+      "sha256": "4e86acce4e23a76c33af3deda8818f81eab127f0f4d35b673e4be4180bb05faa",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "application-digests": {
+      "path": "tests/fixtures/application/digests-v1.json",
+      "sha256": "4732d11cf322fb023693912c50b3bee98c97fd5e60c114b0b06d61c97056e9c0",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "workflow-plan": {
+      "path": "tests/workflows/fixtures/experiment-plan-v1.json",
+      "sha256": "f10abe32300b3556a4c6839440848dee51ad9db2acf0d5363c1982335c6d19e9",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "workflow-view": {
+      "path": "tests/workflows/fixtures/job-view-v1.json",
+      "sha256": "2eb7760c8c7e6d847a89dad26a8c50a7e7a3fa4ddc73e34932452eba9537a39c",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "workflow-progress": {
+      "path": "tests/workflows/fixtures/supervision-progress-v1.json",
+      "sha256": "d055ef6b157d6ed3ae7ec9998a551894aa697532a3092d34a247744d8e3bc499",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "runtime-v1": {
+      "path": "tests/spec/fixtures/runtime-v1.json",
+      "sha256": "bfd1edbb1f69d831f5312bbc9250ee148dc6f90e154bdfe1aa2f5e2ae78cd246",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "runtime-v2": {
+      "path": "tests/spec/fixtures/runtime-v2.json",
+      "sha256": "611b1e4ff1602383954a4ad5ff4164c035e6a66bf192347193c343608e9170e7",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "native-pairing": {
+      "path": "tests/fixtures/results/native-pairing-v1.json",
+      "sha256": "8306ad03a72ebaecea1d1b0f425774b60e43238c52be52a662b46bd38b4c95dc",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "coverage-checkpoint": {
+      "path": "tests/fixtures/coverage/checkpoint-v1.json",
+      "sha256": "bee28dc03c3034fc163be9fa86cfbb246d0176ae7c2f68d217079aa5968c5694",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "allocation-checkpoint": {
+      "path": "tests/fixtures/allocation/checkpoint-v1.json",
+      "sha256": "7415ad87a05580ca80c668e452c1f8fc43853473f773eea89d39ffc10849c07e",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "observation-history": {
+      "path": "tests/observations/fixtures/history-v1.json",
+      "sha256": "8e8c3dcbcfd983eb8a8711cc04aa03ef2f3f345d22cb6b85d9d89b4a1b54ef32",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "observation-signal": {
+      "path": "tests/observations/fixtures/signal-v1.json",
+      "sha256": "efc43a75d02250633bcd3b4a69ce7f32126719f00b3b351055c157414e162534",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "observation-model": {
+      "path": "tests/observations/fixtures/model-v1.json",
+      "sha256": "5fdb5bdbccc8d2280acee8a936b7aff78742ff9d42547581534acb9518752690",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "protected-freeze": {
+      "path": "tests/fixtures/protected-evaluation/freeze-v1.json",
+      "sha256": "c214fca9cff8632134629ce87f0c90f2fba6c7caf845846b2467465eaa78f505",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "protected-report": {
+      "path": "tests/fixtures/protected-evaluation/report-v1.json",
+      "sha256": "2baee2d5906865c030e3b50f5396ce0f09ee093c0acf9cffc344b27ad89fff0d",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "resource-ledger": {
+      "path": "tests/resources/fixtures/ledger-v1.json",
+      "sha256": "32ee0d088e4e51b569d38c26c69c354881da21ce8bace1782f54b3427d7fa5b9",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "resource-replay": {
+      "path": "tests/resources/fixtures/replay-v1.json",
+      "sha256": "c13396e92630694577886da82ea85cd4bbd1818d4663c8fba9a0e51e33ef40ab",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "pilot": {
+      "path": "tests/pilot/fixtures/pilot-v1.json",
+      "sha256": "25cc62a3857c57d53f686fe879d9f6b82392657486b43e8ad496ef06b850dee4",
+      "role": "Retained golden bytes; no execution authority."
+    },
+    "native-numeric-reference": {
+      "path": "tests/fixtures/tcpci-compatibility/v1/native-numeric.json",
+      "sha256": "6161ae8925351be607c31f32de8891a04847837bc24b8b0b632d75e4d4a14545",
+      "role": "Measured original v4 YAML/API/runner results on the authored synthetic tape. Pins selected fields and complete ranking digests, not full Parquet equivalence, current-wheel parity, empirical efficacy or execution attribution."
+    }
+  },
+  "rows": [
+    {
+      "id": "P01",
+      "surface": "`coleman/api.py`: `RunResult`, `run`, `run_with_extension`, `run_many`, `sweep`, imported `load_spec`/`save_resolved`",
+      "disposition": "shimmed",
+      "profiles": [
+        "native-ci"
+      ],
+      "source_paths": [
+        "coleman/api.py"
+      ],
+      "test_paths": [
+        "tests/spec/test_api.py",
+        "tests/results/test_domain_records.py"
+      ],
+      "frozen_evidence": [
+        "native-numeric-reference"
+      ],
+      "limits": "Native RunSpec calls stay at the edge; returned metrics remain empty and per-build artifacts are the observation source. No generic aggregation or old-state adoption."
+    },
+    {
+      "id": "P02",
+      "surface": "`coleman/spec/__init__.py` has 20 explicit lazy aliases; public model classes in `spec/models.py`, three public I/O functions including `load_sweep_spec`, packs/selection/run-ID/sweep modules",
+      "disposition": "shimmed",
+      "profiles": [
+        "native-ci"
+      ],
+      "source_paths": [
+        "coleman/spec/__init__.py",
+        "coleman/spec/models.py",
+        "coleman/spec/io.py",
+        "coleman/spec/packs.py",
+        "coleman/spec/selection.py",
+        "coleman/spec/run_id.py",
+        "coleman/spec/sweep.py"
+      ],
+      "test_paths": [
+        "tests/spec/test_models.py",
+        "tests/spec/test_io.py",
+        "tests/spec/test_packs.py",
+        "tests/spec/test_selection.py",
+        "tests/spec/test_run_id.py",
+        "tests/spec/test_sweep.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Preserve lazy exports, documented module classes, native defaults, pack merge order, grid/zip and seed expansion. The 12-hex run ID hashes normalized configuration, not every input/runtime."
+    },
+    {
+      "id": "P03",
+      "surface": "`spec/io.py::_load_resolved_config`, `load_spec`, `load_sweep_spec`; `spec/packs.py`, `spec/sweep.py`; `RunSpec`",
+      "disposition": "shimmed",
+      "profiles": [
+        "native-ci"
+      ],
+      "source_paths": [
+        "coleman/spec/models.py",
+        "coleman/spec/io.py",
+        "coleman/spec/packs.py",
+        "coleman/spec/sweep.py"
+      ],
+      "test_paths": [
+        "tests/spec/test_cli.py",
+        "tests/spec/test_io.py",
+        "tests/spec/test_packs.py",
+        "tests/spec/test_sweep.py"
+      ],
+      "frozen_evidence": [
+        "native-numeric-reference"
+      ],
+      "limits": "Native YAML never registers a provider. Most model sections forbid extras; AlgorithmSpec and explicit extensions keep their existing extension behavior. No silent default regeneration."
+    },
+    {
+      "id": "P04",
+      "surface": "`runner.py::RunnerExtension`, `EnvironmentBuildConfig`, `ExecutionPlan`, `build_environment`, `run_experiment[_with_extension]`, `effective_parallel_pool_size`, spawned worker path",
+      "disposition": "shimmed",
+      "profiles": [
+        "native-extension-interface"
+      ],
+      "source_paths": [
+        "coleman/runner.py"
+      ],
+      "test_paths": [
+        "tests/test_runner_extensions.py",
+        "tests/spec/test_api.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Retain source-extension signatures and tested callback/worker behavior. Arbitrary subclasses/process combinations, monkeypatches and binary/pickle ABI need independent qualification."
+    },
+    {
+      "id": "P05",
+      "surface": "`hooks.py`: `HookContext`, `ExecutionResult`, `DatasetResult`, hook `RunResult`, `RunnerHook`, `FunctionHookAdapter`, `load_hook_plugins`, `dispatch_hook_event`",
+      "disposition": "shimmed",
+      "profiles": [
+        "native-extension-interface"
+      ],
+      "source_paths": [
+        "coleman/hooks.py",
+        "coleman/runner.py"
+      ],
+      "test_paths": [
+        "tests/test_hooks.py",
+        "tests/test_runner_extensions.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Retain configured order, fail_fast and worker-owned loading. duration_seconds stays seconds; hook RunResult differs from API RunResult."
+    },
+    {
+      "id": "P06",
+      "surface": "`agent/`, `bandit/`, `environment.py` / `environment_base.py`, `scenarios/loaders/loaders.py`, `scenarios/virtual/scenarios.py`, native schemas",
+      "disposition": "shimmed",
+      "profiles": [
+        "native-ci"
+      ],
+      "source_paths": [
+        "coleman/agent/__init__.py",
+        "coleman/bandit/__init__.py",
+        "coleman/environment.py",
+        "coleman/environment_base.py",
+        "coleman/scenarios/loaders/loaders.py",
+        "coleman/scenarios/virtual/scenarios.py"
+      ],
+      "test_paths": [
+        "tests/test_agent.py",
+        "tests/test_bandit.py",
+        "tests/test_environment.py",
+        "tests/test_scenarios.py",
+        "tests/native_semantics/test_installed.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "These are native ranking/application interfaces, not generic learner superclasses. Custom constructor/state extensions can require the pinned original environment."
+    },
+    {
+      "id": "P07",
+      "surface": "`coleman/policy`, `native/semantics.py::{native_catalog,list/get_native_policy,list/get_native_reward}`",
+      "disposition": "retained",
+      "profiles": [
+        "native-ci"
+      ],
+      "source_paths": [
+        "coleman/policy/__init__.py",
+        "coleman/native/semantics.py"
+      ],
+      "test_paths": [
+        "tests/native_semantics/test_preservation.py",
+        "tests/native_semantics/test_catalog.py",
+        "tests/native_semantics/test_installed.py"
+      ],
+      "frozen_evidence": [
+        "native-preservation",
+        "native-dispatch",
+        "native-catalog"
+      ],
+      "limits": "Retain exact legacy mechanisms, names and routes. Corrected generic semantics require a separate identity, not adoption of legacy state. Preserve 34 factory completions, 3 expected errors and 41 agent routes; FRRMAB single-trace reproducibility is unqualified.",
+      "intentional_transition": {
+        "disposition": "breaking",
+        "target": "separately identified corrected generic semantics",
+        "migration": "Declare a fresh method/capability and lineage; do not reinterpret a native ranking policy or adopt its checkpoint."
+      }
+    },
+    {
+      "id": "P08",
+      "surface": "`reward/` plus evaluation's nine public aliases (`EvaluationMetric`, NAPFD, NAPFDVerdict, APFDc and five top-k metrics)",
+      "disposition": "shimmed",
+      "profiles": [
+        "native-ci"
+      ],
+      "source_paths": [
+        "coleman/reward/__init__.py",
+        "coleman/evaluation/__init__.py",
+        "coleman/evaluation/napfd.py",
+        "coleman/evaluation/apfdc.py"
+      ],
+      "test_paths": [
+        "tests/native_semantics/test_catalog.py",
+        "tests/test_analysis.py"
+      ],
+      "frozen_evidence": [
+        "native-catalog"
+      ],
+      "limits": "In the NAPFD native route, fitness is NAPFD and cost is APFDc: dimensionless and higher-is-better. APFDcMetric sets fitness=cost. Neither field is seconds, money or generic loss."
+    },
+    {
+      "id": "P09",
+      "surface": "`budget.py::BudgetMode`, `checkpoint/budget.py::budget_checkpoint_config`, native `EvaluationMetric` selection, scenario duration/verdict/context conventions",
+      "disposition": "shimmed",
+      "profiles": [
+        "native-ci"
+      ],
+      "source_paths": [
+        "coleman/budget.py",
+        "coleman/checkpoint/budget.py",
+        "coleman/scenarios/loaders/loaders.py"
+      ],
+      "test_paths": [
+        "tests/checkpoint/test_budget.py",
+        "tests/test_scenarios.py",
+        "tests/corpus/test_hcs_native.py"
+      ],
+      "frozen_evidence": [
+        "native-numeric-reference"
+      ],
+      "limits": "Ratio, fixed-time seconds and subset-size remain distinct. Preserve native null-duration coercion and HCS normalization; strict new mappings declare/refuse different input semantics."
+    },
+    {
+      "id": "P10",
+      "surface": "`cli.py::main`: application/workflow/run/sweep/validate/analyze; `corpus/__main__.py::main`: list/schema/show/validate/profile/materialization-schema/fetch/validate-cache",
+      "disposition": "shimmed",
+      "profiles": [
+        "native-ci"
+      ],
+      "source_paths": [
+        "coleman/cli.py",
+        "coleman/corpus/__main__.py"
+      ],
+      "test_paths": [
+        "tests/spec/test_cli.py",
+        "tests/workflows/test_installed.py",
+        "tests/corpus/test_installed_corpus.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Keep six original coleman commands and eight corpus commands/exit behavior. Generic task scripts are separate; no migrate or legacy command exists."
+    },
+    {
+      "id": "P11",
+      "surface": "`application/__init__.py` 14 lazy exports, `ApplicationService`, `ApplicationCommands`, `coleman-application-v1`",
+      "disposition": "retained",
+      "profiles": [
+        "application-source"
+      ],
+      "source_paths": [
+        "coleman/application/__init__.py",
+        "coleman/application/contracts.py",
+        "coleman/application/commands.py"
+      ],
+      "test_paths": [
+        "tests/application/test_application.py",
+        "tests/application/test_installed_application.py",
+        "tests/application/test_tools.py"
+      ],
+      "frozen_evidence": [
+        "application-coverage",
+        "application-digests"
+      ],
+      "limits": "Seven-command ephemeral registered native/finite-solver service. Restart is not resume; import rebinds a caller-owned evidence handle. Task application-v1 fixtures are a different namespace."
+    },
+    {
+      "id": "P12",
+      "surface": "`workflows/__init__.py` six exports; `application/workflows.py::WorkflowService`, `workflows/contracts.py`, `lifecycle.py`",
+      "disposition": "retained",
+      "profiles": [
+        "native-ci"
+      ],
+      "source_paths": [
+        "coleman/workflows/__init__.py",
+        "coleman/workflows/contracts.py",
+        "coleman/workflows/lifecycle.py",
+        "coleman/application/workflows.py"
+      ],
+      "test_paths": [
+        "tests/workflows/test_planning.py",
+        "tests/workflows/test_runtime_generation.py",
+        "tests/workflows/test_installed.py"
+      ],
+      "frozen_evidence": [
+        "workflow-plan",
+        "workflow-view",
+        "workflow-progress"
+      ],
+      "limits": "Strict native workflow facade retains Random/UCB, RNFail, NAPFD/APFDc scope. Historical runtime1 reads do not admit execution; native reconnect filters only views, not shared resource accounting."
+    },
+    {
+      "id": "P13",
+      "surface": "`transports/mcp.py::create_server`, `workflow_tools.py::register_workflow_tools`; separate `task_mcp.py::create_task_server`",
+      "disposition": "retained",
+      "profiles": [
+        "native-mcp"
+      ],
+      "source_paths": [
+        "coleman/transports/mcp.py",
+        "coleman/transports/workflow_tools.py",
+        "coleman/transports/task_mcp.py"
+      ],
+      "test_paths": [
+        "tests/application/test_tools.py",
+        "tests/workflows/test_tools.py",
+        "tests/tasks/test_installed.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Original server has 7 tools; workflows adds 14 (total 21). The separate task server has 9. No tasks parameter is added to create_server and client prose supplies no authority."
+    },
+    {
+      "id": "P14",
+      "surface": "`telemetry/__init__.py` exports Telemetry/NoOpTelemetry/get_telemetry; `telemetry/otel.py`, `resources.py`, `utils/monitor.py`, dashboards",
+      "disposition": "retained",
+      "profiles": [
+        "telemetry-interface"
+      ],
+      "source_paths": [
+        "coleman/telemetry/__init__.py",
+        "coleman/telemetry/otel.py",
+        "coleman/telemetry/resources.py",
+        "coleman/utils/monitor.py"
+      ],
+      "test_paths": [
+        "tests/telemetry/test_telemetry.py",
+        "tests/telemetry/test_resources.py",
+        "tests/utils/test_monitor.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Keep metric names and seconds/MiB/%/attempt scope. NoOp/fake-stack tests do not qualify live OTLP delivery or dashboard services. Host resources are not subject-test physical costs."
+    },
+    {
+      "id": "P15",
+      "surface": "`analysis.py` native query/report formatting and documented analytics workflows",
+      "disposition": "retained",
+      "profiles": [
+        "native-analytics"
+      ],
+      "source_paths": [
+        "coleman/analysis.py"
+      ],
+      "test_paths": [
+        "tests/test_analysis.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Retain native schemas/escaping and APFDc maximization. Generic analysis selects its own contract; plotting/dependency availability proves no probability or efficacy."
+    },
+    {
+      "id": "E01",
+      "surface": "`results/parquet_sink.py`, `duckdb_sink.py`, `duckdb_catalog.py`, `clickhouse_sink.py`, native schemas/top-k/hash fields",
+      "disposition": "retained",
+      "profiles": [
+        "native-ci",
+        "native-analytics"
+      ],
+      "source_paths": [
+        "coleman/results/parquet_sink.py",
+        "coleman/results/duckdb_sink.py",
+        "coleman/results/duckdb_catalog.py"
+      ],
+      "test_paths": [
+        "tests/results/test_domain_records.py"
+      ],
+      "frozen_evidence": [
+        "native-row",
+        "native-parquet",
+        "native-numeric-reference"
+      ],
+      "limits": "Keep the original native columns/units and retained Parquet bytes unchanged and queryable. Selected original numeric-reference fields have a separate measured fixture; full rerun Parquet bytes, wall times and shard names need not match. Missing provenance/sidecars are not invented."
+    },
+    {
+      "id": "E02",
+      "surface": "`ResultsSink`/NullSink, ResultsWriter, native sink writes and DomainArtifacts capability",
+      "disposition": "retained",
+      "profiles": [
+        "native-ci",
+        "clickhouse-interface"
+      ],
+      "source_paths": [
+        "coleman/results/sink_base.py",
+        "coleman/results/writer.py",
+        "coleman/results/parquet_sink.py",
+        "coleman/results/duckdb_sink.py",
+        "coleman/results/clickhouse_sink.py"
+      ],
+      "test_paths": [
+        "tests/results/test_domain_records.py",
+        "tests/results/test_clickhouse_sink.py",
+        "tests/utils/test_monitor.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Local Parquet/DuckDB domain commits are synchronous; native row and sidecar are not one transaction. Null/ClickHouse domain operations refuse. Mocked clients do not qualify live server commits."
+    },
+    {
+      "id": "E03",
+      "surface": "`results/domain.py::{DomainRecord,Measurement,LearningReward,ResultProvenance}`, `domain_artifacts.py`, versioned contracts",
+      "disposition": "retained",
+      "profiles": [
+        "domain-reader"
+      ],
+      "source_paths": [
+        "coleman/results/domain.py",
+        "coleman/results/domain_artifacts.py"
+      ],
+      "test_paths": [
+        "tests/results/test_domain_records.py"
+      ],
+      "frozen_evidence": [
+        "domain-record",
+        "domain-digests"
+      ],
+      "limits": "Keep v1 canonical bytes, logical-key/content-digest distinction, explicit units/status/omission and conflicts. Derivatives retain original source/transform; no attribution upgrade."
+    },
+    {
+      "id": "E04",
+      "surface": "`native/publication.py::{read_native_decision,publish_native_decision}`, frozen native decision contracts/facade",
+      "disposition": "retained",
+      "profiles": [
+        "domain-reader"
+      ],
+      "source_paths": [
+        "coleman/native/decisions.py",
+        "coleman/native/publication.py"
+      ],
+      "test_paths": [
+        "tests/native_semantics/test_preservation.py",
+        "tests/native_semantics/test_installed.py"
+      ],
+      "frozen_evidence": [
+        "native-exp3",
+        "native-context",
+        "native-window"
+      ],
+      "limits": "Additive pre-evaluation record preserves sampling=not_recorded/loss=not_defined. Publication is exact-retry idempotent, choosing is stateful. Reading cannot authenticate old execution."
+    },
+    {
+      "id": "E05",
+      "surface": "`artifacts.py::ArtifactWriter`, immutable streams, `manifest.py`",
+      "disposition": "retained",
+      "profiles": [
+        "base-local"
+      ],
+      "source_paths": [
+        "coleman/artifacts.py",
+        "coleman/manifest.py"
+      ],
+      "test_paths": [
+        "tests/test_artifacts.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Mutable exports stay single-writer; immutable identical bytes retry/conflicts refuse. Complete-last is contract-specific; directory/manifest existence is not universal completion."
+    },
+    {
+      "id": "E06",
+      "surface": "`spec/io.py::save_resolved`, provenance/redaction/run-ID, native run directories",
+      "disposition": "read-only",
+      "profiles": [
+        "legacy-evidence"
+      ],
+      "source_paths": [
+        "coleman/spec/io.py",
+        "coleman/spec/provenance.py",
+        "coleman/spec/redaction.py",
+        "coleman/spec/run_id.py"
+      ],
+      "test_paths": [
+        "tests/spec/test_io.py",
+        "tests/spec/test_run_id.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Preserve original redactions/bytes. Configuration-derived run ID is not full data/runtime identity; re-execution needs original evidence or explicit fresh lineage."
+    },
+    {
+      "id": "E07",
+      "surface": "`checkpoint/checkpoint_store.py::{CheckpointStore,LocalCheckpointStore,NullCheckpointStore}`, `CheckpointPayload`, progress/pickle",
+      "disposition": "breaking",
+      "profiles": [
+        "pinned-original"
+      ],
+      "source_paths": [
+        "coleman/checkpoint/checkpoint_store.py",
+        "coleman/checkpoint/state.py",
+        "coleman/checkpoint/budget.py"
+      ],
+      "test_paths": [
+        "tests/checkpoint/test_checkpoint.py",
+        "tests/checkpoint/test_budget.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Historical native pickle continuation requires original trusted producer/runtime/root. Low-level load has no producer guard; new generic state never auto-unpickles or adopts it."
+    },
+    {
+      "id": "E08",
+      "surface": "`results/recovery.py`, native result/checkpoint scope and pairing metadata",
+      "disposition": "retained",
+      "profiles": [
+        "native-ci"
+      ],
+      "source_paths": [
+        "coleman/results/recovery.py"
+      ],
+      "test_paths": [
+        "tests/results/test_recovery.py",
+        "tests/corpus/test_hcs_native.py"
+      ],
+      "frozen_evidence": [
+        "native-pairing"
+      ],
+      "limits": "Matching native codec/root only. Ambiguous/unowned tails refuse without deletion; preserve other coordinates and exact committed step. No concurrent same-run ownership guarantee."
+    },
+    {
+      "id": "E09",
+      "surface": "`application/workflow_checkpoint.py::{WorkflowRandomState,WorkflowCheckpointStore}`",
+      "disposition": "breaking",
+      "profiles": [
+        "native-ci"
+      ],
+      "source_paths": [
+        "coleman/application/workflow_checkpoint.py",
+        "coleman/application/native_executor.py"
+      ],
+      "test_paths": [
+        "tests/workflows/test_checkpoint.py",
+        "tests/workflows/test_runtime_generation.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Current isolated native wrapper retains coleman_workflow_rng_v1, full PCG64/cache/binding/minimum. Ordinary legacy pickle is not that envelope; no reseeding or thread-safe global RNG."
+    },
+    {
+      "id": "E10",
+      "surface": "`workflow_store.py`, `_workflow_records.py`, native JobRecord and TaskJobRecord, SQLite five-table/user_version1 workspace",
+      "disposition": "breaking",
+      "profiles": [
+        "base-local",
+        "pinned-original"
+      ],
+      "source_paths": [
+        "coleman/application/workflow_store.py",
+        "coleman/application/_workflow_records.py"
+      ],
+      "test_paths": [
+        "tests/tasks/test_storage_records.py",
+        "tests/tasks/test_readonly_metadata.py",
+        "tests/tasks/test_metadata_integrity.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Five tables/user_version 1 do not grant execution or code approval. New mixed route: 64 MiB/depth 64/task 16 MiB; old native-only reader retains padded JSON behavior. No historical workspace converter."
+    },
+    {
+      "id": "E11",
+      "surface": "ExperimentPlan/WorkflowReport/native snapshots/FilePin/trial/physical-attempt contracts",
+      "disposition": "read-only",
+      "profiles": [
+        "legacy-evidence"
+      ],
+      "source_paths": [
+        "coleman/workflows/contracts.py",
+        "coleman/workflows/lifecycle.py",
+        "coleman/spec/selected_runtime.py"
+      ],
+      "test_paths": [
+        "tests/spec/test_runtime_identity.py",
+        "tests/workflows/test_runtime_generation.py"
+      ],
+      "frozen_evidence": [
+        "workflow-plan",
+        "runtime-v1",
+        "runtime-v2"
+      ],
+      "limits": "Runtime version 1 remains readable/base-only; new durable native execution requires runtime version 2 with its fixed ci closure. No checkpoint adoption, partial-to-complete upgrade or attempts-as-independent-observations."
+    },
+    {
+      "id": "E12",
+      "surface": "`workflow_exports.py::{EvidenceBundle,ImportedEvidence}`, downloads/inspection, ephemeral ResultBundle import/export",
+      "disposition": "read-only",
+      "profiles": [
+        "legacy-evidence"
+      ],
+      "source_paths": [
+        "coleman/application/workflow_exports.py",
+        "coleman/application/workflow_downloads.py",
+        "coleman/application/contracts.py"
+      ],
+      "test_paths": [
+        "tests/workflows/test_portable_execution_trust.py",
+        "tests/workflows/test_import_header.py",
+        "tests/application/test_application.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Read-only portable evidence retains false native run/seed/treatment/source verification declarations, including nonserialized properties. Caller/exposure lineage stays retained; no checkpoint execution."
+    },
+    {
+      "id": "E13",
+      "surface": "`selection` finite coverage contracts/solver; old application coverage registry/result",
+      "disposition": "retained",
+      "profiles": [
+        "base-math"
+      ],
+      "source_paths": [
+        "coleman/selection/contracts.py",
+        "coleman/selection/solver.py",
+        "coleman/selection/artifacts.py"
+      ],
+      "test_paths": [
+        "tests/selection/test_coverage.py",
+        "tests/selection/test_decimal_precision.py",
+        "tests/application/test_installed_application.py"
+      ],
+      "frozen_evidence": [
+        "coverage-checkpoint"
+      ],
+      "limits": "Preserve exact quantities, selected set, incumbent/certificate and checkpoint scope. Supplied eligibility/model knowledge is not future verdict truth; not a ranking learner or continuous optimizer."
+    },
+    {
+      "id": "E14",
+      "surface": "`allocation` scenarios/payoffs/forecasts/risk/resources/results/checkpoint",
+      "disposition": "retained",
+      "profiles": [
+        "base-math"
+      ],
+      "source_paths": [
+        "coleman/allocation/contracts.py",
+        "coleman/allocation/solver.py",
+        "coleman/allocation/artifacts.py"
+      ],
+      "test_paths": [
+        "tests/allocation/test_allocation.py"
+      ],
+      "frozen_evidence": [
+        "allocation-checkpoint"
+      ],
+      "limits": "Preserve exact signs/units/scenario weights/cache/fallback. Declared weights are not calibrated probabilities; no hidden recalibration or native reward rename."
+    },
+    {
+      "id": "E15",
+      "surface": "`observations/contracts.py`, `observations/mean.py`, providers/artifacts: history, revisions, snapshots, signal requests and quantity-mean",
+      "disposition": "retained",
+      "profiles": [
+        "base-math"
+      ],
+      "source_paths": [
+        "coleman/observations/contracts.py",
+        "coleman/observations/providers.py",
+        "coleman/observations/mean.py",
+        "coleman/observations/artifacts.py"
+      ],
+      "test_paths": [
+        "tests/observations/test_observations.py",
+        "tests/observations/test_installed_observations.py"
+      ],
+      "frozen_evidence": [
+        "observation-history",
+        "observation-signal",
+        "observation-model"
+      ],
+      "limits": "Preserve availability/revision/receipt lineage and missingness. Legacy LastRun/BuildId cannot supply missing causal clocks or hindsight eligibility."
+    },
+    {
+      "id": "E16",
+      "surface": "`replay/contracts.py`, `engine.py`, `codec.py`, processing schedule",
+      "disposition": "retained",
+      "profiles": [
+        "base-local"
+      ],
+      "source_paths": [
+        "coleman/replay/contracts.py",
+        "coleman/replay/engine.py",
+        "coleman/replay/codec.py"
+      ],
+      "test_paths": [
+        "tests/replay/test_causal_phases.py",
+        "tests/replay/test_timelines.py",
+        "tests/replay/test_installed.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Additive replay retains contained core/observation/objective v1. Unknown receipt stays pending; exact concrete host/codec/state/implementation and original clocks required. No freeform ID rewrite."
+    },
+    {
+      "id": "E17",
+      "surface": "`state/contracts.py` AlgorithmState, `random_state.py`, retained replay generation2/codecs",
+      "disposition": "retained",
+      "profiles": [
+        "base-local"
+      ],
+      "source_paths": [
+        "coleman/state/contracts.py",
+        "coleman/state/random_state.py",
+        "coleman/replay/retained_contracts.py",
+        "coleman/replay/retained_codec.py"
+      ],
+      "test_paths": [
+        "tests/state/test_goldens.py",
+        "tests/state/test_installed.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Additive profiles preserve replay1 bytes/readers and full RNG/cache. Known retained migration needs a quiescent seal; direct codec pending-tail permissions stay separate. No reseeding/truncation."
+    },
+    {
+      "id": "E18",
+      "surface": "`state/local.py::LocalStateStore`, storage contracts/owners/codecs, actual ACK collection",
+      "disposition": "breaking",
+      "profiles": [
+        "base-local"
+      ],
+      "source_paths": [
+        "coleman/state/local.py",
+        "coleman/state/storage_contracts.py"
+      ],
+      "test_paths": [
+        "tests/state/test_installed.py",
+        "tests/tasks/test_completed_prefix.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Explicit new root/profile/runtime/complete owner inventory. SQLite COMMIT is ACK, prepared manifest is not. Missing completed-A/active-B state refuses before fresh work. Logical/native/attempt/storage counters differ."
+    },
+    {
+      "id": "E19",
+      "surface": "protected/design/bounded inference + prequential evidence/comparison/source-audit",
+      "disposition": "retained",
+      "profiles": [
+        "base-math",
+        "analytics-inference"
+      ],
+      "source_paths": [
+        "coleman/evaluation/protected/contracts.py",
+        "coleman/evaluation/protected/audit.py",
+        "coleman/evaluation/design/contracts.py",
+        "coleman/evaluation/design/audit.py",
+        "coleman/evaluation/prequential/comparison.py"
+      ],
+      "test_paths": [
+        "tests/evaluation/test_installed_bounded.py",
+        "tests/evaluation/test_installed_design_native.py",
+        "tests/evaluation/prequential/test_installed.py"
+      ],
+      "frozen_evidence": [
+        "protected-freeze",
+        "protected-report"
+      ],
+      "limits": "Base records/descriptive and bounded inference remain separate from paired-t inference, which requires analytics. Retain exact frozen method/full family/source/access/baseline and conservative outcomes. Import/retry/cached disclosure never resets exposure or creates independent observations."
+    },
+    {
+      "id": "E20",
+      "surface": "`corpus` registry/materialization/admission/contracts and source-specific ETL/controlled-capture readers; datasets guides",
+      "disposition": "retained",
+      "profiles": [
+        "native-ci"
+      ],
+      "source_paths": [
+        "coleman/corpus/contracts.py",
+        "coleman/corpus/registry.py",
+        "coleman/corpus/materialization_contracts.py",
+        "coleman/corpus/hcs_contracts.py"
+      ],
+      "test_paths": [
+        "tests/corpus/test_installed_hcs.py",
+        "tests/corpus/test_installed_lrts_etl.py",
+        "tests/corpus/test_installed_rtptorrent_etl.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Source-specific terms/hash/producer/units/missingness/exclusions/projection stay explicit. Readability is not admission or a fresh source. Recapture has a new identity."
+    },
+    {
+      "id": "E21",
+      "surface": "`corpus/repeated.py`, baseline/stress contracts/replay/application routes, mathematical benchmarks",
+      "disposition": "retained",
+      "profiles": [
+        "native-ci"
+      ],
+      "source_paths": [
+        "coleman/corpus/repeated.py",
+        "coleman/corpus/baseline_contracts.py",
+        "coleman/corpus/stress_contracts.py",
+        "coleman/corpus/stress_replay.py"
+      ],
+      "test_paths": [
+        "tests/corpus/test_installed_repeated.py",
+        "tests/corpus/test_installed_baselines.py",
+        "tests/corpus/test_installed_stress.py"
+      ],
+      "frozen_evidence": [],
+      "limits": "Only declared bounded experiment/method/input scope. Preserve independent units, costs and negative/inconclusive findings. New implementation needs qualification; benchmark pass is not efficacy."
+    },
+    {
+      "id": "E22",
+      "surface": "`resources/ledger.py`, selection/replay/report/restoration",
+      "disposition": "retained",
+      "profiles": [
+        "base-local"
+      ],
+      "source_paths": [
+        "coleman/resources/ledger.py",
+        "coleman/resources/replay.py"
+      ],
+      "test_paths": [
+        "tests/resources/test_ledger.py",
+        "tests/resources/test_replay.py",
+        "tests/resources/test_installed_resources.py"
+      ],
+      "frozen_evidence": [
+        "resource-ledger",
+        "resource-replay"
+      ],
+      "limits": "Reserved/estimated/observed occupancy, setup/queue/elapsed and retries remain distinct. Estimated feasibility is not observed physical execution; reuse the existing ledger."
+    },
+    {
+      "id": "E23",
+      "surface": "`pilot` replay/publication and `shadow` protocol/journal/clock/admission/state/checkpoint/report",
+      "disposition": "retained",
+      "profiles": [
+        "base-local"
+      ],
+      "source_paths": [
+        "coleman/pilot/contracts.py",
+        "coleman/pilot/replay.py",
+        "coleman/shadow/contracts.py",
+        "coleman/shadow/state.py"
+      ],
+      "test_paths": [
+        "tests/pilot/test_installed_pilot.py",
+        "tests/shadow/test_installed_shadow.py"
+      ],
+      "frozen_evidence": [
+        "pilot"
+      ],
+      "limits": "Bounded CI/source/protocol/latest-ACK and conservative adoption only. Not a broker or arbitrary irreversible executor; external outcomes need separate reconciliation."
+    }
+  ],
+  "additive_overlays": [
+    {
+      "namespace": "coleman.problems.tcpci",
+      "guide": "tcpci-problems.md",
+      "source_paths": [
+        "coleman/problems/tcpci/__init__.py"
+      ],
+      "scope": "Independent typed ranking-to-slate mapping with explicit modeled serial seconds, separate from native jobs/readers; not a 39th legacy row or checkpoint migration.",
+      "public_exports": [
+        "BudgetPrefix",
+        "TcpciMapping",
+        "TcpciProblem",
+        "TestCase",
+        "map_ranking",
+        "ranking_request"
+      ]
+    },
+    {
+      "namespace": "coleman.tasks",
+      "guide": "typed-execution.md",
+      "source_paths": [
+        "coleman/tasks/__init__.py",
+        "coleman/transports/task_mcp.py"
+      ],
+      "profile": "generic-directory-wheel",
+      "scope": "New typed task namespace shares coordinator/storage without widening old application/workflow wires."
+    }
+  ],
+  "native_runtime_generations": {
+    "historical": {
+      "schema_version": 1,
+      "inventory": "base-only",
+      "execution": "pinned-original"
+    },
+    "current_native": {
+      "schema_version": 2,
+      "inventory_profile": "selected-extras-v1",
+      "selected_extras": [
+        "ci"
+      ]
+    }
+  },
+  "routing_limits": {
+    "mixed_bytes": 67108864,
+    "task_bytes": 16777216,
+    "lexical_depth": 64,
+    "native_only_reader": "unchanged"
+  },
+  "entry_scripts": {
+    "coleman": "coleman.cli:main",
+    "coleman-mcp": "coleman.transports.mcp:main",
+    "coleman-task": "coleman.application.task_cli:main",
+    "coleman-task-mcp": "coleman.transports.task_mcp:main"
+  },
+  "native_numeric_reference": {
+    "frozen_evidence": "native-numeric-reference",
+    "profile": "legacy-native-numeric-v1",
+    "reference_source_revision": "1edbee874129aa85e26e592d9649826e85e1ac6b",
+    "reference_wheel_sha256": "e5dd0ef1969044e30b5814ad17251041af97fa97abe6dc9a40f1250b46c75c8b",
+    "reference_SDK_resources": 358,
+    "cases": 8,
+    "rows": 32,
+    "selected_field_count": 22,
+    "ranking_members": 3,
+    "input_fixture": "tests/fixtures/native-semantics/v1/legacy-ci-inputs.json",
+    "input_sha256": "a7551095f241c8bd34b7ba62fa04e0117c84bdfbd4e47aabaf13fc9f0028276a",
+    "current_source_parity": "Not asserted by this static inventory. A current installed-wheel comparison and its final qualification receipt are separate.",
+    "limits": "Exact selected per-build native fields and complete three-member ranking digests; measured process resources, timings and execution IDs are excluded. Source/runtime provenance remains distinct and no checkpoint migration is inferred."
+  }
+}
