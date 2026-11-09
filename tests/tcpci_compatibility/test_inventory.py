@@ -71,10 +71,12 @@ def test_inventory_retains_all_38_routes_with_existing_local_evidence():
     assert [row["id"] for row in data["rows"]] == expected
     for row in data["rows"]:
         assert row["disposition"] in {"retained", "shimmed", "read-only", "breaking"}
-        assert row["surface"] and row["limits"]
+        assert row["surface"]
+        assert row["limits"]
         assert row["profiles"]
         assert set(row["profiles"]) <= data["profiles"].keys()
-        assert row["source_paths"] and row["test_paths"]
+        assert row["source_paths"]
+        assert row["test_paths"]
         for name in row["source_paths"] + row["test_paths"]:
             relative = PurePosixPath(name)
             assert not relative.is_absolute()

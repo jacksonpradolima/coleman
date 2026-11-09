@@ -35,7 +35,8 @@ def _digest(rows):
 def _fixture():
     assert GOLDEN.stat().st_size < 2 * 1024**2
     data = json.loads(GOLDEN.read_text())
-    assert data["schema_version"] == 1 and data["contract"] == "coleman-native-numeric-compatibility-v1"
+    assert data["schema_version"] == 1
+    assert data["contract"] == "coleman-native-numeric-compatibility-v1"
     assert data["reference_source_revision"] == "1edbee874129aa85e26e592d9649826e85e1ac6b"
     assert data["reference_SDK_resources"] == 358
     assert data["input_sha256"] == hashlib.sha256(INPUTS.read_bytes()).hexdigest()

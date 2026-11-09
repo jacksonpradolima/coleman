@@ -20,7 +20,8 @@ from coleman.problems.tcpci import map_ranking
 
 SOURCE = Path(__file__).parents[2] / "examples/tcpci/ci.py"
 SPEC = importlib.util.spec_from_file_location("tcpci_public_example_tests", SOURCE)
-assert SPEC is not None and SPEC.loader is not None
+assert SPEC is not None
+assert SPEC.loader is not None
 EXAMPLE = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = EXAMPLE
 SPEC.loader.exec_module(EXAMPLE)
@@ -112,7 +113,8 @@ def test_coverage_choice_has_an_independent_exhaustive_set_oracle(example):
                 covered = set().union(*(candidates[name][1] for name in selected))
                 rows.append((sum(weights[name] for name in covered), selected, cost))
     expected = min(rows, key=lambda value: (-value[0], value[1]))
-    assert (example.coverage.objective.value, example.coverage.selected_ids, example.coverage.cost.value) == expected
+    actual = (example.coverage.objective.value, example.coverage.selected_ids, example.coverage.cost.value)
+    assert actual == expected
     assert example.coverage.status == "optimal"
     assert example.coverage.proof_prefixes
     assert example.coverage.selected_ids != tuple(
