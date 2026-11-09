@@ -1,16 +1,18 @@
 # Issue #365 — cloud handoff
 
-**Status: unfinished WIP, locally committed for transfer. Not ready for push, PR,
-merge, issue closure or release.** The user paused implementation and then
-requested this handoff and local commit. This handoff does not authorize
-publication or starting another issue.
+**Status: unfinished WIP, explicitly authorized for remote branch transfer to
+Cloud. Not qualified for PR, merge, issue closure or release.** After the local
+handoff, the user explicitly requested pushing this feature branch so Cloud can
+access it through GitHub. This is a transfer-only exception to the earlier
+pre-push qualification rule; it does not claim that the outstanding gates passed
+or authorize starting another issue.
 
 **Execution agreement:** [AGENTS.md](AGENTS.md) is the persistent local/cloud
 working agreement: issue order, scoped agent ownership, actual independent
 review, pinned local-only OpenCodeReview commands/rules, frozen validation,
 complete file coverage, consolidated pushes, PR feedback and protected merge.
 Read it before the issue-specific state below. This documentation follow-up
-does not restart the paused implementation or qualify the WIP for publication.
+does not restart the paused implementation or qualify the WIP for integration.
 
 ## Repository and next task
 
@@ -232,12 +234,12 @@ can use the branch/commits available on GitHub; see the
 Select/fetch the feature branch, rather than assuming the default/main checkout
 contains the WIP. A local commit does not become available on GitHub by itself.
 
-At this follow-up, `e5d7905` and the working-agreement update are local only;
-`git ls-remote` returned no published feature-branch head. No push is part of the
-handoff. The user requires full review/qualification before any push; a WIP
-transfer commit does not waive that rule. Do not silently publish it to avoid
-using a bundle. Once the branch is legitimately published, GitHub is the normal
-transfer route and the code bundle is unnecessary.
+The user subsequently explicitly authorized pushing the WIP feature branch for
+Cloud handoff. Use the remote branch and verify the checked-out head. No ZIP is
+needed for that route. The committed evidence manifest describes the earlier
+local-only snapshot; it is not a current remote-status receipt. This authorized
+transfer does not certify the implementation or waive the required review and
+validation for subsequent qualified implementation pushes, PR or merge.
 
 If the feature branch is available on GitHub:
 
