@@ -1,0 +1,58 @@
+"""Actual immutable fixture bootstrap; it never prepares or runs a task."""
+
+import json
+import math
+from dataclasses import dataclass
+from pathlib import Path
+
+import fixture_dependency
+
+from coleman.tasks.identity import ExecutorRecipe
+
+SENTINELS = Path(SENTINEL_DIRECTORY)
+SENTINELS.mkdir(exist_ok=True)
+(SENTINELS / "provider-imported").write_text("actual provider module executed")
+RECIPE = ExecutorRecipe.from_json(Path(__file__).with_suffix(".declarations.json").read_bytes())
+
+
+@dataclass(frozen=True)
+class TupleCodec:
+    declaration: object
+
+    def validate(self, value: object) -> tuple[float, ...]:
+        if type(value) is not tuple or not all(type(item) is float and math.isfinite(item) for item in value):
+            raise ValueError("fixture codec requires a complete tuple of finite binary64 values")
+        return value
+
+    def decode(self, body: str) -> tuple[float, ...]:
+        return self.validate(tuple(json.loads(body)))
+
+    def encode(self, value: tuple[float, ...]) -> str:
+        return json.dumps(self.validate(value), separators=(",", ":"), allow_nan=False)
+
+
+@dataclass(frozen=True)
+class FixtureExecutor:
+    definition: object
+    configuration_codec: TupleCodec
+    input_codec: TupleCodec
+    coordinate_codec: TupleCodec
+    coordinate_result_codec: TupleCodec
+    final_result_codec: TupleCodec
+    progress_proof_codec: None = None
+
+    def prepare(self, configuration, inputs, context):
+        (SENTINELS / "prepare-called").write_text("must not run while loading")
+        raise AssertionError("capture/loading must never prepare mathematical or source work")
+
+
+def factory() -> FixtureExecutor:
+    (SENTINELS / "factory-called").write_text(str(fixture_dependency.VALUE))
+    return FixtureExecutor(
+        RECIPE.binding,
+        TupleCodec(RECIPE.codec_for("configuration")),
+        TupleCodec(RECIPE.codec_for("inputs")),
+        TupleCodec(RECIPE.codec_for("coordinate")),
+        TupleCodec(RECIPE.codec_for("coordinate_result")),
+        TupleCodec(RECIPE.codec_for("final_result")),
+    )

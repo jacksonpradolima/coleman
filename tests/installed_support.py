@@ -3,9 +3,18 @@
 import subprocess
 import sys
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
+
+
+@dataclass(frozen=True)
+class _WheelProfile:
+    """Select immutable dependency extras and the actual environment creator."""
+
+    extras: tuple[str, ...] = ()
+    stdlib_venv: bool = False
 
 
 def _run(arguments: list[str], environment: Mapping[str, str]) -> None:
@@ -122,6 +131,57 @@ def build_install_offline_wheel(
     resolve and is followed by a real dependency check. Normal consumer resolver
     qualification deliberately uses a separate test path.
     """
+    return _build_install(uv, distributions, virtual, environment, _WheelProfile(extras))
+
+
+def build_install_stdlib_wheel(
+    uv: str,
+    distributions: Path,
+    virtual: Path,
+    environment: Mapping[str, str],
+    *,
+    extras: tuple[str, ...] = (),
+) -> Path:
+    """Use the same offline wheel pipeline with CPython's standard venv profile.
+
+    Parameters
+    ----------
+    uv : str
+        Existing executable for the shared build and frozen dependency seeding.
+    distributions : pathlib.Path
+        Owned output directory, containing exactly one resulting wheel.
+    virtual : pathlib.Path
+        Fresh scratch environment created with stdlib venv without pip.
+    environment : Mapping[str, str]
+        Copied caller environment; no root environment is synchronized.
+    extras : tuple[str, ...], optional
+        Exact locked capabilities; empty selects the base-only dependencies.
+
+    Returns
+    -------
+    pathlib.Path
+        Actual noneditable wheel installed and dependency-checked outside root.
+
+    Raises
+    ------
+    AssertionError, subprocess.TimeoutExpired, OSError
+        Existing bounded offline build/seed/install/check failed. Individual
+        bootstrap commands retain the shared 240-second observation ceiling.
+
+    Notes
+    -----
+    Uses one common build/install body. The standard creator supplies the
+    generic executor profile's three CPython meta-path finders; uv-created
+    environments add an unsupported helper finder. The original helper retains
+    its exact uv creation command and all original callers remain unchanged.
+    """
+    return _build_install(uv, distributions, virtual, environment, _WheelProfile(extras, stdlib_venv=True))
+
+
+def _build_install(
+    uv: str, distributions: Path, virtual: Path, environment: Mapping[str, str], profile: _WheelProfile
+) -> Path:
+    """Run the one offline pipeline with an explicitly selected creator."""
     offline = {**environment, "UV_OFFLINE": "1", "UV_NO_INDEX": "1", "UV_PYTHON_DOWNLOADS": "never"}
     _run(
         [
@@ -140,10 +200,13 @@ def build_install_offline_wheel(
     wheels = tuple(distributions.glob("*.whl"))
     assert len(wheels) == 1, "Offline build must produce exactly one wheel"
     wheel = wheels[0]
-    _run([uv, "venv", str(virtual), "--python", sys.executable], offline)
-    seed_locked_dependencies(uv, virtual, offline, extras=extras)
+    if profile.stdlib_venv:
+        _run([sys.executable, "-I", "-B", "-m", "venv", "--without-pip", str(virtual)], offline)
+    else:
+        _run([uv, "venv", str(virtual), "--python", sys.executable], offline)
+    seed_locked_dependencies(uv, virtual, offline, extras=profile.extras)
     python = str(virtual / "bin/python")
-    requirement = str(wheel) + ("[" + ",".join(extras) + "]" if extras else "")
+    requirement = str(wheel) + ("[" + ",".join(profile.extras) + "]" if profile.extras else "")
     _run([uv, "pip", "install", "--offline", "--no-index", "--no-deps", "--python", python, requirement], offline)
     _run([uv, "pip", "check", "--python", python], offline)
     return wheel

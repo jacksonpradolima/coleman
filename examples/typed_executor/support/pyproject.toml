@@ -1,0 +1,12 @@
+[build-system]
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
+
+[project]
+name = "coleman-typed-hedge-support"
+version = "1.0.0"
+requires-python = ">=3.14"
+description = "Actual panel-selection dependency of the public typed Hedge fixture"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/coleman_typed_hedge_support"]

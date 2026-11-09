@@ -89,6 +89,8 @@ def test_changed_runtime_cannot_requeue_or_freeze_evaluation(tmp_path, monkeypat
 
 
 def test_worker_runtime_recheck_precedes_checkpoint_loading_and_rng_restoration(tmp_path, monkeypatch):
+    # Declare a positive 1 MiB sample for this runtime-order unit test.
+    monkeypatch.setattr("coleman.application.workflow_worker._worker_peak_rss_mib", lambda: 1.0)
     service, preview = service_and_plan(tmp_path)
     monkeypatch.setattr(service, "_start", lambda: None)
     job = service.execute(ExecutePlan(schema_version=1, request_id="worker-runtime", plan_id=preview.plan_id))

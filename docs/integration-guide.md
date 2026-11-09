@@ -10,6 +10,7 @@ native runner and typed contracts, but collect different kinds of evidence.
 | --- | --- | --- |
 | Run recorded test histories | [First experiment](getting-started.md), [library API](api/experiment-api.md) | Native ranking, modeled budgets, results and checkpoint continuation |
 | Register bounded application operations | [Application API](application-api.md) | Shared library services and an optional MCP transport |
+| Run a learner as a durable task | [Typed adaptive execution](typed-execution.md) | Approved concrete codecs, installed provider identity and complete-state recovery through the same coordinator as TCPCI |
 | Add a policy, hook or artifact | [Extensions](extensibility.md), [artifact API](api/artifacts.md) | Native lifecycle callbacks and typed result publication |
 | Compose independently evolving CI recipes | [Recipe lifecycle and ownership](registry-lifecycle.md) | Prospective eligibility, original feedback epochs and opt-in complete checkpoints in the v5 source |
 | Compare adaptive decisions before replacing a workflow | [Causal comparisons and conservative fallback](prequential-comparisons.md) | Separate forecasts, coefficients, feasible actions and own-path costs, with reference conformance and protected evidence |

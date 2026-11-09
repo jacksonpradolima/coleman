@@ -75,6 +75,7 @@ The links below provide the same routes as the graph, including keyboard access.
 | Stress a difficult CI decision | [32 deterministic interaction-covering cases](ci-stress-laboratory.md), explicit truth and feedback clocks, native Parquet and resumable agents |
 | Manage changing CI recipes safely | [Versioned eligibility and explicit ownership](registry-lifecycle.md), prospective lifecycle, original feedback epochs and complete 32-child recovery; requires the unreleased v5 source wheel |
 | Combine declared CI experts | [Full-information expert mixtures](expert-mixtures.md), three mathematical references and separately controlled coefficients, explicit cadence, bounds and a soft movement penalty; requires the unreleased v5 source wheel |
+| Run an adaptive component as a durable job | [Typed task execution](typed-execution.md), approved concrete codecs, installed provider/dependency identity and complete-state recovery through the same coordinator as TCPCI; requires the unreleased v5 source wheel |
 | Audit what a source actually supports | [Source admission](corpus-admission.md): original evidence, explicit units and a 35-axis production-reality matrix |
 | Compare repeated CI experiments | [Raw build/seed records and paired repository-family means](corpus-evaluation.md), explicit missingness and protected access |
 | Compare metrics with known limits | [Conservative bounded paired means](bounded-paired-evaluation.md), full-family uncertainty and practical equivalence under declared independent-unit assumptions |

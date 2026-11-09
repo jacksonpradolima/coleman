@@ -1,0 +1,1 @@
+{"artifact_type":"discovery","bootstrap":null,"contract":"coleman-tasks-v1","executors":[],"policy":{"artifact_type":"host_policy","caps":{"attempt_seconds":300.0,"max_attempts":4,"max_coordinates":32,"max_invocations":8,"max_memory_bytes":1073741824,"max_output_bytes":16777216,"max_work_units":100000},"contract":"coleman-tasks-v1","schema_version":1},"schema_version":1}

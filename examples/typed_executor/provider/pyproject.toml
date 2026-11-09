@@ -1,0 +1,16 @@
+[build-system]
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
+
+[project]
+name = "coleman-typed-hedge-reference"
+version = "1.0.0"
+requires-python = ">=3.14"
+description = "Public external executor wrapping COLEMAN's shipped constant Hedge"
+dependencies = ["coleman==4.20.0", "coleman-typed-hedge-support==1.0.0"]
+
+[project.entry-points."coleman.executors.v1"]
+hedge-reference = "coleman_typed_hedge:bootstrap"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/coleman_typed_hedge"]

@@ -21,7 +21,11 @@ provides constant Hedge, current-rate cumulative anytime Hedge, excluding-origin
 Fixed Share and named controlled coefficient variants, including the joint L1
 movement output. These mathematical owners work without the optional direct,
 clock-plan, replay or persistence adapters.
-Other generic learning families, adapters and broader durable execution services below
+The [typed task execution route](typed-execution.md) adds explicit operator-approved
+installed executors over the same durable scheduler and work loop as native TCPCI.
+Its separately versioned task inputs/results and named work frontiers do not
+replace direct learner APIs or reinterpret native checkpoint counters.
+Other generic learning families, adapters and broader execution profiles below
 remain planned until individually qualified. The original implementation baseline
 is COLEMAN **4.20.0**, commit
 `1edbee874129aa85e26e592d9649826e85e1ac6b`. Examples explicitly identified as
@@ -124,10 +128,10 @@ flowchart TD
     LocalStore --> Retained[Opt-in retained replay generation 2]
     Retained --> Replay
     LocalStore --> Storage[Existing immutable artifact publication]
-    Service[Existing application services with planned generic executor] --> Problem
+    Service[Application services and typed durable execution] --> Problem
     Service --> DirectLearner
     Service --> DirectSolver
-    Service --> Execution[Planned executor capabilities]
+    Service --> Execution[Implemented typed executor capabilities]
     Service --> Session[Planned optional durable generic session]
     Session --> State
     Session --> Storage
