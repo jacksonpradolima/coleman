@@ -5,6 +5,13 @@ merge, issue closure or release.** The user paused implementation and then
 requested this handoff and local commit. This handoff does not authorize
 publication or starting another issue.
 
+**Execution agreement:** [AGENTS.md](AGENTS.md) is the persistent local/cloud
+working agreement: issue order, scoped agent ownership, actual independent
+review, pinned local-only OpenCodeReview commands/rules, frozen validation,
+complete file coverage, consolidated pushes, PR feedback and protected merge.
+Read it before the issue-specific state below. This documentation follow-up
+does not restart the paused implementation or qualify the WIP for publication.
+
 ## Repository and next task
 
 - Public repository: <https://github.com/jacksonpradolima/coleman>.
@@ -21,7 +28,8 @@ publication or starting another issue.
 
 Read applicable `AGENTS.md`, the live issue and **all comments**, parent and
 relevant dependencies before continuing. No applicable `AGENTS.md` was present
-in the local repository or exact ancestor paths at handoff. #365 had no comments
+in the local repository or exact ancestor paths when implementation started.
+The handoff follow-up now adds the root working agreement. #365 had no comments
 when first read. Its prerequisites #355, #357, #361 and #360 were completed.
 Public Project 3 was updated from stale Blocked/Todo to Ready/In Progress; the
 issue remains open and its acceptance checklist is not marked complete.
@@ -171,7 +179,8 @@ issue closure or release. No raw 95% coverage claim is made for this WIP.
 8. Wait for reviews and required checks; reproduce valid feedback locally,
    add regressions, review the full diff again and push consolidated fixes.
    Respond with commit/evidence and resolve threads. Merge normally under the
-   protected-branch policy, without bypassing checks or unresolved P0/P1.
+   protected-branch policy, without bypassing checks or leaving confirmed
+   critical/high/medium findings (including P2/medium) unresolved.
 9. Then close #365 with acceptance evidence, update public Project 3/parent,
    sync local integration state and remove only the integrated feature branch.
 
@@ -189,7 +198,7 @@ make docstrings
 .venv/bin/pylint --errors-only coleman
 .venv/bin/interrogate coleman -v
 .venv/bin/xenon --max-absolute C --max-modules B --max-average A coleman
-.venv/bin/radon mi -s -n B coleman
+make cost-maintainability
 .venv/bin/zensical build --strict
 uv lock --check --offline
 
@@ -217,11 +226,32 @@ into zero, a skip that changes required coverage, or admission/efficacy claims.
 
 ## Transfer and portable evidence
 
-No push is part of this handoff. A Cloud checkout cannot access a local-only
-commit without transfer. The accompanying ZIP contains a thin Git bundle for
-this branch and whitelisted public-only evidence. After extracting it, fetch
-the prerequisite integration branch and import the bundle, using an isolated
-checkout if the feature branch already exists:
+**A ZIP is optional.** With this repository connected to its environment, Cloud
+can use the branch/commits available on GitHub; see the
+[official cloud environment guide](https://learn.chatgpt.com/docs/environments/cloud-environments).
+Select/fetch the feature branch, rather than assuming the default/main checkout
+contains the WIP. A local commit does not become available on GitHub by itself.
+
+At this follow-up, `e5d7905` and the working-agreement update are local only;
+`git ls-remote` returned no published feature-branch head. No push is part of the
+handoff. The user requires full review/qualification before any push; a WIP
+transfer commit does not waive that rule. Do not silently publish it to avoid
+using a bundle. Once the branch is legitimately published, GitHub is the normal
+transfer route and the code bundle is unnecessary.
+
+If the feature branch is available on GitHub:
+
+```bash
+git fetch origin main release/v5 feat/v5-365-continuous-prediction
+# Only if this local branch name does not already exist:
+git switch --track -c feat/v5-365-continuous-prediction origin/feat/v5-365-continuous-prediction
+```
+
+For a local-only transfer, the optional ZIP contains a thin Git bundle and
+whitelisted public-only evidence. After extracting it, fetch the prerequisite
+integration branch and import the bundle, using an isolated checkout if the
+feature branch already exists. Verify the bundle's head: an older ZIP is a
+snapshot and will not acquire later documentation commits automatically.
 
 ```bash
 git fetch origin release/v5
@@ -237,6 +267,36 @@ baseline. Reuse only exact source bytes **and** identical applicable-rule hashes
 with explicit historical authority; re-review changed overlapping files and
 new files. If an authority cannot be verified, review the relevant range again.
 Do not claim a fresh historical reread or complete review from a summary hash.
+
+GitHub also does not contain the ignored local `.git/coleman-v5-planning`
+receipts, old runtime caches or personal local skills. The committed evidence
+manifest identifies their scope; the optional archive carries selected receipts.
+They are historical evidence, not required credentials or a substitute for new
+verification. Without them, independently reproduce/review the affected scope
+rather than inventing prior authority. A package is not a requirement of the
+development workflow.
+
+## Suggested Cloud assignment
+
+Use this only when actually delegating continuation of the paused implementation:
+
+> Work on public `jacksonpradolima/coleman`, branch
+> `feat/v5-365-continuous-prediction`, targeting `release/v5`. Read the root
+> `AGENTS.md`, `HANDOFF-365.md`, the evidence manifest, public issue #365 and all
+> comments, parent #353 and relevant public Project 3 dependencies. Verify that
+> the checkout contains the transferred WIP before changing anything. Finish
+> #365 according to the working agreement: independent mathematical/temporal/
+> state review; real recovery, concurrency and noneditable installed flows;
+> complete unchanged quality and raw coverage gates; Alibaba OpenCodeReview
+> **1.12.13 local `delegate preview`/`delegate rule` only**, both full merge-base
+> ranges plus dirty workspace, manual excluded-file review and 100% changed-file
+> coverage. Fix confirmed critical/high/medium findings with regressions and
+> consolidated commits/pushes. Then open and follow the PR through required
+> reviews/checks and normal protected merge into `release/v5`, closing #365 only
+> with acceptance evidence. Preserve generic/public scope and all scientific,
+> compatibility and release limits. Continue autonomously within this assigned
+> issue; stop after #365 and report the next ready dependency. Do not publish
+> v5 or begin another implementation.
 
 ## Roadmap after this issue
 
