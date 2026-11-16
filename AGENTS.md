@@ -6,9 +6,8 @@ request to pause or prepare a handoff does not resume implementation. Work
 autonomously within the authorized task; routine edits, checks and review fixes
 do not require repeated permission requests. Do not invent approval gates.
 
-For the unfinished #365 snapshot, read [HANDOFF-365.md](HANDOFF-365.md) and
-[its evidence manifest](handoff/issue-365-evidence.json) before touching code.
 Historical passes or a WIP commit do not certify current integration readiness.
+Verify the assigned issue against current sources and qualification evidence.
 
 ## 1. Establish scope and the correct base
 
@@ -99,7 +98,7 @@ and format, Pyright, Ty, actual Pylint, NumPy parameter audit, Interrogate100,
 Radon maintainability>=20 and Xenon C/B/A, strict documentation, generated-doc
 equality, frozen lock, package build/Twine and wheel/sdist/source parity, installed
 smoke/end-to-end tests and `git diff --check`. Current configuration and task
-requirements determine exact commands; the handoff has the #365 command list.
+requirements determine exact commands; inspect current CI and repository targets.
 Do not assume that a workflow's filename or pre-commit covers all these checks.
 
 Freeze and record the exact candidate sources/tree and artifact hashes. Tests,
