@@ -43,8 +43,9 @@ def test_future_unknown_and_coerced_versions_reject_for_every_public_output(vers
     selected = values[kind]
     raw = selected.model_dump(mode="json") | {"schema_version": version}
     payload = json.dumps(raw)
+    reader = type(selected).from_json
     with pytest.raises(ValueError):
-        type(selected).from_json(payload)
+        reader(payload)
 
 
 @pytest.mark.parametrize(

@@ -13,7 +13,8 @@ def allocation_example():
     name = "authored_continuous_integration_allocation"
     path = Path(__file__).parents[2] / "examples/continuous/allocation.py"
     specification = importlib.util.spec_from_file_location(name, path)
-    assert specification is not None and specification.loader is not None
+    assert specification is not None
+    assert specification.loader is not None
     module = importlib.util.module_from_spec(specification)
     sys.modules[name] = module
     specification.loader.exec_module(module)

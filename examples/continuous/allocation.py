@@ -236,7 +236,7 @@ def _chosen(row, index, books, next_online):
         "forecast-continuous": solved.executed,
         "projected-online": next_online,
     }
-    work = {name: 0 for name in actions}
+    work = dict.fromkeys(actions, 0)
     work["forecast-continuous"] = solved.faces_examined
     work["periodic"] = 0 if periodic is None else periodic.faces_examined
     return actions, work

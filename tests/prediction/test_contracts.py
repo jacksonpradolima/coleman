@@ -186,14 +186,16 @@ def test_callback_bearing_json_duplicate_keys_depth_and_relaxed_readers_refuse()
             calls.append("copied")
             return b"{}"
 
+    hostile = Hostile(b"{}")
     with pytest.raises(TypeError, match="built-in"):
-        RidgeConfig.model_validate_json(Hostile(b"{}"))
+        RidgeConfig.model_validate_json(hostile)
     with pytest.raises(ValueError, match="Duplicate"):
         RidgeConfig.from_json('{"schema_version":1,"schema_version":1}')
     with pytest.raises(ValueError, match="depth"):
         RidgeConfig.from_json("[" * 65 + "0" + "]" * 65)
+    configuration = (FIXTURES / "config.json").read_bytes()
     with pytest.raises(ValueError, match="strict"):
-        RidgeConfig.model_validate_json((FIXTURES / "config.json").read_bytes(), strict=False)
+        RidgeConfig.model_validate_json(configuration, strict=False)
     assert not calls
 
 

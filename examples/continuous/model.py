@@ -150,8 +150,8 @@ class ForecastHostState(CoreContract):
     def _counts(self) -> Self:
         """Reject lost or repeated original producer state before restore."""
         rows = self.pending + tuple(row.pending for row in self.observations)
-        identities = tuple(row.request.logical_identity for row in rows)
-        if self.decisions != len(rows) or len(set(identities)) != len(rows):
+        identities = {row.request.logical_identity for row in rows}
+        if self.decisions != len(rows) or len(identities) != len(rows):
             raise ValueError("Complete forecast state requires every unique original producer")
         if any(row.pending.prediction.sample_count > index for index, row in enumerate(self.observations)):
             raise ValueError("Forecast cannot use its own or a future accepted label")
@@ -388,16 +388,7 @@ class ForecastHost:
         if any(row.prediction.sample_count > len(state.observations) for row in rows):
             raise ValueError("Forecast claims a future accepted-label prefix")
         for count in range(len(state.observations) + 1):
-            targets = tuple(row.target.value for row in state.observations[:count])
-            mean = math.fsum(targets) / count if count else 0.0
-            last = targets[-1] if count else 0.0
-            for row in rows:
-                if row.prediction.sample_count == count and (
-                    temporary.predict(row.input).to_json() != row.prediction.to_json()
-                    or row.mean_control != mean
-                    or row.last_control != last
-                ):
-                    raise ValueError("Forecast prediction or control differs from its actually accepted prefix")
+            self._validate_predictions(temporary, rows, count, state.observations)
             if count < len(state.observations):
                 observed = state.observations[count]
                 update = temporary.append(
@@ -407,3 +398,39 @@ class ForecastHost:
                     raise ValueError("Forecast trace cannot reproduce its accepted numerical update")
         if temporary.export_state().to_json() != state.ridge.to_json():
             raise ValueError("Forecast sufficient state differs from its complete accepted raw trace")
+
+    @staticmethod
+    def _validate_predictions(temporary, rows, count, observations) -> None:
+        """Check forecasts and controls at one original accepted-label prefix.
+
+        Parameters
+        ----------
+        temporary : AppendOnlyRidge
+            Staging predictor after exactly count accepted labels.
+        rows : tuple of PendingForecast
+            Original pending and completed predictions, with target-unit controls.
+        count : int
+            Prefix length, including zero; not a decision or storage generation.
+        observations : tuple of ForecastObservation
+            Bounded accepted trace. Only its first count labels enter controls.
+
+        Raises
+        ------
+        ValueError
+            A prediction or its pre-label control differs from the eligible fit.
+
+        Notes
+        -----
+        Performs no append or live-state mutation. The empty-prefix controls
+        remain zero; later labels never enter an earlier prefix comparison.
+        """
+        targets = tuple(row.target.value for row in observations[:count])
+        mean = math.fsum(targets) / count if count else 0.0
+        last = targets[-1] if count else 0.0
+        for row in rows:
+            if row.prediction.sample_count == count and (
+                temporary.predict(row.input).to_json() != row.prediction.to_json()
+                or row.mean_control != mean
+                or row.last_control != last
+            ):
+                raise ValueError("Forecast prediction or control differs from its actually accepted prefix")
