@@ -1,9 +1,64 @@
 """Finite normal-equation arithmetic for the named ridge reference only."""
 
-from math import fsum, isfinite, sqrt
+from fractions import Fraction
+from math import fsum, inf, isfinite, nextafter, sqrt
 
 Vector = tuple[float, ...]
 Matrix = tuple[Vector, ...]
+
+
+def gram_origin(gram: Matrix, regularization: float, samples: int) -> bool:
+    """Check the positive-semidefinite origin within a rounding envelope.
+
+    Parameters
+    ----------
+    gram : tuple of tuple of float
+        Validated symmetric finite normal-equation matrix, at most16 square.
+    regularization : float
+        Original positive dimensionless diagonal penalty.
+    samples : int
+        Declared accepted-label count, at most2**20.
+
+    Returns
+    -------
+    bool
+        Whether A-lambda*I plus the declared rounding allowance is positive
+        definite. This necessary condition does not authenticate observations
+        or prove that every sufficient statistic came from the declared labels.
+
+    Notes
+    -----
+    Each entry has at most one rounded product and addition per sample. The
+    spectral allowance is 8*n*(samples+1) times binary64 epsilon times the
+    largest Gram diagonal, plus the same multiple of the smallest subnormal,
+    rounded upward to binary64. This avoids gratuitous rational denominator
+    growth while keeping the allowance conservative.
+    Under the declared sample cap this conservatively bounds accumulated
+    component error using Cauchy-Schwarz on the exact feature products and a
+    row-sum bound on the error matrix. Subnormal absolute error is retained.
+    Rational Schur complements check the shifted matrix without additional
+    binary64 cancellation, inversion or numerical jitter of the model itself.
+    Work is bounded by the fixed16-dimensional input; no state is changed.
+    """
+    size = len(gram)
+    exact_allowance = (
+        8 * size * (samples + 1) * (Fraction(max(gram[i][i] for i in range(size))) / 2**52 + Fraction(1, 2**1074))
+    )
+    allowance = Fraction(nextafter(float(exact_allowance), inf))
+    penalty = Fraction(regularization)
+    remainder = [
+        [Fraction(value) + (allowance - penalty if i == j else 0) for j, value in enumerate(row)]
+        for i, row in enumerate(gram)
+    ]
+    for pivot in range(size):
+        diagonal = remainder[pivot][pivot]
+        if diagonal <= 0:
+            return False
+        for i in range(pivot + 1, size):
+            for j in range(i, size):
+                value = remainder[i][j] - remainder[i][pivot] * remainder[j][pivot] / diagonal
+                remainder[i][j] = remainder[j][i] = value
+    return True
 
 
 class NumericalError(ArithmeticError):

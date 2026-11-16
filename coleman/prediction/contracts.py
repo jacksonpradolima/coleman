@@ -12,7 +12,7 @@ from coleman.core.identity import Reference, ordered_references
 from coleman.core.numeric import Binary64, Scalar, ScalarSpec
 from coleman.core.primitives import Fingerprint, canonical_json
 from coleman.objectives.bindings import DefinitionBinding, SemanticDefinition
-from coleman.prediction._numerics import NumericalError, solve
+from coleman.prediction._numerics import NumericalError, gram_origin, solve
 
 MAXIMUM_BYTES = 16 * 1024**2
 MAXIMUM_FEATURES = 16
@@ -284,7 +284,9 @@ class RidgePayload(RidgeContract):
     -----
     This is sufficient state, not authenticated history. It cannot prove that
     supplied labels were eligible. No pending labels, RNG or optimizer is owned.
-    Reads rederive coefficients; unknown versions or altered claims reject.
+    Reads rederive coefficients and check the positive-semidefinite origin of
+    A-lambda*I within the explicit accumulated binary64 rounding envelope.
+    Unknown versions or inconsistent claims reject; no statistics are repaired.
     """
 
     config: RidgeConfig
@@ -309,6 +311,8 @@ class RidgePayload(RidgeContract):
         if any(self.gram[i][i] < self.config.regularization for i in range(size)):
             raise ValueError("Ridge Gram diagonal cannot be below its regularization")
         _statistic_capacity(self)
+        if not gram_origin(self.gram, self.config.regularization, self.sample_count):
+            raise ValueError("Ridge Gram cannot arise from feature outer products within its rounding envelope")
         try:
             expected = solve(self.gram, self.cross)
         except NumericalError as error:

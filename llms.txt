@@ -4973,6 +4973,14 @@ does not promise large-scale recursive-factor update performance. Normal
 equations can become ill-conditioned. Nonpositive pivots, range, residual and
 capacity failures have typed outcomes, with unavailable predictions or an
 unchanged append state. Invalid schemas/units/dimensions raise validation errors.
+State readers also reject a Gram matrix whose `A-lambda*I` cannot be
+positive semidefinite within the accumulated rounding envelope. The spectral
+allowance is `8*n*(sample_count+1)*(epsilon*max(diag(A))+smallest_subnormal)`,
+rounded upward to binary64.
+Rational Schur complements check this necessary origin condition without
+changing the stored matrix. Small negative directions caused by legitimate
+binary64 accumulation remain readable; the check does not authenticate a
+history, establish label eligibility or reconstruct the original observations.
 
 ## Solve only the allocation problem
 
