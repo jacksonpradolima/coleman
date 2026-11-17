@@ -90,6 +90,10 @@ def make_plan(
     The tiny empirical training gate demonstrates the contract, not sufficient
     evidence for adoption or a held-out guarantee. Construction performs no I/O.
     """
+    fidelities = tuple(
+        Fidelity(reference=Reference(id=f"builds-{value}", version="1"), resource=quantity(value))
+        for value in (1, 2, 4)
+    )
     qualification = None
     if method == "successive_halving_v1":
         # Independent development cases are supplied explicitly. The threshold
@@ -101,6 +105,7 @@ def make_plan(
             training_source=fingerprint({"development": [0.0, 0.0, 0.0]}),
             evaluation_source=SOURCE,
             maximum_error=0,
+            fidelities=fidelities,
             cases=(
                 CalibrationCase(
                     case_id="development-stable-order",
@@ -115,10 +120,7 @@ def make_plan(
         reference=Reference(id="constructed-ci-terminal-comparison", version="1"),
         source_fingerprint=SOURCE,
         candidates=tuple(Candidate(reference=Reference(id=key, version="1")) for key in ORDERS),
-        fidelities=tuple(
-            Fidelity(reference=Reference(id=f"builds-{value}", version="1"), resource=quantity(value))
-            for value in (1, 2, 4)
-        ),
+        fidelities=fidelities,
         method=method,
         billing=billing,
         budget=quantity(budget),
@@ -141,6 +143,38 @@ class CIPool:  # pylint: disable=too-few-public-methods
     def __init__(self):
         """Initialize an independent read audit; no execution cache affects continuation."""
         self.reads: list[tuple[str, int]] = []
+
+    @staticmethod
+    def _admitted(purchase: Purchase, plan: AllocationPlan) -> None:
+        """Reject foreign source/objective/units/membership before any source read."""
+        if purchase.action.space != plan.space or plan.source_fingerprint != SOURCE:
+            raise ValueError("CI executor requires its exact admitted source and action space")
+        if canonical_json(plan.outcome.model_dump(mode="json")) != canonical_json(OBJECTIVE.model_dump(mode="json")):
+            raise ValueError("CI executor computes its fixed missed-fault objective; it cannot relabel measurements")
+        if plan.budget.semantics != RESOURCE:
+            raise ValueError("CI executor meters build replays, not another resource unit")
+        expected_members = tuple(Reference(id=key, version="1") for key in sorted(ORDERS))
+        if plan.space.members != expected_members:
+            raise ValueError("CI executor requires its complete admitted versioned candidate pool")
+
+    @staticmethod
+    def _previous(purchase: Purchase, plan: AllocationPlan, prior: AcquisitionReceipt | None) -> tuple[int, float]:
+        """Recover the original accepted prefix; stateless reruns start at zero."""
+        if plan.billing != "incremental" or purchase.prior_fidelity is None:
+            return 0, 0.0
+        if prior is None or prior.purchase.action.chosen != purchase.action.chosen:
+            raise ValueError("Incremental execution needs the original accepted prior receipt")
+        if (
+            prior.purchase.action.space != purchase.action.space
+            or prior.producer != Reference(id="constructed-ci-prefix-executor", version="1")
+            or canonical_json(prior.outcome.spec.model_dump(mode="json"))
+            != canonical_json(OBJECTIVE.model_dump(mode="json"))
+        ):
+            raise ValueError("Incremental execution requires its original plan, producer and objective aggregate")
+        if prior.purchase.action.fidelity != purchase.prior_fidelity or prior.outcome.value is None:
+            raise ValueError("Incremental execution has an incompatible prior aggregate")
+        start = int(next(row.resource.value for row in plan.fidelities if row.reference == purchase.prior_fidelity))
+        return start, prior.outcome.value * start
 
     def acquire(
         self,
@@ -175,36 +209,13 @@ class CIPool:  # pylint: disable=too-few-public-methods
         This constructed executor performs local deterministic source reads,
         not physical CI jobs. Its producer reference is not authentication.
         """
-        if purchase.action.space != plan.space or plan.source_fingerprint != SOURCE:
-            raise ValueError("CI executor requires its exact admitted source and action space")
-        if canonical_json(plan.outcome.model_dump(mode="json")) != canonical_json(OBJECTIVE.model_dump(mode="json")):
-            raise ValueError("CI executor computes its fixed missed-fault objective; it cannot relabel measurements")
-        if plan.budget.semantics != RESOURCE:
-            raise ValueError("CI executor meters build replays, not another resource unit")
-        expected_members = tuple(Reference(id=key, version="1") for key in sorted(ORDERS))
-        if plan.space.members != expected_members:
-            raise ValueError("CI executor requires its complete admitted versioned candidate pool")
+        self._admitted(purchase, plan)
         member = purchase.action.chosen.id
         target = next(row.resource.value for row in plan.fidelities if row.reference == purchase.action.fidelity)
         if target != int(target) or not 1 <= target <= len(FAULTS):
             raise ValueError("Constructed CI fidelity requires a supported integer build target")
         stop = int(target)
-        start = 0
-        total = 0.0
-        if plan.billing == "incremental" and purchase.prior_fidelity is not None:
-            if prior is None or prior.purchase.action.chosen != purchase.action.chosen:
-                raise ValueError("Incremental execution needs the original accepted prior receipt")
-            if (
-                prior.purchase.action.space != purchase.action.space
-                or prior.producer != Reference(id="constructed-ci-prefix-executor", version="1")
-                or canonical_json(prior.outcome.spec.model_dump(mode="json"))
-                != canonical_json(OBJECTIVE.model_dump(mode="json"))
-            ):
-                raise ValueError("Incremental execution requires its original plan, producer and objective aggregate")
-            if prior.purchase.action.fidelity != purchase.prior_fidelity or prior.outcome.value is None:
-                raise ValueError("Incremental execution has an incompatible prior aggregate")
-            start = int(next(row.resource.value for row in plan.fidelities if row.reference == purchase.prior_fidelity))
-            total = prior.outcome.value * start
+        start, total = self._previous(purchase, plan, prior)
         for index in range(start, stop):
             self.reads.append((member, index))
             total += float(FAULTS[index] not in ORDERS[member])

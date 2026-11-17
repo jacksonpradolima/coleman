@@ -14,6 +14,7 @@ from coleman.core.identity import Reference, ordered_references
 from coleman.core.numeric import Binary64, Scalar, ScalarSpec
 from coleman.core.primitives import Fingerprint, Identifier, canonical_json
 from coleman.core.quantities import Quantity, decimal_text, ticks
+from coleman.core.units import UnitSemantics
 
 Count = Annotated[int, Field(strict=True, ge=0, le=1024)]
 
@@ -45,6 +46,22 @@ class Fidelity(CoreImmutable):
 
     reference: Reference
     resource: ResourceQuantity
+
+
+def _schedule_content(fidelities: tuple[Fidelity, ...]) -> str:
+    """Retain exact ordered identities, versions, canonical targets and units."""
+    return canonical_json([row.model_dump(mode="json") for row in fidelities])
+
+
+def _check_schedule(fidelities: tuple[Fidelity, ...], semantics: UnitSemantics) -> None:
+    """Require unique targets and increasing positive quantities in one unit."""
+    ordered_references(tuple(row.reference for row in fidelities))
+    previous = 0
+    for fidelity in fidelities:
+        current = ticks(fidelity.resource.value)
+        if fidelity.resource.semantics != semantics or current <= previous:
+            raise ValueError("Fidelity targets must increase positively in exact budget units")
+        previous = current
 
 
 class Candidate(CoreImmutable):
@@ -92,6 +109,24 @@ class CalibrationCase(CoreImmutable):
     terminal: Scalar
 
 
+def _check_training_case(case: CalibrationCase, early_count: int, maximum_error: float, outcome: ScalarSpec) -> None:
+    """Verify every declared target's comparable observed training score."""
+    if len(case.early) != early_count:
+        raise ValueError("Training case does not cover its declared qualified fidelity schedule")
+    if case.terminal.status != "observed":
+        raise ValueError("Qualification requires observed terminal training outcomes")
+    if _spec_content(case.terminal.spec) != _spec_content(outcome):
+        raise ValueError("Qualification requires one comparable objective across training cases")
+    for early in case.early:
+        if early.status != "observed" or _spec_content(early.spec) != _spec_content(case.terminal.spec):
+            raise ValueError("Qualification requires comparable observed training pairs")
+        if early.value is None or case.terminal.value is None:
+            raise ValueError("Observed qualification pair requires values")
+        discrepancy = abs(Fraction(early.value) - Fraction(case.terminal.value))
+        if discrepancy > Fraction(maximum_error):
+            raise ValueError("Training fidelity gate failed; do not eliminate on this proxy")
+
+
 class FidelityQualification(CoreContract):
     """Freeze an empirical training-only fidelity gate, not a general error bound.
 
@@ -104,6 +139,10 @@ class FidelityQualification(CoreContract):
     maximum_error : float
         Nonnegative admitted absolute early-to-terminal discrepancy in score
         units; every supplied training pair must satisfy it.
+    fidelities : tuple of Fidelity
+        Exact ordered versioned targets at which training scores were observed,
+        including the terminal target and all resource values/units. Each case
+        supplies one early score per nonterminal target in this declared order.
     cases : tuple of CalibrationCase
         Complete predeclared finite training comparison set, not a fitted test
         set. A passing gate provides no guarantee on a new candidate/path.
@@ -112,6 +151,8 @@ class FidelityQualification(CoreContract):
     -----
     Partition/source declarations do not authenticate an external producer.
     Host protected-access controls remain necessary. No tuning or I/O occurs.
+    Unbound pre-integration prototype records lack necessary evidence and reject;
+    no schedule is inferred from a later plan or from the number of scores.
     """
 
     training_partition: Reference
@@ -119,6 +160,7 @@ class FidelityQualification(CoreContract):
     training_source: Fingerprint
     evaluation_source: Fingerprint
     maximum_error: Binary64
+    fidelities: Annotated[tuple[Fidelity, ...], Field(min_length=2, max_length=10)]
     cases: Annotated[tuple[CalibrationCase, ...], Field(min_length=1, max_length=64)]
 
     @model_validator(mode="after")
@@ -130,17 +172,9 @@ class FidelityQualification(CoreContract):
             raise ValueError("Fidelity error tolerance must be nonnegative")
         if len({row.case_id for row in self.cases}) != len(self.cases):
             raise ValueError("Duplicate training case")
+        _check_schedule(self.fidelities, self.fidelities[0].resource.semantics)
         for case in self.cases:
-            if case.terminal.status != "observed":
-                raise ValueError("Qualification requires observed terminal training outcomes")
-            for early in case.early:
-                if early.status != "observed" or _spec_content(early.spec) != _spec_content(case.terminal.spec):
-                    raise ValueError("Qualification requires comparable observed training pairs")
-                if early.value is None or case.terminal.value is None:
-                    raise ValueError("Observed qualification pair requires values")
-                discrepancy = abs(Fraction(early.value) - Fraction(case.terminal.value))
-                if discrepancy > Fraction(self.maximum_error):
-                    raise ValueError("Training fidelity gate failed; do not eliminate on this proxy")
+            _check_training_case(case, len(self.fidelities) - 1, self.maximum_error, self.cases[0].terminal.spec)
         return self
 
 
@@ -214,12 +248,7 @@ class AllocationPlan(CoreContract):
 
     def _resources(self) -> None:
         """Check strictly increasing exact resource targets against budget semantics."""
-        previous = 0
-        for fidelity in self.fidelities:
-            current = ticks(fidelity.resource.value)
-            if fidelity.resource.semantics != self.budget.semantics or current <= previous:
-                raise ValueError("Fidelity targets must increase positively in exact budget units")
-            previous = current
+        _check_schedule(self.fidelities, self.budget.semantics)
 
     def _groups(self) -> None:
         """Check the explicit complete shared-setup interaction declaration."""
@@ -243,6 +272,8 @@ class AllocationPlan(CoreContract):
             qualification = self.qualification
             if qualification is None or qualification.evaluation_source != self.source_fingerprint:
                 raise ValueError("Early elimination requires training-only qualification for this source")
+            if _schedule_content(qualification.fidelities) != _schedule_content(self.fidelities):
+                raise ValueError("Plan differs from the exact qualified fidelity schedule")
             for case in qualification.cases:
                 if len(case.early) != len(self.fidelities) - 1 or _spec_content(case.terminal.spec) != _spec_content(
                     self.outcome

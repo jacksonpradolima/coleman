@@ -30,9 +30,9 @@ def test_independent_versioned_plan_golden_round_trip_and_digest():
     assert AllocationState.from_json(state.to_json()) == state
     purchase = inspect_allocation(state).next_purchase
     assert purchase is not None
-    assert purchase is not None
     action = purchase.action
-    assert action.kind == "acquisition" and action.chosen.id == "recipe-A"
+    assert action.kind == "acquisition"
+    assert action.chosen.id == "recipe-A"
 
 
 @pytest.mark.parametrize("version", [0, 2, 99])
@@ -93,12 +93,15 @@ def test_changed_objective_plan_and_substituted_request_are_rejected(ci_pool):
 
 def test_future_nested_version_duplicate_keys_and_nonfinite_json_do_not_fallback():
     text = GOLDEN.read_text()
+    future_version = text.replace('"schema_version": 1', '"schema_version": 2')
     with pytest.raises(ValueError):
-        AllocationPlan.from_json(text.replace('"schema_version": 1', '"schema_version": 2'))
+        AllocationPlan.from_json(future_version)
+    duplicate_key = text.replace('"schema_version": 1', '"schema_version": 1, "schema_version": 1')
     with pytest.raises(ValueError):
-        AllocationPlan.from_json(text.replace('"schema_version": 1', '"schema_version": 1, "schema_version": 1'))
+        AllocationPlan.from_json(duplicate_key)
+    nonfinite = text.replace('"minimum": null', '"minimum": NaN')
     with pytest.raises(ValueError):
-        AllocationPlan.from_json(text.replace('"minimum": null', '"minimum": NaN'))
+        AllocationPlan.from_json(nonfinite)
 
 
 def test_resource_quantum_is_canonical_without_altering_exact_value_or_old_quantity_class():
@@ -106,7 +109,8 @@ def test_resource_quantum_is_canonical_without_altering_exact_value_or_old_quant
     raw["budget"]["value"] = "2.000000000000"
     raw["fidelities"][0]["resource"]["value"] = "1.0"
     plan = AllocationPlan.model_validate(raw)
-    assert str(plan.budget.value) == "2" and str(plan.fidelities[0].resource.value) == "1"
+    assert str(plan.budget.value) == "2"
+    assert str(plan.fidelities[0].resource.value) == "1"
     assert plan == AllocationPlan.from_json(plan.to_json())
     legacy = Quantity(value=Decimal("2.00"), semantics=plan.budget.semantics)
     assert legacy.value.as_tuple().exponent == -2
@@ -218,11 +222,13 @@ def test_exact_restore_and_outcome_spec_reject_signed_zero_configuration_change(
     plan = ci_pool.make_plan("equal_allocation_v1")
     altered_spec = type(plan.outcome).model_validate(plan.outcome.model_copy(update={"minimum": -0.0}))
     altered_plan = AllocationPlan.model_validate(plan.model_copy(update={"outcome": altered_spec}))
-    assert plan == altered_plan and plan.fingerprint != altered_plan.fingerprint
+    assert plan == altered_plan
+    assert plan.fingerprint != altered_plan.fingerprint
     owner = TerminalAllocator(plan)
     before = owner.export_state().to_json()
+    altered_state = AllocationState(schema_version=1, plan=altered_plan)
     with pytest.raises(ValueError, match="exact original plan"):
-        owner.restore_state(AllocationState(schema_version=1, plan=altered_plan))
+        owner.restore_state(altered_state)
     assert owner.export_state().to_json() == before
     receipt = ci_pool.CIPool().acquire(owner.inspect().next_purchase, plan)
     altered = AcquisitionReceipt.model_validate(

@@ -18,7 +18,8 @@ from coleman.state.local import LocalStateStore
 def checkpoint_example():
     path = Path(__file__).parents[2] / "examples/acquisition/checkpoint.py"
     spec = importlib.util.spec_from_file_location("acquisition_checkpoint_example", path)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -62,7 +63,8 @@ def test_actual_store_restart_during_increment_and_elimination(ci_pool, checkpoi
 
         acknowledged = store.commit_transition(request, bindings, transition, compatibility=compatibility)
         retained = store.commit_transition(request, bindings, transition, compatibility=compatibility)
-        assert retained.status == "retained" and callback_calls == ["accepted-only-once"]
+        assert retained.status == "retained"
+        assert callback_calls == ["accepted-only-once"]
     assert inspect_allocation(state).known_charge.value == 8
     report = inspect_allocation(state)
     assert report.winner is not None
@@ -102,7 +104,8 @@ def test_interrupted_blob_write_leaves_previous_accepted_head_and_no_false_compl
     reopened = LocalStateStore.open(store.root)
     assert reopened.read_head() == initialized.current_head
     original = reopened.load(bindings, compatibility=compatibility).component(bindings[0].codec)
-    assert original == state and inspect_allocation(original).status == "running"
+    assert original == state
+    assert inspect_allocation(original).status == "running"
     new = reopened.commit_transition(
         request,
         bindings,
@@ -153,4 +156,5 @@ def test_actual_concurrent_writers_accept_one_charge_and_reconcile_exact_deliver
     assert sorted(results) == (["conflict", "new"] if conflicting else ["new", "retained"])
     assert len(calls) == 1
     final = store.load(bindings, compatibility=compatibility).component(bindings[0].codec)
-    assert len(final.receipts) == 1 and inspect_allocation(final).known_charge.value == 1
+    assert len(final.receipts) == 1
+    assert inspect_allocation(final).known_charge.value == 1

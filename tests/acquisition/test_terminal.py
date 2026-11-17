@@ -101,7 +101,8 @@ def test_actual_unknown_excessive_and_free_costs_are_distinct(ci_pool, amount, s
     assert report.unknown_charges == (1 if amount is None else 0)
     assert state.receipts[0].delay_steps == 5
     if status != "running":
-        assert report.next_purchase is None and report.winner is None
+        assert report.next_purchase is None
+        assert report.winner is None
 
 
 @pytest.mark.parametrize("missing", ["unknown", "unavailable", "not_applicable"])
@@ -118,16 +119,20 @@ def test_paid_missing_outcome_stops_without_imputation(ci_pool, missing):
         delay_steps=0,
     )
     report = inspect_allocation(accept_receipt(state, receipt))
-    assert report.status == "outcome_missing" and report.winner is None
-    assert report.known_charge.value == 1 and report.next_purchase is None
+    assert report.status == "outcome_missing"
+    assert report.winner is None
+    assert report.known_charge.value == 1
+    assert report.next_purchase is None
 
 
 def test_bounded_budget_is_never_silently_rounded_up_or_source_truncated(ci_pool):
     state = AllocationState(schema_version=1, plan=ci_pool.make_plan(budget=0))
     report = inspect_allocation(state)
-    assert report.status == "budget_exhausted" and report.next_purchase is None
+    assert report.status == "budget_exhausted"
+    assert report.next_purchase is None
     assert len(state.plan.candidates) == 4
-    assert report.known_charge.value == 0 and report.winner is None
+    assert report.known_charge.value == 0
+    assert report.winner is None
 
 
 def test_shared_setup_overlap_is_charged_once_and_full_reruns_remain_explicit(ci_pool):
@@ -256,13 +261,15 @@ def test_early_rank_reversal_is_an_honest_negative_with_unpurchased_terminal_hid
             ),
         )
     report = inspect_allocation(state)
-    assert report.winner is not None and report.winner.id == "A"
+    assert report.winner is not None
+    assert report.winner.id == "A"
     assert ("D", "builds-4") not in read
     before = state.fingerprint
     # A separate evaluator can discover the recommendation loses to D. That
     # terminal value was never input to elimination, tuning or the checkpoint.
     assert source[("D", "builds-4")] < source[(report.winner.id, "builds-4")]
-    assert state.fingerprint == before and inspect_allocation(state) == report
+    assert state.fingerprint == before
+    assert inspect_allocation(state) == report
 
 
 @pytest.mark.parametrize("change", ["objective", "resource", "members"])
@@ -283,9 +290,11 @@ def test_real_provider_rejects_relabeling_or_different_scope_before_reading(ci_p
     plan = AllocationPlan.model_validate(raw)
     owner = TerminalAllocator(plan)
     pool = ci_pool.CIPool()
+    purchase = owner.inspect().next_purchase
     with pytest.raises(ValueError):
-        pool.acquire(owner.inspect().next_purchase, plan)
-    assert pool.reads == [] and owner.export_state().receipts == ()
+        pool.acquire(purchase, plan)
+    assert pool.reads == []
+    assert owner.export_state().receipts == ()
 
 
 def test_real_incremental_provider_rejects_substituted_prior_producer_and_objective(ci_pool):

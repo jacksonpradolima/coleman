@@ -20589,6 +20589,13 @@ An early score is not a terminal label. A multi-fidelity halving plan requires a
 `FidelityQualification` with explicit distinct development/evaluation logical partition IDs
 and source fingerprints, an original producer for each development case, every
 early target, terminal scores and an admitted maximum absolute training error.
+Its required `fidelities` field retains the complete ordered `Fidelity` tuple,
+including every versioned target identity, exact cumulative resource value,
+resource units/meaning and the terminal target. Each case's early scores map to
+the nonterminal entries in that order. The allocator requires an exact canonical
+match with its own schedule. Keeping the same number of stages does not qualify
+different resources, target versions or terminal observations. Decimal values
+with equivalent quantum remain equivalent under the declared canonical contract.
 All training pairs must be observed and share the plan's objective. Failing the
 training gate rejects the plan; the host can freeze a separate terminal-only
 equal-allocation plan as its conservative fallback.
@@ -20665,6 +20672,15 @@ charge. Conflicting duplicates, substituted requests, data after stopping,
 nonfinite values and incompatible units fail. Schema 1 requires explicit version 1;
 unknown/future versions fail. It does not infer a migration from old runner or
 coverage checkpoints. Existing artifact readers continue to work unchanged.
+
+Earlier, unmerged prototype qualification records omitted the target schedule.
+Those incomplete records are rejected by this qualification reader and cannot
+authorize elimination or checkpoint continuation. The missing measurement
+targets cannot be reconstructed from a later plan or from a score count.
+Reconstruct qualification only from original training evidence that declares the
+actual measured schedule, or freeze a new terminal-only equal-allocation run.
+Existing terminal-only version-1 artifacts and the original quantity/coverage
+readers keep their meanings; the versioned terminal-plan golden remains unchanged.
 
 JSON bytes alone are not an acknowledgement. The
 [checkpoint binding example](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/acquisition/checkpoint.py)

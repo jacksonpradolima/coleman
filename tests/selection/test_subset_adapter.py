@@ -45,7 +45,8 @@ def test_actual_coverage_subset_matches_independent_enumeration_and_retains_proo
     assert isinstance(result.action, SubsetAction)
     assert result.result.objective is not None
     assert result.result.selected_ids is not None
-    assert result.result.status == "optimal" and result.result.objective.value == maximum
+    assert result.result.status == "optimal"
+    assert result.result.objective.value == maximum
     assert {row.id for row in result.action.selected} == set(result.result.selected_ids)
     assert result.result.problem == source
     assert CoverageSelection.from_json(result.to_json()) == result
@@ -57,7 +58,8 @@ def test_empty_subset_is_real_action_while_infeasible_is_abstention():
     assert empty.selected == ()
     result = select_coverage_subset(problem(0, ("A",)))
     assert isinstance(result.action, AbstainAction)
-    assert not result.result.feasible and result.result.status == "infeasible"
+    assert not result.result.feasible
+    assert result.result.status == "infeasible"
     raw = result.model_dump(mode="json")
     raw["action"]["reason"] = "invented"
     with pytest.raises(ValueError, match="differs from"):
