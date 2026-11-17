@@ -89,7 +89,8 @@ def test_exp3_independent_paper_arithmetic_and_true_finite_mass():
     # Figure1: xhat=.5/.5=1, eta=gamma/K=.25, log ratio=.25.
     assert state.log_weights[chosen] == 0.0
     assert state.log_weights[1 - chosen] == -0.25
-    assert state.counts[chosen] == 1 and state.counts[1 - chosen] == 0
+    assert state.counts[chosen] == 1
+    assert state.counts[1 - chosen] == 0
     second = learner.decide(request(config, 1))
     pending = learner.export_state().pending
     weights = [Fraction.from_float(math.exp(value)) for value in state.log_weights]
@@ -158,8 +159,9 @@ def test_unsupported_feedback_leaves_original_state_intact(change):
     learner.decide(request(configuration(), 0))
     batch = observation(learner, 0.0)
     before = learner.export_state()
+    unsupported = batch.model_copy(update=change)
     with pytest.raises(ValueError):
-        learner.update(batch.model_copy(update=change))
+        learner.update(unsupported)
     assert learner.export_state() == before
 
 
@@ -233,8 +235,9 @@ def test_hidden_panel_wrong_chosen_transform_and_units_rejected():
         ),
     )
     for feedback in alternatives:
+        incompatible = batch.model_copy(update={"feedback": feedback})
         with pytest.raises(ValueError):
-            learner.update(batch.model_copy(update={"feedback": feedback}))
+            learner.update(incompatible)
         assert learner.export_state() == before
 
 
@@ -278,8 +281,9 @@ def test_unknown_versions_configuration_restore_and_pending_tamper_reject():
     assert state.pending is not None
     data = json.loads(state.to_json())
     for version in (0, 2, True, "1"):
+        unsupported = json.dumps({**data, "schema_version": version})
         with pytest.raises(ValueError):
-            DiscreteState.from_json(json.dumps({**data, "schema_version": version}))
+            DiscreteState.from_json(unsupported)
     for altered in (
         state.model_copy(update={"runtime": (2, 7)}),
         state.model_copy(update={"config": state.config.model_copy(update={"gamma": 0.25})}),
@@ -295,8 +299,28 @@ def test_unknown_versions_configuration_restore_and_pending_tamper_reject():
 
 @pytest.mark.parametrize("gamma", (0.0, -1.0, 2.0, float("nan"), float("inf")))
 def test_unsupported_exploration_gamma(gamma):
+    unsupported = configuration().model_copy(update={"gamma": gamma})
     with pytest.raises(ValueError):
-        DiscreteConfig.model_validate(configuration().model_copy(update={"gamma": gamma}))
+        DiscreteConfig.model_validate(unsupported)
+
+
+@pytest.mark.parametrize(
+    "minimum,maximum",
+    (
+        (math.nextafter(0.0, 1.0), 1.0),
+        (math.nextafter(0.0, -1.0), 1.0),
+        (0.0, math.nextafter(1.0, 0.0)),
+        (0.0, math.nextafter(1.0, 2.0)),
+        (None, 1.0),
+        (0.0, None),
+    ),
+)
+def test_reward_schema_requires_exact_endpoints_without_tolerance(minimum, maximum):
+    config = configuration()
+    reward = config.reward.model_copy(update={"minimum": minimum, "maximum": maximum})
+    unsupported = config.model_copy(update={"reward": reward})
+    with pytest.raises(ValueError, match="bounds"):
+        DiscreteConfig.model_validate(unsupported)
 
 
 def test_ticket_endpoints_frequencies_and_importance_identity():
@@ -373,14 +397,17 @@ def test_independent_versioned_golden_finite_mass_fixture():
 def test_independently_authored_ucb_state_golden_and_content_digest():
     data = json.loads((Path(__file__).parent / "fixtures" / "ucb1-state-v1.json").read_text())
     state = DiscreteState.from_json(json.dumps(data))
-    assert state.counts == (1, 1) and state.rewards == (0.25, 0.75)
-    assert state.generator is None and state.pending is None
+    assert state.counts == (1, 1)
+    assert state.rewards == (0.25, 0.75)
+    assert state.generator is None
+    assert state.pending is None
     canonical = json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     assert state.to_json() == canonical
     assert state.fingerprint == "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
     # Reading an old fixture does not authorize its foreign runtime to execute.
+    incompatible_owner = DiscreteBandit(configuration("ucb1-binary64-v1"))
     with pytest.raises(ValueError, match="runtime"):
-        DiscreteBandit(configuration("ucb1-binary64-v1")).restore_state(state)
+        incompatible_owner.restore_state(state)
     # Produce these same statistics through real observations, without rewriting
     # the fixture's incompatible runtime attestation to permit its continuation.
     config = configuration("ucb1-binary64-v1")
@@ -405,8 +432,9 @@ def test_absorbed_positive_reward_refuses_atomically_instead_of_becoming_zero(pr
     learner.restore_state(state)
     learner.decide(request(config, 2))
     before = learner.export_state()
+    tiny = observation(learner, math.ulp(0.0))
     with pytest.raises(ValueError, match="absorbed"):
-        learner.update(observation(learner, math.ulp(0.0)))
+        learner.update(tiny)
     assert learner.export_state() == before
 
 
@@ -414,8 +442,9 @@ def test_subnormal_positive_exp3_log_increment_underflow_is_atomic():
     learner = DiscreteBandit(configuration())
     learner.decide(request(configuration(), 0))
     before = learner.export_state()
+    tiny = observation(learner, math.ulp(0.0))
     with pytest.raises(ValueError, match="underflows"):
-        learner.update(observation(learner, math.ulp(0.0)))
+        learner.update(tiny)
     assert learner.export_state() == before
 
 
@@ -435,8 +464,9 @@ def test_incompatible_interpreter_or_numerical_platform_restore_is_atomic(field)
 def test_invalid_request_is_atomic(change):
     learner = DiscreteBandit(configuration())
     before = learner.export_state()
+    invalid = request(configuration(), 0).model_copy(update=change)
     with pytest.raises(ValueError):
-        learner.decide(request(configuration(), 0).model_copy(update=change))
+        learner.decide(invalid)
     assert learner.export_state() == before
 
 
@@ -445,14 +475,13 @@ def test_conflicting_pending_round_and_changing_availability_reject():
     learner = DiscreteBandit(config)
     learner.decide(request(config, 0))
     before = learner.export_state()
+    conflicting = request(config, 0).model_copy(update={"decision_id": "conflict"})
     with pytest.raises(ValueError, match="original producer"):
-        learner.decide(request(config, 0).model_copy(update={"decision_id": "conflict"}))
+        learner.decide(conflicting)
+    changed_space = config.space.model_copy(update={"members": config.space.members[:1]})
+    changed_catalogue = request(config, 0).model_copy(update={"space": changed_space})
     with pytest.raises(ValueError, match="catalogue"):
-        learner.decide(
-            request(config, 0).model_copy(
-                update={"space": config.space.model_copy(update={"members": config.space.members[:1]})}
-            )
-        )
+        learner.decide(changed_catalogue)
     assert learner.export_state() == before
 
 
@@ -462,8 +491,9 @@ def test_numerical_envelope_failure_and_horizon_are_atomic():
     learner.decide(request(config, 0))
     learner.update(observation(learner, 1.0))
     completed = learner.export_state()
+    exhausted = request(config, 1)
     with pytest.raises(ValueError, match="horizon"):
-        learner.decide(request(config, 1))
+        learner.decide(exhausted)
     assert learner.export_state() == completed
     learner = DiscreteBandit(configuration())
     state = learner.export_state().model_copy(update={"log_weights": (0.0, -700.0)})
@@ -471,10 +501,12 @@ def test_numerical_envelope_failure_and_horizon_are_atomic():
     learner.decide(request(configuration(), 0))
     before = learner.export_state()
     pending = learner.pending_execution
-    assert pending is not None and isinstance(pending.action, ChoiceAction)
+    assert pending is not None
+    assert isinstance(pending.action, ChoiceAction)
     assert pending.action.chosen == configuration().space.members[0]
+    excessive = observation(learner, 1.0)
     with pytest.raises(ValueError, match="envelope"):
-        learner.update(observation(learner, 1.0))
+        learner.update(excessive)
     assert learner.export_state() == before
 
 
@@ -514,8 +546,9 @@ def test_sampler_rejects_nonfinite_out_of_envelope_and_lost_support(values, gamm
 
 @pytest.mark.parametrize("seed", (True, None, "19"))
 def test_seed_is_initialization_not_coerced_probability_or_external_generator(seed):
+    config = configuration()
     with pytest.raises(ValueError, match="Seed"):
-        DiscreteBandit(configuration(), seed=seed)
+        DiscreteBandit(config, seed=seed)
 
 
 @pytest.mark.parametrize(

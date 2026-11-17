@@ -101,11 +101,12 @@ class DiscreteConfig(CoreContract):
 
     def _reward_contract(self) -> None:
         """Require the exact mathematical reward domain without transforming it."""
+        # These are exact schema endpoints, rather than rounded measurements.
         if (
             self.reward.role != "reward"
             or self.reward.semantics.unit != "1"
-            or self.reward.minimum != 0.0
-            or self.reward.maximum != 1.0
+            or self.reward.minimum != 0
+            or self.reward.maximum != 1
         ):
             raise ValueError("Reward must explicitly declare dimensionless reward units and bounds [0, 1]")
 
