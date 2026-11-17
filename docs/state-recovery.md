@@ -386,6 +386,13 @@ deterministic; the host still owns snapshot completeness. An invalid initial
 snapshot receives no acknowledgement; an invalid successor leaves the previous
 acknowledged head intact.
 
+For the unchanged inherited core writer, the codec serializes the value it has
+just fully validated without repeating that same validation inside the writer.
+Field and model serializers remain active, and an overridden `to_json` retains
+its own writer path. Every route still passes the selected reader, canonical-byte
+and exact typed-field checks before publication. No snapshot validation is cached
+between calls, and the existing wire format and continuation rules are unchanged.
+
 Passing `encode` establishes in-process admission; it cannot certify an
 arbitrary host serializer across future processes. In particular, Pydantic
 [serializes sets as JSON arrays](https://docs.pydantic.dev/latest/api/standard_library_types/#sets),

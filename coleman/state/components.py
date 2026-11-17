@@ -12,9 +12,9 @@ from typing import Any, cast
 
 from pydantic import BaseModel
 
-from coleman.core.base import CoreContract
+from coleman.core.base import CoreContract, VersionedContract
 from coleman.core.identity import Reference
-from coleman.core.primitives import fingerprint
+from coleman.core.primitives import canonical_json, fingerprint
 from coleman.core.protocols import Stateful
 from coleman.core.reading import bounded_json_bytes
 from coleman.replay.retained_contracts import RetainedContinuation
@@ -275,6 +275,10 @@ class ComponentCodec[S: CoreContract]:
         -----
         Calls trusted pure validators/serialization only. It never calls encode,
         decode, an owner or storage; both public methods share this primitive.
+        After full validation, the unchanged inherited core writer can dump the
+        checked value directly. Custom method-level writers still execute their
+        own contract. The inherited route still executes Pydantic field/model
+        serializers; selected-reader and typed round-trip checks apply to both.
         """
         if type(state) is not self.state_type:  # pylint: disable=unidiomatic-typecheck
             raise TypeError("Component value must have its exact declared concrete type")
@@ -282,7 +286,12 @@ class ComponentCodec[S: CoreContract]:
         embedded = getattr(checked, "binding", None)
         if embedded is not None and embedded != self.binding:
             raise ValueError("Component embedded binding differs from its declared codec")
-        content = bounded_json_bytes(checked.to_json(), 16 * 1024**2)
+        encoded = (
+            canonical_json(checked.model_dump(mode="json"))
+            if self.state_type.to_json is VersionedContract.to_json
+            else checked.to_json()
+        )
+        content = bounded_json_bytes(encoded, 16 * 1024**2)
         signature = _state_signature(checked)
         if checked is not state and signature != _state_signature(state):
             raise ValueError("Component validation must preserve the exact complete declared state")

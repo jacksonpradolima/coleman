@@ -44,6 +44,13 @@ class _GraphBudget:
 
 def _quoted_size(value: str, remaining: int) -> int:
     """Count exact unescaped-UTF8 JSON string bytes without a large temporary."""
+    # Common field names/digests need no Python loop. The lower bound precedes
+    # scanning, so an oversized input retains the early bounded legacy path.
+    if len(value) + 2 <= remaining and value.isascii() and value.isprintable():
+        size = len(value) + 2 + value.count('"') + value.count("\\")
+        if size > remaining:
+            raise ValueError("Graph byte budget exceeded by a UTF-8/escaped string")
+        return size
     size = 2
     for character in value:
         code = ord(character)

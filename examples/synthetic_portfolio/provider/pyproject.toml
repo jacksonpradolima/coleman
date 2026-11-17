@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
+
+[project]
+name = "coleman-synthetic-portfolio-reference"
+version = "1.0.0"
+requires-python = ">=3.14"
+description = "Public authored synthetic funded-book reference for COLEMAN"
+dependencies = ["coleman==4.20.0"]
+
+[project.entry-points."coleman.executors.v1"]
+portfolio-reference = "coleman_synthetic_portfolio:bootstrap"
+
+[project.scripts]
+coleman-portfolio-example = "coleman_synthetic_portfolio.run:main"
+
+[tool.hatch.build.targets.wheel]
+bypass-selection = true
+
+[tool.hatch.build.targets.wheel.force-include]
+"../__init__.py" = "coleman_synthetic_portfolio/__init__.py"
+"../model.py" = "coleman_synthetic_portfolio/model.py"
+"../feedback.py" = "coleman_synthetic_portfolio/feedback.py"
+"../diagnostics.py" = "coleman_synthetic_portfolio/diagnostics.py"
+"../flow_contracts.py" = "coleman_synthetic_portfolio/flow_contracts.py"
+"../replay.py" = "coleman_synthetic_portfolio/replay.py"
+"../experiment.py" = "coleman_synthetic_portfolio/experiment.py"
+"../task_contracts.py" = "coleman_synthetic_portfolio/task_contracts.py"
+"../recipe.py" = "coleman_synthetic_portfolio/recipe.py"
+"../_state.py" = "coleman_synthetic_portfolio/_state.py"
+"../executor.py" = "coleman_synthetic_portfolio/executor.py"
+"../sample.py" = "coleman_synthetic_portfolio/sample.py"
+"../reporting.py" = "coleman_synthetic_portfolio/reporting.py"
+"../selection.py" = "coleman_synthetic_portfolio/selection.py"
+"../run.py" = "coleman_synthetic_portfolio/run.py"

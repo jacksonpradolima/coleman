@@ -37,10 +37,12 @@ flowchart TD
     C --> D[Test histories]
     C --> E[Evaluation]
     C --> I[Integration]
+    C --> P[Synthetic funded portfolio]
     S --> X[Experiments]
     D --> X
     X --> E
     E --> I
+    P --> E
     I --> W[Durable experiments and MCP]
     C --> R[Research]
     click S "getting-started/" "Run your first experiment"
@@ -48,6 +50,7 @@ flowchart TD
     click X "experiments/" "Configure experiments"
     click E "evaluation-guide/" "Evaluate evidence"
     click I "integration-guide/" "Explore integration"
+    click P "synthetic-portfolio/" "Compose learning with funded allocation"
     click W "durable-experiments/" "Plan, tune and recover an experiment"
     click R "research/" "Read the research"
 ```
@@ -62,6 +65,7 @@ The links below provide the same routes as the graph, including keyboard access.
 | How do I study configurations? | [WTS and VTS explained](highly-configurable.md) | [LibSSH source workflow](hcs-parquet-etl.md) |
 | Can I trust a comparison? | [Evaluation guide](evaluation-guide.md) | [Baselines](comparable-baselines.md), [protected evaluation](protected-evaluation.md) |
 | How would this enter a CI pipeline? | [Integration guide](integration-guide.md) | [Operational accounting](operational-pilot.md), [shadow evaluation](prospective-shadow.md) |
+| How do learning and funded allocation connect? | [Synthetic portfolio input → cycle → output](synthetic-portfolio.md) | [Expert mixtures](expert-mixtures.md), [forecasting and continuous allocation](continuous-decisions.md) |
 | Where is a particular symbol or term? | [API reference](api-reference.md) | [Glossary](glossary.md), [architecture](setup.md) |
 
 ## What you can build with COLEMAN
@@ -76,6 +80,7 @@ The links below provide the same routes as the graph, including keyboard access.
 | Manage changing CI recipes safely | [Versioned eligibility and explicit ownership](registry-lifecycle.md), prospective lifecycle, original feedback epochs and complete 32-child recovery; requires the unreleased v5 source wheel |
 | Combine declared CI experts | [Full-information expert mixtures](expert-mixtures.md), three mathematical references and separately controlled coefficients, explicit cadence, bounds and a soft movement penalty; requires the unreleased v5 source wheel |
 | Learn forecasts and choose feasible allocations | [Independent online ridge and continuous optimization](continuous-decisions.md), eligible signed labels, coupled constraints and projected updates, with separate prediction errors and own-path charges; requires the unreleased v5 source wheel |
+| Connect learning to a funded allocation path | [Synthetic portfolio experiment](synthetic-portfolio.md), exact modeled holdings/cash/drift and separate paths for actual learners, continuous solvers and simple baselines, with coefficient movement separate from paid charges; requires the unreleased v5 source wheel |
 | Model test selection without a runner | [Independent TCPCI mapping](tcpci-problems.md), explicit duration quotes, exact modeled-work accounting and separate ranking/slate feedback; requires the unreleased v5 source wheel |
 | Run an adaptive component as a durable job | [Typed task execution](typed-execution.md), approved concrete codecs, installed provider/dependency identity and complete-state recovery through the same coordinator as TCPCI; requires the unreleased v5 source wheel |
 | Audit what a source actually supports | [Source admission](corpus-admission.md): original evidence, explicit units and a 35-axis production-reality matrix |

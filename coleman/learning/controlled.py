@@ -415,6 +415,26 @@ class ControlledHedge:
         )
         return candidate, outcome
 
+    def view_state(self) -> AlgorithmState[ControlledPayload]:
+        """Observe the complete shared immutable state accepted at the last commit.
+
+        Returns
+        -------
+        AlgorithmState of ControlledPayload
+            Current complete version-one state, including original pending
+            panels, failures, clocks, intervals and exact movement usage.
+
+        Notes
+        -----
+        Requires the same sequential ownership as all controlled operations.
+        This is a shared immutable view, with no fresh validation, serialization,
+        I/O, durable acknowledgement or authentication. Legitimate transitions
+        replace the owned state; an earlier view retains its original value.
+        Use ``export_state`` for an independently revalidated snapshot. Public
+        serialization, input readers and restore retain their full validation.
+        """
+        return self._state
+
     def export_state(self) -> AlgorithmState[ControlledPayload]:
         """Return complete immutable state, retaining pending losses and exact usage.
 
