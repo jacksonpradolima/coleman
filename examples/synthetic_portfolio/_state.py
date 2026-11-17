@@ -137,6 +137,15 @@ class _AcknowledgedState:
 
 
 @dataclass(frozen=True)
+class _OpenedState:
+    """Keep one actual open operation's store and completely selected snapshot."""
+
+    store: LocalStateStore | None
+    checkpoint: PortfolioCheckpoint | None
+    manifest: CollectionManifest | None
+
+
+@dataclass(frozen=True)
 class Layout:
     """Keep pure bindings and original data separately from actual live owners.
 
@@ -239,6 +248,46 @@ class Layout:
         ValueError, OSError
             Missing prior state, changed marker, corrupt/incompatible store.
         """
+        return self._open_acquisition(create=create).store
+
+    def open_with_checkpoint(
+        self, *, create: bool = False
+    ) -> tuple[LocalStateStore | None, PortfolioCheckpoint | None]:
+        """Return an opened store and its same-operation complete checked state.
+
+        Parameters
+        ----------
+        create : bool, optional
+            Permit an explicitly virgin store, following ``open``'s rules.
+
+        Returns
+        -------
+        tuple
+            Actual store and complete snapshot from one selected load. Absence
+            returns ``(None, None)``; a virgin store has no snapshot yet.
+
+        Raises
+        ------
+        ValueError, OSError
+            Invalid source/bindings/artifacts or a head changed during acquisition.
+
+        Notes
+        -----
+        The fresh head must match this actual manifest. This is a point-in-time
+        result, not a lease, caller validation token or cache for another call.
+        Standalone ``open`` and ``checkpoint`` retain their independent reads.
+        """
+        opened = self._open_acquisition(create=create)
+        if opened.store is not None:
+            head = opened.store.read_head()
+            expected = None if opened.manifest is None else opened.manifest.fingerprint
+            observed = None if head is None else head.manifest_fingerprint
+            if observed != expected:
+                raise ValueError("Portfolio open snapshot requires its actual current matching head")
+        return opened.store, opened.checkpoint
+
+    def _open_acquisition(self, *, create: bool) -> _OpenedState:
+        """Perform the original open and full selected read once, without caching."""
         directory = self.context.artifact_directory
         path, marker = directory / "state", directory / "owned-definition.json"
         expected = self.definition.to_json()
@@ -248,15 +297,18 @@ class Layout:
             if marker.exists() or (directory / "coordinate-result.json").exists():
                 raise ValueError("Acknowledged typed Portfolio state is missing; fresh fallback is forbidden")
             if not create:
-                return None
+                return _OpenedState(None, None, None)
             directory.mkdir(parents=True, exist_ok=True)
             store = LocalStateStore.create(path, self.definition, self.context.preparation.compatibility)
         else:
             store = LocalStateStore.open(path)
+        checkpoint = manifest = None
         if store.read_head() is not None:
-            self.checkpoint(store)
+            prepared = store.load((self.binding,), compatibility=self.context.preparation.compatibility)
+            checkpoint = self._checkpoint_from_prepared(prepared)
+            manifest = prepared.manifest
         ArtifactWriter(directory).write_immutable(marker, expected)
-        return store
+        return _OpenedState(store, checkpoint, manifest)
 
     def checkpoint(self, store: LocalStateStore) -> PortfolioCheckpoint:
         """Read every acknowledged field without creating/restoring a learner.
@@ -364,6 +416,35 @@ class Layout:
         both paths finish with the same fresh head/receipt comparison.
         """
         return self._acknowledged_state(store).progress
+
+    def reconcile_with_checkpoint(
+        self, store: LocalStateStore
+    ) -> tuple[CommittedProgress[OwnedCommitProof], PortfolioCheckpoint]:
+        """Return an actual retained proof and the same complete checked snapshot.
+
+        Parameters
+        ----------
+        store : LocalStateStore
+            Actual initialized store under this exact source and execution law.
+
+        Returns
+        -------
+        tuple
+            Retained progress and complete state from the same acquisition.
+
+        Raises
+        ------
+        ValueError, OSError
+            Changed source, data, manifest or head; no substitute proof is made.
+
+        Notes
+        -----
+        Uses the real retained command and final fresh-head comparison. A newer
+        current head follows the existing complete reload/refusal path. No owner
+        callback runs, and no state is reused by a later operation.
+        """
+        acquired = self._acknowledged_state(store)
+        return acquired.progress, acquired.checkpoint
 
     def _acknowledged_state(self, store: LocalStateStore) -> _AcknowledgedState:
         """Retain a complete selected load only within this one current call."""

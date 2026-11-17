@@ -178,8 +178,9 @@ def durable(root):
         raise AssertionError("The actual staged operation must interrupt")
     assert store.read_head() == original_head
     assert not (context.artifact_directory / "coordinate-result.json").exists()
-    reopened = layout.open()
-    assert layout.checkpoint(reopened).experiment.next_index == 8
+    reopened, resumed_checkpoint = layout.open_with_checkpoint()
+    assert reopened is not None and resumed_checkpoint is not None
+    assert resumed_checkpoint.experiment.next_index == 8
     # Competing independent store clients propose the same one-period command.
     # An explicit five-second busy outcome is valid; retry must be retained and
     # must execute no second mathematical body. No lock/resource fence changes.
@@ -230,9 +231,9 @@ def durable(root):
     assert retained_command.status == "retained"
     assert layout.checkpoint(reopened).experiment.next_index == 9
     completed = layout.advance(reopened, lambda: None)
-    retained = layout.reconcile(reopened)
+    retained, final_checkpoint = layout.reconcile_with_checkpoint(reopened)
     assert completed.frontier.position == retained.frontier.position == 16
-    final = layout.checkpoint(reopened).experiment
+    final = final_checkpoint.experiment
     from coleman_synthetic_portfolio.experiment import Experiment
 
     expected = Experiment()

@@ -21752,14 +21752,26 @@ diagnostic, never an approved policy selected on protected outcomes.
 The small provider wheel maps the same example files into
 `coleman_synthetic_portfolio`; its only runtime dependency is the matching COLEMAN
 installation. It creates no new scheduler. Build/install ordinary noneditable
-wheels, then declare the concrete recipe and request outside the checkout:
+wheels from the same source revision, then declare the concrete recipe and
+request outside the checkout. The command uses the optional `cli` extra with
+Click; the accounting and experiment APIs do not need it. Use a fresh wheel
+directory so the install selects one SDK and one provider:
 
 ```bash
-python -m build --wheel examples/synthetic_portfolio/provider
-python -m pip install dist/coleman_synthetic_portfolio_reference-*.whl
-python -m coleman_synthetic_portfolio.run --recipe > portfolio-recipe.json
-python -m coleman_synthetic_portfolio.run --task-request > portfolio-request.json
+COLEMAN_WHEELS=$(mktemp -d)
+python -m build --wheel --outdir "$COLEMAN_WHEELS/sdk" .
+python -m build --wheel --outdir "$COLEMAN_WHEELS/provider" examples/synthetic_portfolio/provider
+python -m pip install 'coleman[cli]' "$COLEMAN_WHEELS"/sdk/coleman-*.whl \
+  "$COLEMAN_WHEELS"/provider/coleman_synthetic_portfolio_reference-*.whl
+python -I -m coleman_synthetic_portfolio.run --recipe > portfolio-recipe.json
+python -I -m coleman_synthetic_portfolio.run --task-request > portfolio-request.json
 ```
+
+`coleman-portfolio-example --help` exposes the same flags and the default
+`synthetic-portfolio-artifacts` directory. Declaration flags create no experiment
+artifacts; `--recipe` takes precedence over `--task-request` when both are set.
+Direct JSON/Parquet publication additionally needs `ci` (install the same SDK
+wheel with `coleman[ci,cli]`); the base library remains independent of both extras.
 
 An operator separately approves the installed recipe/image using the existing
 [task-host procedure](typed-execution.md). Pass that approval at host startup;
@@ -21775,6 +21787,17 @@ cadence block; an interruption before an ACK cannot advertise that stage as
 committed. Completion requires the exact terminal current ACK. Periods are
 logical work units; publication generations and stochastic observations are
 different quantities. This deterministic example owns no RNG.
+
+Callers needing both an opened store and its checked state can use
+`Layout.open_with_checkpoint()`. `Layout.reconcile_with_checkpoint(store)` pairs
+the real retained receipt/progress with the complete snapshot read in that same
+operation. The manifest, source, execution bindings and fresh head must agree;
+concurrent advancement follows the existing reload/refusal rules. These are
+explicit combined reads, with no cache or caller-provided validation token.
+Separate `open`, `checkpoint` and `reconcile` calls still perform fresh reads.
+The installed continuation example selects these combined operations while
+retaining the full sixteen periods, actual interruption, competing writers,
+retained-command checks and complete direct-state comparison.
 
 The named `portfolio-staged-batch-v2` command binds the exact expected ACK,
 complete collection definition, original source and configuration. The period

@@ -161,6 +161,84 @@ def test_installed_domain_has_real_exact_arithmetic_and_no_transport_dependency(
     assert result == {"actual_net_value": "10000/101", "transport_imports": False}
 
 
+def test_installed_example_click_entry_is_explicit_and_preserves_minimal_base(installed):
+    """Use separate real locked CLI closure and unchanged noneditable wheels."""
+    base = installed["virtual"]
+    environment, outside = installed["environment"], installed["outside"]
+    program = """
+import importlib.util,sys
+assert importlib.util.find_spec('click') is None
+from coleman_synthetic_portfolio.run import main
+assert 'click' not in sys.modules
+try:
+    main()
+except SystemExit as error:
+    assert '[cli] extra' in str(error)
+else:
+    raise AssertionError('CLI extra must be explicit')
+print('base-remains-click-free')
+"""
+    assert command([str(base / "bin/python"), "-I", "-B", "-c", program], environment, outside).strip() == (
+        "base-remains-click-free"
+    )
+    cli = installed["owned"] / "click-cli"
+    command([sys.executable, "-m", "venv", str(cli)], environment, outside)
+    seed_locked_dependencies(installed["uv"], cli, environment, extras=("cli",))
+    command(
+        [
+            installed["uv"],
+            "pip",
+            "install",
+            "--offline",
+            "--no-index",
+            "--no-deps",
+            "--python",
+            str(cli / "bin/python"),
+            *(str(wheel) for wheel in installed["wheels"]),
+        ],
+        environment,
+        outside,
+    )
+    command([installed["uv"], "pip", "check", "--python", str(cli / "bin/python")], environment, outside)
+    expected = json.loads(
+        command(
+            [
+                str(cli / "bin/python"),
+                "-I",
+                "-B",
+                "-c",
+                "import importlib.metadata as m,json;from coleman_synthetic_portfolio.recipe import recipe;"
+                "from coleman_synthetic_portfolio.sample import planning_request;"
+                "print(json.dumps({'recipe':recipe().to_json(),'request':planning_request().to_json(),'click':m.version('click')}))",
+            ],
+            environment,
+            outside,
+        )
+    )
+    assert expected["click"] == "8.1.8"
+    executable = str(cli / "bin/coleman-portfolio-example")
+    assert command([executable, "--recipe", "--task-request", "--protected"], environment, outside) == (
+        expected["recipe"] + "\n"
+    )
+    module = [str(cli / "bin/python"), "-I", "-B", "-m", "coleman_synthetic_portfolio.run"]
+    assert command([*module, "--task-request"], environment, outside) == expected["request"] + "\n"
+    assert "synthetic-portfolio-artifacts" in command([*module, "--help"], environment, outside)
+    invalid = subprocess.run(
+        [*module, "--unknown-option"],
+        cwd=outside,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert invalid.returncode == 2 and "No such option" in invalid.stderr and "Traceback" not in invalid.stderr
+    assert not (outside / "synthetic-portfolio-artifacts").exists()
+    assert command([str(base / "bin/python"), "-I", "-B", "-c", program], environment, outside).strip() == (
+        "base-remains-click-free"
+    )
+
+
 def test_installed_full_components_continue_original_pending_and_state(installed):
     result = invoke(installed, "direct")
     assert result["complete_continuation"] and result["periods"] == 16 and result["predictor_labels"] == 15
