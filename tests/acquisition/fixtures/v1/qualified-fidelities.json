@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "training_partition": {"id": "development-ci", "version": "1"},
+  "evaluation_partition": {"id": "protected-ci", "version": "1"},
+  "training_source": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "evaluation_source": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "maximum_error": 0.5,
+  "fidelities": [
+    {"reference": {"id": "builds-1", "version": "1"}, "resource": {"value": "1", "semantics": {"unit": "build_replays", "meaning": "constructed-build-replay-v1"}}},
+    {"reference": {"id": "builds-2", "version": "1"}, "resource": {"value": "2", "semantics": {"unit": "build_replays", "meaning": "constructed-build-replay-v1"}}},
+    {"reference": {"id": "builds-4", "version": "1"}, "resource": {"value": "4", "semantics": {"unit": "build_replays", "meaning": "constructed-build-replay-v1"}}}
+  ],
+  "cases": [{
+    "case_id": "development-case-1",
+    "producer": {"id": "constructed-ci-observer", "version": "1"},
+    "early": [
+      {"spec": {"dimension": {"id": "missed-fault-fraction", "version": "1"}, "semantics": {"unit": "1", "meaning": "constructed-ci-missed-faults-v1"}, "role": "objective", "minimum": 0.0, "maximum": 1.0}, "value": 0.25, "status": "observed"},
+      {"spec": {"dimension": {"id": "missed-fault-fraction", "version": "1"}, "semantics": {"unit": "1", "meaning": "constructed-ci-missed-faults-v1"}, "role": "objective", "minimum": 0.0, "maximum": 1.0}, "value": 0.5, "status": "observed"}
+    ],
+    "terminal": {"spec": {"dimension": {"id": "missed-fault-fraction", "version": "1"}, "semantics": {"unit": "1", "meaning": "constructed-ci-missed-faults-v1"}, "role": "objective", "minimum": 0.0, "maximum": 1.0}, "value": 0.5, "status": "observed"}
+  }]
+}

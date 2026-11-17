@@ -89,6 +89,7 @@ The links below provide the same routes as the graph, including keyboard access.
 | Inspect a constructed C weakness | [Pinned Juliet/GCC capture](c-seeded-source-capture.md), an independent arithmetic oracle, raw process evidence and interruption recovery |
 | Reproduce and inspect an experiment | [Typed RunSpec and the library API](api/experiment-api.md), [configuration identity and provenance](setup.md#identity-and-reproducibility), Parquet results and resumable checkpoints |
 | Select finite coverage under a budget | [Coverage selection](finite-coverage.md), explicit costs and solver-specific certificates and limits |
+| Choose a test subset or the next CI experiment | [Subset actions and bounded acquisition](subset-acquisition.md), existing coverage certificates, equal allocation or successive halving and resumable purchased-resource ledgers; requires the unreleased v5 source wheel |
 | Allocate resources under declared scenarios | [Scenario-payoff allocation](scenario-payoffs.md), signed outcomes, resource constraints and conservative evidence handling |
 | Check a CI decision before adoption | [Independent mathematical benchmarks](decision-benchmarks.md), [protected comparisons](protected-evaluation.md) and [operational accounting](operational-pilot.md) |
 | Extend or integrate the platform | [Library API](api/experiment-api.md), [application API and optional MCP](application-api.md), [versioned domain results](domain-results.md), hooks and [runner extensions](extensibility.md) |

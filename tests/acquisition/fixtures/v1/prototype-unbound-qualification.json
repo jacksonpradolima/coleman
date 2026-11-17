@@ -1,0 +1,76 @@
+{
+  "cases": [
+    {
+      "case_id": "development-stable-order",
+      "early": [
+        {
+          "spec": {
+            "dimension": {
+              "id": "missed-fault-fraction",
+              "version": "1"
+            },
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "role": "objective",
+            "semantics": {
+              "meaning": "missed-faults-at-two-tests-per-build-v1",
+              "unit": "1"
+            }
+          },
+          "status": "observed",
+          "value": 0.0
+        },
+        {
+          "spec": {
+            "dimension": {
+              "id": "missed-fault-fraction",
+              "version": "1"
+            },
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "role": "objective",
+            "semantics": {
+              "meaning": "missed-faults-at-two-tests-per-build-v1",
+              "unit": "1"
+            }
+          },
+          "status": "observed",
+          "value": 0.0
+        }
+      ],
+      "producer": {
+        "id": "constructed-development-ci",
+        "version": "1"
+      },
+      "terminal": {
+        "spec": {
+          "dimension": {
+            "id": "missed-fault-fraction",
+            "version": "1"
+          },
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "role": "objective",
+          "semantics": {
+            "meaning": "missed-faults-at-two-tests-per-build-v1",
+            "unit": "1"
+          }
+        },
+        "status": "observed",
+        "value": 0.0
+      }
+    }
+  ],
+  "evaluation_partition": {
+    "id": "evaluation-builds",
+    "version": "1"
+  },
+  "evaluation_source": "sha256:01701f9046be05442be96ae0e748b75642a71f77d9eb55edaa8b3fab480b4864",
+  "maximum_error": 0.0,
+  "schema_version": 1,
+  "training_partition": {
+    "id": "development-builds",
+    "version": "1"
+  },
+  "training_source": "sha256:238d76ffe3573ac925a334baeccb447c196b30e0f5552c9b026e269f56d5cbca"
+}
