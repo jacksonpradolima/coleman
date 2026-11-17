@@ -118,6 +118,7 @@ flowchart TD
 | Inspect a constructed C weakness | [Pinned Juliet/GCC capture](docs/c-seeded-source-capture.md), an independent arithmetic oracle, raw process evidence and interruption recovery |
 | Reproduce and inspect an experiment | [Typed RunSpec and the library API](#library-api), [configuration identity and provenance](#provenance), Parquet results and resumable checkpoints |
 | Select finite coverage under a budget | [Coverage selection](docs/finite-coverage.md), explicit costs and solver-specific certificates and limits |
+| Choose a test subset or the next CI experiment | [Subset actions and bounded acquisition](docs/subset-acquisition.md): retained coverage certificates, equal allocation or successive halving, purchased-only observations and resumable actual-resource accounting; requires the unreleased v5 source wheel |
 | Allocate resources under declared scenarios | [Scenario-payoff allocation](docs/scenario-payoffs.md), signed outcomes, resource constraints and conservative evidence handling |
 | Check a CI decision before adoption | [Independent mathematical benchmarks](docs/decision-benchmarks.md), [protected comparisons](docs/protected-evaluation.md) and [operational accounting](docs/operational-pilot.md) |
 | Extend or integrate the platform | [Library API](#library-api), [application API and optional MCP](docs/application-api.md), [versioned domain results](docs/domain-results.md), hooks and [runner extensions](docs/extensibility.md) |
