@@ -314,6 +314,7 @@ def _wait(service, identity):
 
 def task(root):
     """Execute the same concrete portfolio task through the real shared facade."""
+    from coleman_synthetic_portfolio.readback import read_full_task_result
     from coleman_synthetic_portfolio.recipe import FINAL_RESULT
     from coleman_synthetic_portfolio.sample import planning_request
 
@@ -328,7 +329,8 @@ def task(root):
     assert service.execute(request).job.job_id == started.job.job_id
     completed = _wait(service, started.job.job_id)
     result = decode_value(FINAL_RESULT, service.report(completed.job.job_id).result)
-    state = result.results[0].checkpoint.experiment
+    state = read_full_task_result(service, completed.job.job_id)[0].experiment
+    assert result.results[0].coordinate.experiment_fingerprint == state.fingerprint
     return {
         "state": state.fingerprint,
         "job": completed.job.job_id,
@@ -339,12 +341,15 @@ def task(root):
 
 def cli(root):
     """Use actual installed console JSON planning/execution for the same source."""
+    from coleman_synthetic_portfolio.readback import read_full_task_result
     from coleman_synthetic_portfolio.recipe import FINAL_RESULT
     from coleman_synthetic_portfolio.sample import planning_request
 
     from coleman.application.tasks import TaskService
     from coleman.artifacts import ArtifactWriter
     from coleman.tasks.protocols import decode_value
+    from coleman.tasks.requests import TaskJobCommand
+    from coleman.tasks.results import TaskCompletion
 
     profile, _ = approval()
     approval_path = root.parent / "cli-approval.json"
@@ -361,6 +366,8 @@ def cli(root):
         str(approval_path),
     ]
 
+    wires = {}
+
     def invoke(operation, body):
         completed = subprocess.run(
             [*prefix, operation, "--request", "-"], input=body, capture_output=True, text=True, check=False, timeout=60
@@ -368,18 +375,41 @@ def cli(root):
         assert completed.returncode == 0, completed.stdout + completed.stderr
         result = json.loads(completed.stdout)
         assert result.get("artifact_type") != "failure", result
+        wires[operation] = completed.stdout
         return result
 
     preview = invoke("plan", planning_request().to_json())
     start = invoke("execute", _execute_request(preview["plan_id"], "synthetic-cli-original").to_json())
     service = TaskService(root, bootstrap_profile=profile)
     completed = _wait(service, start["job"]["job_id"])
-    result = decode_value(FINAL_RESULT, service.report(completed.job.job_id).result)
-    return {"state": result.results[0].checkpoint.experiment.fingerprint, "periods": 16, "transport": "actual-cli"}
+    command = TaskJobCommand(
+        schema_version=1, contract="coleman-tasks-v1", artifact_type="job_command", job_id=completed.job.job_id
+    ).to_json()
+    before = invoke("status", command)
+    completion = service.report(completed.job.job_id)
+    reported = invoke("report", command)
+    assert wires["report"] == completion.to_json() + "\n"
+    assert TaskCompletion.model_validate(reported).fingerprint == before["job"]["result_digest"]
+    after = invoke("status", command)
+    assert before["job"] == after["job"] and after["job"]["state"] == "completed"
+    assert not before["worker_active"] and not after["worker_active"]
+    result = decode_value(FINAL_RESULT, completion.result)
+    state = read_full_task_result(service, completed.job.job_id)[0].experiment
+    assert result.results[0].coordinate.experiment_fingerprint == state.fingerprint
+    return {
+        "state": state.fingerprint,
+        "periods": 16,
+        "transport": "actual-cli",
+        "report_transfer": "complete-compact-v2",
+        "inline_completion_bytes": len(completion.to_json().encode()),
+        "completed_digest": completion.fingerprint,
+        "full_artifact_resolved": True,
+    }
 
 
 async def mcp(root):
     """Run the same approved task through the actual optional stdio transport."""
+    from coleman_synthetic_portfolio.readback import read_full_task_result
     from coleman_synthetic_portfolio.recipe import FINAL_RESULT
     from coleman_synthetic_portfolio.sample import planning_request
     from mcp.client import Client
@@ -388,6 +418,8 @@ async def mcp(root):
     from coleman.application.tasks import TaskService
     from coleman.artifacts import ArtifactWriter
     from coleman.tasks.protocols import decode_value
+    from coleman.tasks.requests import TaskJobCommand
+    from coleman.tasks.results import TaskCompletion
 
     profile, _ = approval()
     profile_path = root.parent / "approval.json"
@@ -425,8 +457,31 @@ async def mcp(root):
         )
     service = TaskService(root, bootstrap_profile=profile)
     completed = _wait(service, start["job"]["job_id"])
-    result = decode_value(FINAL_RESULT, service.report(completed.job.job_id).result)
-    return {"state": result.results[0].checkpoint.experiment.fingerprint, "periods": 16, "transport": "actual-stdio"}
+    command = TaskJobCommand(
+        schema_version=1, contract="coleman-tasks-v1", artifact_type="job_command", job_id=completed.job.job_id
+    ).to_json()
+    completion = service.report(completed.job.job_id)
+    async with Client(parameters) as client:
+        before = payload(await client.call_tool("task_status", {"command_json": command}))
+        reply = await client.call_tool("task_report", {"command_json": command})
+        reported = payload(reply)
+        assert reply.content[0].text == completion.to_json()
+        assert TaskCompletion.model_validate(reported).fingerprint == before["job"]["result_digest"]
+        after = payload(await client.call_tool("task_status", {"command_json": command}))
+        assert before["job"] == after["job"] and after["job"]["state"] == "completed"
+        assert not before["worker_active"] and not after["worker_active"]
+    result = decode_value(FINAL_RESULT, completion.result)
+    state = read_full_task_result(service, completed.job.job_id)[0].experiment
+    assert result.results[0].coordinate.experiment_fingerprint == state.fingerprint
+    return {
+        "state": state.fingerprint,
+        "periods": 16,
+        "transport": "actual-stdio",
+        "report_transfer": "complete-compact-v2",
+        "inline_completion_bytes": len(completion.to_json().encode()),
+        "completed_digest": completion.fingerprint,
+        "full_artifact_resolved": True,
+    }
 
 
 def main():

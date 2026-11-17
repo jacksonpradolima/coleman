@@ -190,6 +190,8 @@ def test_installed_real_shared_task_uses_identical_components_and_original_reque
 def test_installed_actual_cli_executes_same_frozen_task(installed):
     result = invoke(installed, "cli")
     assert result["transport"] == "actual-cli" and result["state"] == expected_state(installed)
+    assert result["report_transfer"] == "complete-compact-v2" and result["full_artifact_resolved"]
+    assert result["inline_completion_bytes"] < 1024**2
 
 
 def test_installed_actual_optional_mcp_executes_same_frozen_task(installed):
@@ -217,3 +219,5 @@ def test_installed_actual_optional_mcp_executes_same_frozen_task(installed):
     )
     result = invoke(installed, "mcp", virtual=virtual)
     assert result["transport"] == "actual-stdio" and result["state"] == expected_state(installed)
+    assert result["report_transfer"] == "complete-compact-v2" and result["full_artifact_resolved"]
+    assert result["inline_completion_bytes"] < 1024**2

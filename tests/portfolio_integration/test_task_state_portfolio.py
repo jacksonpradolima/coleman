@@ -20,8 +20,7 @@ from examples.synthetic_portfolio.recipe import binding, frontier_definition
 from examples.synthetic_portfolio.task_contracts import PortfolioConfiguration, PortfolioTrajectory
 
 
-@pytest.fixture
-def real_layout(tmp_path):
+def make_layout(tmp_path):
     """Initialize a real store; declared test ownership adds no task approval."""
     configuration = PortfolioConfiguration(schema_version=1, strength=0.05)
     trajectory = PortfolioTrajectory(
@@ -57,6 +56,12 @@ def real_layout(tmp_path):
     assert store is not None
     layout.initialize(store)
     return layout, store
+
+
+@pytest.fixture
+def real_layout(tmp_path):
+    """Supply one independent actual initialized store for each inspection case."""
+    return make_layout(tmp_path)
 
 
 class ObservedStore:

@@ -382,17 +382,94 @@ typed request. CLI/MCP do not enter the portfolio mathematical imports.
 
 The concrete executor uses the existing `LocalStateStore`, component codecs,
 compare-and-swap commits, durable ACK receipts and shared resource guards. It
-publishes one complete eight-period block at a time. An interruption after the
+accepts one complete eight-period block at a time. An interruption after the
 first ACK resumes the original complete eight-period frontier, including a held
 cadence block; an interruption before an ACK cannot advertise that stage as
 committed. Completion requires the exact terminal current ACK. Periods are
 logical work units; publication generations and stochastic observations are
 different quantities. This deterministic example owns no RNG.
 
+The named `portfolio-staged-batch-v2` command binds the exact expected ACK,
+complete collection definition, original source and configuration. The period
+count comes from the fully restored staged experiment. A stale head refuses
+before observing another period. Retrying an accepted command reuses its
+original receipt; reconciliation keeps older commands under their original
+intent rather than rewriting their meaning.
+
+### Receive a compact result and inspect its full evidence
+
+The selected `synthetic-funded-portfolio@2` recipe publishes **schema2**
+coordinate results and final reports. The full schema1 checkpoint stays in its
+original acknowledged state artifact. A compact result contains all fourteen
+terminal book summaries and exact references to that complete evidence:
+
+| Result field | Meaning |
+| --- | --- |
+| `outcomes` | Each candidate's terminal net wealth, total proportional/recurring paid charges and full executed absolute notional, in synthetic credits |
+| `snapshot.component` | Actual selected state-codec/owner binding, complete canonical blob SHA-256 and byte count |
+| `snapshot.manifest_fingerprint` | Exact current acknowledged manifest identity; its byte count is explicit |
+| `proof` | Original plan/coordinate/work bindings and the actual retained terminal receipt |
+| Final report item | Complete compact coordinate result plus its exact published JSON SHA-256 and byte count |
+
+The summary's executed notional and charges exclude coefficient movement and
+mathematical penalties. All period-level coefficients, signed outcomes, control
+objectives, actual trades, original observations and pending labels remain in
+the full referenced checkpoint. No trajectory is shortened or declared complete
+from an unacknowledged file.
+
+```mermaid
+flowchart LR
+    Plan[Same frozen 16-period plan] --> Commit[Existing state store and ACK]
+    Commit --> Full[Complete schema1 state artifact]
+    Commit --> Coordinate[Compact schema2 coordinate and 14 outcomes]
+    Coordinate --> Report[Compact schema2 final report]
+    Report --> Edge[Bounded CLI or MCP reply]
+    Report --> Resolve[Trusted local evidence resolver]
+    Full --> Resolve
+    Resolve --> Complete[Complete original checkpoint and receipts]
+```
+
+The task CLI and MCP keep their existing **1 MiB** interactive request/reply
+ceiling and the plan's **16 MiB aggregate job-output** ceiling. Compact
+publications avoid copying the multi-megabyte checkpoint into both the coordinate
+and final JSON, including the immutable writer's temporary publication names.
+An oversized interactive reply still refuses; no reader truncates it. Actual
+installed qualification must establish the complete compact reply's size and
+library/CLI/MCP equality for this fixed plan.
+
+From an approved local task service, resolve the complete original evidence:
+
+```python
+from coleman_synthetic_portfolio.readback import read_full_task_result
+
+completion = service.report(job_id)  # The same compact typed completion as CLI/MCP.
+checkpoints = read_full_task_result(service, job_id)
+assert checkpoints[0].experiment.next_index == 16
+# Every original exact settlement and pending label remains available here.
+first_equal = checkpoints[0].experiment.periods[0].candidates[0].settlement
+print(first_equal.net_value.fraction)
+```
+
+The resolver derives paths from the trusted service workspace and owned job/
+coordinate identities. It verifies the complete coordinate bytes, hashes,
+lengths, selected current state, original bindings, terminal ACK and all summaries
+against the actual full checkpoint. It updates no learner and accepts no new
+state command. This local artifact operation is separate from a remote file
+download; neither tool JSON nor a content hash grants filesystem/import authority.
+
+The explicit `LEGACY_COORDINATE_RESULT` and `LEGACY_FINAL_RESULT` codecs continue
+to read the earlier schema1 inline artifacts. Schema1 and schema2 publication
+readers reject one another's wire rather than guessing or silently converting
+it. The checkpoint schema and exact accounting remain unchanged. Reading an old
+artifact does **not** resume an old task under a new provider image: automatic
+operational migration is unsupported. Keep the old approved installation to
+continue its old lineage, or create a fresh plan under the new approved recipe.
+
 ## Respect the support boundary
 
 | Mechanism | Qualified profile |
 | --- | --- |
+| Task results | Complete compact schema2 report; full schema1 state via exact ACK artifact and trusted local resolver; original interactive/output caps retained |
 | Holdings, cash, net and gross | Funded divisible long-only assets, nonnegative cash, no contributions or withdrawals |
 | Leverage and shorting | Unsupported; signed generic solver coordinates do not supply financing |
 | Borrow, collateral, margin, funding interest | Unsupported |

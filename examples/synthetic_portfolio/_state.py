@@ -20,6 +20,7 @@ from coleman.state.contracts import StateBinding
 from coleman.state.local import LocalStateStore
 from coleman.state.storage_contracts import (
     CollectionDefinition,
+    CollectionManifest,
     CommitIntent,
     CommitReceipt,
     CommitRequest,
@@ -31,6 +32,7 @@ from coleman.tasks.protocols import CommittedProgress, CoordinateContext
 from .experiment import Experiment
 from .recipe import STATE, frontier_definition, reference
 from .task_contracts import PortfolioCheckpoint, PortfolioConfiguration, PortfolioTrajectory
+from .task_results import PortfolioCoordinateResultV2, PortfolioSnapshotReference, terminal_outcomes
 
 
 def read_text(path: Path, maximum_bytes: int) -> str:
@@ -123,6 +125,15 @@ class PortfolioOwner:
 def _forbidden(_stage: StagedCollection) -> None:
     """Refuse any body execution during an exact retained-command lookup."""
     raise AssertionError("Retained task reconciliation must execute zero transition callbacks")
+
+
+@dataclass(frozen=True)
+class _AcknowledgedState:
+    """Keep one operation's fully read checkpoint, manifest and actual receipt."""
+
+    checkpoint: PortfolioCheckpoint
+    manifest: CollectionManifest
+    progress: CommittedProgress[OwnedCommitProof]
 
 
 @dataclass(frozen=True)
@@ -352,6 +363,10 @@ class Layout:
         load. A concurrently advanced current head requires another full read;
         both paths finish with the same fresh head/receipt comparison.
         """
+        return self._acknowledged_state(store).progress
+
+    def _acknowledged_state(self, store: LocalStateStore) -> _AcknowledgedState:
+        """Retain a complete selected load only within this one current call."""
         selected = self.binding
         prepared = store.load((selected,), compatibility=self.context.preparation.compatibility)
         current = self._checkpoint_from_prepared(prepared)
@@ -378,8 +393,9 @@ class Layout:
             receipt.accepted_head == receipt.current_head
             and receipt.accepted_head.manifest_fingerprint == prepared.manifest.fingerprint
         ):
-            return self._progress_from_checkpoint(store, request, receipt, current)
-        return self.progress(store, request, receipt)
+            progress = self._progress_from_checkpoint(store, request, receipt, current)
+            return _AcknowledgedState(current, prepared.manifest, progress)
+        return self._progress_evidence(store, request, receipt)
 
     def progress(
         self,
@@ -401,8 +417,18 @@ class Layout:
         CommittedProgress
             Exact ACK joins with state-derived U under the static work profile.
         """
-        current = self.checkpoint(store)
-        return self._progress_from_checkpoint(store, request, receipt, current)
+        return self._progress_evidence(store, request, receipt).progress
+
+    def _progress_evidence(
+        self, store: LocalStateStore, request: CommitRequest, receipt: CommitReceipt
+    ) -> _AcknowledgedState:
+        """Obtain complete current bytes before joining their actual ACK."""
+        prepared = store.load((self.binding,), compatibility=self.context.preparation.compatibility)
+        current = self._checkpoint_from_prepared(prepared)
+        if prepared.manifest.fingerprint != receipt.current_head.manifest_fingerprint:
+            raise ValueError("Synthetic Portfolio progress requires the actual current matching ACK")
+        progress = self._progress_from_checkpoint(store, request, receipt, current)
+        return _AcknowledgedState(current, prepared.manifest, progress)
 
     def _progress_from_checkpoint(
         self,
@@ -472,14 +498,26 @@ class Layout:
         -------
         CommittedProgress
             Real ACK followed by a complete state-derived logical frontier.
+
+        Raises
+        ------
+        ValueError
+            Missing or foreign collection, stale predecessor, terminal state or
+            incompatible staged data. A refused transition accepts no new ACK.
+
+        Notes
+        -----
+        Command ``portfolio-staged-batch-v2`` binds the complete expected ACK,
+        original source and mathematical configuration. The ACK's verified
+        definition digest preserves the full collection comparison; it never
+        supplies a period count. Only the strictly restored staged experiment
+        supplies that count. Old commands remain retained under their original
+        intent and are never rewritten into this command generation.
         """
-        start = self.checkpoint(store).experiment.next_index
-        stop = min(start + self.configuration.periods_per_commit, len(self.trajectory.periods))
-        if start == stop:
-            raise ValueError("Synthetic Portfolio cannot advance beyond its terminal original period")
         selected = self.binding
         head = store.read_head()
-        assert head is not None
+        if head is None or head.definition_fingerprint != self.definition.fingerprint:
+            raise ValueError("Synthetic Portfolio advance requires its complete acknowledged collection definition")
         request = CommitRequest(
             schema_version=1,
             expected=head,
@@ -488,7 +526,14 @@ class Layout:
                 generation=head.generation + 1,
                 kind="transition",
                 content_fingerprint=fingerprint(
-                    {"from": start, "through": stop, "source": self.trajectory.fingerprint}
+                    {
+                        "command": "portfolio-staged-batch-v2",
+                        "expected": head.model_dump(mode="json"),
+                        "trajectory": self.trajectory.fingerprint,
+                        "source": self.context.preparation.source.model_dump(mode="json"),
+                        "configuration": self.configuration.fingerprint,
+                        "maximum_periods": self.configuration.periods_per_commit,
+                    }
                 ),
             ),
         )
@@ -496,6 +541,10 @@ class Layout:
         def apply(stage: StagedCollection) -> None:
             """Observe only this bounded original batch on its fresh actual owner."""
             owner = stage.owner(selected)
+            start = len(owner.experiment.periods)
+            stop = min(start + self.configuration.periods_per_commit, len(self.trajectory.periods))
+            if start >= stop:
+                raise ValueError("Synthetic Portfolio cannot advance beyond its terminal original period")
             for position in range(start, stop):
                 guard()
                 owner.experiment.step(position)
@@ -507,3 +556,79 @@ class Layout:
             compatibility=self.context.preparation.compatibility,
         )
         return self.progress(store, request, receipt)
+
+    def _completed_evidence(self, store: LocalStateStore) -> tuple[PortfolioCoordinateResultV2, PortfolioCheckpoint]:
+        """Join one terminal retained receipt to complete current selected bytes."""
+        acknowledged = self._acknowledged_state(store)
+        current, progress, manifest = acknowledged.checkpoint, acknowledged.progress, acknowledged.manifest
+        head = progress.proof.observed_head
+        if (
+            current.experiment.next_index != len(self.trajectory.periods)
+            or progress.proof.receipt.accepted_head != head
+            or manifest.fingerprint != head.manifest_fingerprint
+            or store.read_head() != head
+        ):
+            raise ValueError("Portfolio completion requires the exact terminal current acknowledged full state")
+        result = PortfolioCoordinateResultV2(
+            schema_version=2,
+            source=current.source,
+            snapshot=PortfolioSnapshotReference(
+                schema_version=1,
+                component=manifest.components[0],
+                manifest_fingerprint=manifest.fingerprint,
+                manifest_byte_count=len(manifest.to_json().encode("utf-8")),
+            ),
+            experiment_fingerprint=current.experiment.fingerprint,
+            proof=progress.proof,
+            outcomes=terminal_outcomes(current.experiment),
+        )
+        return result, current
+
+    def complete_result(self, store: LocalStateStore) -> PortfolioCoordinateResultV2:
+        """Describe terminal current ACK artifacts without duplicating full state.
+
+        Parameters
+        ----------
+        store : LocalStateStore
+            Actual owned collection under this exact source and execution image.
+
+        Returns
+        -------
+        PortfolioCoordinateResultV2
+            Exact original state/manifest byte identities, terminal summaries
+            and a real retained current receipt. Full receipts remain stored.
+
+        Raises
+        ------
+        ValueError, OSError
+            Incomplete, changed, incompatible or unavailable actual evidence.
+        """
+        return self._completed_evidence(store)[0]
+
+    def resolve_result(self, store: LocalStateStore, value: PortfolioCoordinateResultV2) -> PortfolioCheckpoint:
+        """Resolve exact current evidence through the existing strict state reader.
+
+        Parameters
+        ----------
+        store : LocalStateStore
+            Trusted operator-owned collection; no path is selected by a report.
+        value : PortfolioCoordinateResultV2
+            Complete declared metadata, source, summaries and terminal receipt.
+
+        Returns
+        -------
+        PortfolioCheckpoint
+            Every original mathematical state, book receipt and pending label.
+            Resolution updates no learner and accepts no new state command.
+
+        Raises
+        ------
+        ValueError, OSError
+            Wrong source/identity/size/summary/receipt, tampered or stale artifact,
+            incompatible current execution image or missing complete evidence.
+        """
+        selected = PortfolioCoordinateResultV2.model_validate(value)
+        actual, checkpoint = self._completed_evidence(store)
+        if selected.to_json() != actual.to_json():
+            raise ValueError("Portfolio result differs from its complete actual terminal state artifacts")
+        return checkpoint

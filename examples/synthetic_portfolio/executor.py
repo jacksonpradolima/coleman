@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from hashlib import sha256
 
 from coleman.artifacts import ArtifactWriter
 from coleman.objectives.bindings import DefinitionBinding
@@ -24,12 +25,12 @@ from .recipe import (
 )
 from .recipe import recipe as declare_recipe
 from .task_contracts import (
+    PortfolioCheckpoint,
     PortfolioConfiguration,
-    PortfolioCoordinateResult,
     PortfolioInputs,
-    PortfolioReport,
     PortfolioTrajectory,
 )
+from .task_results import PortfolioCoordinateResultV2, PortfolioReportItemV2, PortfolioReportV2
 
 
 @dataclass(frozen=True)
@@ -151,7 +152,7 @@ class PreparedPortfolio:
 
     def read_completed(
         self, coordinate: PortfolioTrajectory, context: CoordinateContext, /
-    ) -> PortfolioCoordinateResult | None:
+    ) -> PortfolioCoordinateResultV2 | None:
         """Read only a published complete result and verify its actual current ACK.
 
         Parameters
@@ -163,8 +164,9 @@ class PreparedPortfolio:
 
         Returns
         -------
-        PortfolioCoordinateResult or None
-            Complete rechecked result, or unpublished absence. Corruption raises.
+        PortfolioCoordinateResultV2 or None
+            Complete rechecked terminal reference and exact summaries, or
+            unpublished absence. Full state remains in the actual ACK artifact.
         """
         layout = self._layout(coordinate, context)
         path = context.artifact_directory / "coordinate-result.json"
@@ -175,22 +177,36 @@ class PreparedPortfolio:
         self._require_result(layout, result)
         return result
 
-    def _require_result(self, layout: Layout, result: PortfolioCoordinateResult) -> None:
-        """Reject complete-looking files without exact terminal current state."""
-        self.validate(
-            CommittedProgress(
-                result.proof.plan_fingerprint,
-                result.proof.coordinate_fingerprint,
-                result.proof.frontier,
-                result.proof,
-            ),
-            layout.context,
-        )
+    def _require_result(self, layout: Layout, result: PortfolioCoordinateResultV2) -> PortfolioCheckpoint:
+        """Resolve all current state, summaries and exact original ACK bindings."""
         store = layout.open()
-        if store is None or result.checkpoint.to_json() != layout.checkpoint(store).to_json():
-            raise ValueError("Portfolio result must retain the complete actual current checkpoint")
-        if result.proof.frontier.position != len(layout.trajectory.periods):
-            raise ValueError("Portfolio result requires every original period to be acknowledged")
+        if store is None:
+            raise ValueError("Portfolio result requires the complete actual current state store")
+        return layout.resolve_result(store, result)
+
+    def resolve_result(self, result: PortfolioCoordinateResultV2, context: CoordinateContext, /) -> PortfolioCheckpoint:
+        """Read full original evidence behind a compact result without updating it.
+
+        Parameters
+        ----------
+        result : PortfolioCoordinateResultV2
+            Exact typed result from the selected schema2 codec.
+        context : CoordinateContext
+            Trusted original plan, current implementation and owned directory.
+
+        Returns
+        -------
+        PortfolioCheckpoint
+            Complete existing schema1 state, including every original receipt
+            and pending label. Content references grant no path/import authority.
+
+        Raises
+        ------
+        ValueError, OSError
+            Wrong context, summaries, identities, sizes, stale ACK or missing/
+            corrupt/incompatible artifacts. No mathematical update is attempted.
+        """
+        return self._require_result(self._context_layout(context), COORDINATE_RESULT.validate(result))
 
     def advance(
         self,
@@ -198,7 +214,7 @@ class PreparedPortfolio:
         context: AttemptContext,
         committed: Callable[[CommittedProgress[OwnedCommitProof]], None],
         /,
-    ) -> PortfolioCoordinateResult:
+    ) -> PortfolioCoordinateResultV2:
         """Finish one original trajectory through bounded actual store transitions.
 
         Parameters
@@ -213,28 +229,28 @@ class PreparedPortfolio:
 
         Returns
         -------
-        PortfolioCoordinateResult
-            Complete final state and an actual retained receipt for its current
-            command. Outer coordinate/job publication is owned by the driver.
+        PortfolioCoordinateResultV2
+            Exact terminal state reference, typed outcomes and actual current
+            receipt. The driver owns outer publication; full state stays stored.
         """
         layout = self._layout(coordinate, context.coordinate)
         context.guard()
         store = layout.open(create=True)
         assert store is not None
         layout.initialize(store)
-        while layout.checkpoint(store).experiment.next_index < len(coordinate.periods):
-            committed(layout.advance(store, context.guard))
         progress = layout.reconcile(store)
-        return PortfolioCoordinateResult(
-            schema_version=1,
-            checkpoint=layout.checkpoint(store),
-            proof=progress.proof,
-        )
+        while progress.frontier.position < len(coordinate.periods):
+            previous = progress.frontier.position
+            progress = layout.advance(store, context.guard)
+            if progress.frontier.position <= previous:
+                raise ValueError("Portfolio batch must advance its actual acknowledged period frontier")
+            committed(progress)
+        return layout.complete_result(store)
 
     def publish_coordinate(
         self,
         coordinate: PortfolioTrajectory,
-        value: PortfolioCoordinateResult,
+        value: PortfolioCoordinateResultV2,
         context: CoordinateContext,
         /,
     ) -> None:
@@ -244,8 +260,9 @@ class PreparedPortfolio:
         ----------
         coordinate : PortfolioTrajectory
             Exact original source coordinate.
-        value : PortfolioCoordinateResult
-            Complete real ACK-backed result, not a partial artifact locator.
+        value : PortfolioCoordinateResultV2
+            Complete real ACK-backed reference and every terminal outcome. Full
+            original evidence is rechecked before publishing this metadata.
         context : CoordinateContext
             Actual trusted publication directory and execution bindings.
         """
@@ -263,23 +280,35 @@ class _PreparedBoundary:
 
     prepared: PreparedPortfolio
 
-    def produce(self, load_completed: Callable[[], tuple[PortfolioCoordinateResult, ...]], /) -> PortfolioReport:
+    def produce(self, load_completed: Callable[[], tuple[PortfolioCoordinateResultV2, ...]], /) -> PortfolioReportV2:
         """Load once and require every exact original owner/source/plan result."""
         values = load_completed()
-        if tuple(item.checkpoint.binding.owner for item in values) != tuple(
+        if tuple(item.snapshot.component.binding.owner for item in values) != tuple(
             item.reference for item in self.prepared.inputs.trajectories
         ):
             raise ValueError("Portfolio boundary requires every original source trajectory in declared order")
         if any(
-            item.checkpoint.plan_fingerprint != self.prepared.context.plan_fingerprint
-            or item.checkpoint.source != self.prepared.inputs.binding
+            item.proof.plan_fingerprint != self.prepared.context.plan_fingerprint
+            or item.source != self.prepared.inputs.binding
             for item in values
         ):
             raise ValueError("Portfolio boundary requires its exact admitted plan and complete source")
-        return PortfolioReport(
-            schema_version=1,
+        items = []
+        for value in values:
+            encoded = COORDINATE_RESULT.encode(value).encode("utf-8")
+            items.append(
+                PortfolioReportItemV2(
+                    schema_version=2,
+                    coordinate=value,
+                    artifact_profile="portfolio-coordinate-result-v2/core-json-v1",
+                    artifact_fingerprint="sha256:" + sha256(encoded).hexdigest(),
+                    artifact_byte_count=len(encoded),
+                )
+            )
+        return PortfolioReportV2(
+            schema_version=2,
             interpretation="constructed_mechanism_only",
-            results=values,
+            results=tuple(items),
         )
 
 
@@ -308,13 +337,13 @@ class PortfolioExecutor:
         return COORDINATE
 
     @property
-    def coordinate_result_codec(self) -> ModelCodec[PortfolioCoordinateResult]:
-        """Return the complete per-trajectory state-and-ACK result codec."""
+    def coordinate_result_codec(self) -> ModelCodec[PortfolioCoordinateResultV2]:
+        """Return compact schema2 metadata for complete original ACK evidence."""
         return COORDINATE_RESULT
 
     @property
-    def final_result_codec(self) -> ModelCodec[PortfolioReport]:
-        """Return the complete constructed descriptive evidence codec."""
+    def final_result_codec(self) -> ModelCodec[PortfolioReportV2]:
+        """Return the complete compact schema2 outcomes-and-artifact codec."""
         return FINAL_RESULT
 
     @property

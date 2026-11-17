@@ -25,6 +25,16 @@ Use the [worked guide](../synthetic-portfolio.md) for complete dated inputs,
 independent accounting arithmetic, causal prediction/control composition,
 JSON/Parquet output and optional shared task execution.
 
+The optional installed provider selects `synthetic-funded-portfolio@2` with
+compact schema2 coordinate/final results. Their typed outcomes and exact
+state/manifest references retain the complete original schema1 checkpoint in
+the acknowledged artifact. Use
+`coleman_synthetic_portfolio.readback.read_full_task_result(service, job_id)` to
+verify and recover that full evidence from trusted local storage. This performs
+no mathematical update or remote file download. Explicit legacy result readers
+remain in the provider's `recipe` module; reading them grants no execution
+compatibility or automatic operational migration.
+
 ::: coleman.problems.portfolio.contracts
 
 ::: coleman.problems.portfolio.accounting

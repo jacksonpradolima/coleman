@@ -28,6 +28,7 @@ from .task_contracts import (
     PortfolioReport,
     PortfolioTrajectory,
 )
+from .task_results import PortfolioCoordinateResultV2, PortfolioReportV2
 
 
 def reference(name: str) -> Reference:
@@ -174,8 +175,12 @@ CONFIGURATION = ModelCodec(PortfolioConfiguration, 64 * 1024)
 INPUTS = ModelCodec(PortfolioInputs, 2 * 1024**2)
 COORDINATE = ModelCodec(PortfolioTrajectory, 16 * 1024**2)
 STATE = ModelCodec(PortfolioCheckpoint, 16 * 1024**2)
-COORDINATE_RESULT = ModelCodec(PortfolioCoordinateResult, 16 * 1024**2)
-FINAL_RESULT = ModelCodec(PortfolioReport, 16 * 1024**2)
+# The original concrete readers remain explicit, read-only compatibility tools.
+# New plans select compact schema2; no old store is rebound to a new image.
+LEGACY_COORDINATE_RESULT = ModelCodec(PortfolioCoordinateResult, 16 * 1024**2)
+LEGACY_FINAL_RESULT = ModelCodec(PortfolioReport, 16 * 1024**2)
+COORDINATE_RESULT = ModelCodec(PortfolioCoordinateResultV2, 1024**2)
+FINAL_RESULT = ModelCodec(PortfolioReportV2, 1024**2)
 PROGRESS_PROOF = ModelCodec(OwnedCommitProof, 128 * 1024)
 
 
@@ -201,7 +206,7 @@ def recipe() -> ExecutorRecipe:
         contract="coleman-tasks-v1",
         schema_version=1,
         artifact_type="executor_recipe",
-        reference=reference("synthetic-funded-portfolio"),
+        reference=Reference(id="synthetic-funded-portfolio", version="2"),
         lineage=DefinitionLineage(source=None, source_fingerprint=None, declared_at=None, supersedes=None),
         entry_point=EntryPointSelection(
             distribution="coleman-synthetic-portfolio-reference",
