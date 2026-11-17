@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "config": {
+    "schema_version": 1,
+    "profile": "ucb1-binary64-v1",
+    "task": {"id": "ci-recipe-choice", "version": "v1"},
+    "objective": {"id": "maximize-observed-fault-credit", "version": "v1"},
+    "transform": {"id": "identity-credit", "version": "v1"},
+    "space": {
+      "kind": "choice",
+      "feasible_set": {"id": "fixed-ci-recipes", "version": "v1"},
+      "members": [{"id": "recipe-a", "version": "v1"}, {"id": "recipe-b", "version": "v1"}]
+    },
+    "reward": {
+      "dimension": {"id": "fault-credit", "version": "v1"},
+      "semantics": {"unit": "1", "meaning": "observed-fault-credit-v1"},
+      "role": "reward",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "origins": ["realized", "synthetic"],
+    "gamma": null,
+    "maximum_updates": 1000000
+  },
+  "runtime": {
+    "python": "3.14.6-independent-golden-host",
+    "implementation": "cpython",
+    "platform": "independent-fixture-os",
+    "machine": "fixture-architecture",
+    "os_release": "fixture-release",
+    "os_version": "fixture-version"
+  },
+  "counts": [1, 1],
+  "rewards": [0.25, 0.75],
+  "log_weights": [0.0, 0.0],
+  "generator": null,
+  "pending": null
+}
