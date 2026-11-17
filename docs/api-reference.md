@@ -18,6 +18,7 @@ understand their scope before composing a host-owned learner or solver.
 | [Expert learning and constrained output](api/learning.md), v5 source | Pure full-information references, controlled coefficient output and optional direct/replay adapters | [Combine CI experts](expert-mixtures.md) |
 | [Forecasting and continuous allocation](api/continuous.md), v5 source | Independent append-only ridge, bounded coupled quadratic solves, projections and online gradient steps | [Predict, allocate and account separately](continuous-decisions.md) |
 | [Typed task execution](api/tasks.md), v5 source | Pure executor contracts, approved installed capture and the shared durable application lifecycle | [Run a durable adaptive task](typed-execution.md) |
+| [Operational observations](api/operational.md), v5 source | Versioned lifecycle snapshots, explicit missingness and optional host-owned gauges | [Observe a decision without changing it](operational-qualification.md) |
 | [TCPCI problem mapping](api/tcpci-problems.md), v5 source | Independently usable test catalogues, semantic objectives, exact estimated-duration prefixes and original proposal/slate records | [Model a CI decision without a runner](tcpci-problems.md) |
 | [Specification models](api/spec-models.md) | `RunSpec` and typed configuration sections | [Configuration](configuration.md) |
 | [YAML I/O](api/spec-io.md) | `load_spec`, `load_sweep_spec`, `save_resolved` | [Configuration](configuration.md) |

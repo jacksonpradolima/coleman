@@ -199,6 +199,136 @@ superiority. Run without coverage/profilers for performance evidence and retain
 their configuration if instrumented. Network-export overhead needs a separately
 declared collector/backend workload; the memory profile does not measure it.
 
+### Separate an empty dependency cache from a fresh environment
+
+A fresh virtual environment can still reuse every downloaded wheel. Copy
+`examples/operational/bootstrap.py` outside the checkout and give it the exact
+reviewed wheel, frozen project and independently verified uv0.13.1 executable:
+
+```bash
+python -I -B bootstrap.py \
+  --project /path/to/reviewed/coleman \
+  --wheel /path/to/coleman-4.20.0-py3-none-any.whl \
+  --uv /path/to/verified/uv \
+  --output bootstrap-observations
+```
+
+| Cell | Environment | Dependency cache | Network policy |
+| --- | --- | --- | --- |
+| `empty-online` | New minimal environment | New private uv cache, verified empty before acquisition | Only the frozen public PyPI registry closure; ambient uv/pip configuration is disabled |
+| `warm-offline` | A second new minimal environment | The exact preceding cache frontier | Explicit offline resolution and local wheel installation |
+
+Both use the same existing interpreter, reviewed local SDK wheel and unchanged
+`uv.lock`/`pyproject.toml`. Neither builds dependencies or installs checkout
+source. Each runs a real dependency check and isolated cold import, then records
+the installed runtime; a mismatch refuses final publication. The report retains
+actual elapsed seconds, host CPU/lifetime-peak RSS, cache file counts/logical
+bytes, hardware and input/tool digests. Cache bytes are not downloaded-network
+bytes or allocated filesystem blocks. The SDK wheel, interpreter, OS, proxy,
+DNS and remote CDN caches are not claimed cold. Every installer command retains
+its 240-second fence; the installed qualification additionally imposes a
+240-second outer observation fence for the whole pair. Failure preserves logs
+and no `complete.json`. This minimal cold/warm profile complements the separate
+real full-extra warm-cache installation; it does not claim every platform/extra
+combination was acquired from an empty cache.
+
+### Observe real queued tasks and naturally growing artifacts
+
+Use the existing [typed executor](typed-execution.md) installation and independent
+approval steps. They install the actual public provider/support wheels and
+produce an explicit host profile. Copy the operational `tasks.py`,
+`task_records.py`, `task_inputs.py` and `ci.py` beside one another outside the
+checkout; keep the typed executor's approval script under the distinct name
+`typed-ci.py`. The report retains SHA-256 identities for the driver, CI example
+and both helpers, independently of the installed executor identity:
+
+```bash
+python -I -B typed-ci.py approve recipe.json profile.json
+python -I -B tasks.py --profile profile.json --output task-load
+```
+
+The driver uses the unchanged `TaskService`, SQLite store, supervisor, detached
+workers, actual resource guards and acknowledged state. It substitutes no
+startup callback, provider, principal component or memory sample. Each started
+cell has its own workspace, `max_running=1`, `max_queued=3`, the original
+60-second worker allowance and one 60-second observation window beginning just
+before the first admission, including any metadata retries. The whole driver
+has the original 180-second outer fence. Before admitting a cell it reserves
+60 seconds for observation and 30 seconds for planning, cleanup and verification
+**inside that same outer budget**. If that allowance no longer fits, the
+declared cell becomes `not_started`: no job is invented and its measurements are
+explicitly unavailable. The original grid and worker limits do not shrink.
+
+The host can receive a numeric SQLite `BUSY`/`LOCKED` response after durable
+admission but before startup acknowledges it. It retries the **same** retained
+request while that original observation window remains open, as `TaskService`
+requires, and
+registers cleanup before that uncertain call. Cancellation resolves only the
+matching owner, caller key, payload and plan; it never creates a replacement job.
+Retry waiting is included in elapsed time. Other errors propagate without an
+aggregate report and do not become LIMITED resource observations.
+If an uncertain admission or its status read exhausts that window, cleanup still
+reconciles the original caller keys, but no full-burst observation is invented:
+the driver raises without an aggregate. It never starts another request after
+the window expires.
+
+| Case size | Experts | Trajectories/job | Original panels/trajectory | Submitted jobs |
+| --- | --- | --- | --- | --- |
+| `small` | 2 | 1 | 1 | Separate bursts of 1 and 3 |
+| `larger` | 8 | 4 | 8 | Separate bursts of 1 and 3 |
+
+The grid **plans eight jobs and 132 synthetic panel updates**. It does not
+promise that this work fits a particular host's time budget. Source tables,
+typed result/final-checkpoint representations and actual inactive artifact trees
+grow through real work, without padding. Each report separates input bytes,
+complete result bytes, **final typed checkpoint representation** bytes and
+actual file counts/bytes across all persisted generations. Selected current ACK
+blob bytes and digests are retained separately. `accepted_updates` and the
+aggregate `acknowledged_update_lower_bound` count work selected by actual SQLite
+acknowledgements, not all physical or unacknowledged computation. Configured
+4 MiB per-job output reservations remain separate.
+
+Completed jobs must retain full direct/durable learner-state equality and the
+original identity on retained retries. A deadline or a known actual worker
+resource disposition instead triggers cancellation and observation of every
+actual owner becoming inactive, using only the remaining 180-second allowance.
+The report retains original queued/running/terminal observations, actual final
+job records, planned versus acknowledged work and partial artifacts. Full-result
+and final-state comparisons are **not applicable**, with explicit nulls, for
+incomplete jobs. `not_started` cells retain their planned work with unavailable
+measurements, rather than zero physical-work claims or fabricated queued jobs.
+`observation_elapsed_seconds` is separate from total cell time. A status read
+that crosses the 60-second window remains LIMITED, even if a job completes
+during cleanup and its final state can subsequently be verified.
+
+| Aggregate output | Interpretation |
+| --- | --- |
+| `complete.json`, `complete=true` | Every original case/job completed and was validated within the declared profile |
+| `limited.json`, `complete=false`, `outcome="limited"` | Every declared cell is represented, with explicit deadlines/resource limits or unstarted cases; this is a valid negative operational observation |
+| No aggregate report | Unexpected software/configuration/validation failure, missing evidence, or cleanup/publication could not finish within the original outer cap |
+
+Each finished cell is also retained immutably before the next cell starts.
+Earlier observations survive a later limit or interruption. A LIMITED result
+does not qualify positive 132-update capacity, empirical efficacy or a failed
+software path. Unexpected exceptions such as `TypeError` still propagate; they
+are never relabeled as resource limitations.
+
+`max_queued_views_per_sweep` is the maximum queued-and-unowned count in a
+sequential status sweep; it is not an atomic simultaneous queue-depth sample.
+`worker_owner_observed` records whether any actual ownership observation was
+positive. Requested burst size never becomes measured queue pressure. If a
+three-job cell observes no actual queued/unowned job, the complete workload may
+still report `queue_evidence="insufficient"`; that outcome does not satisfy a
+claim of exercised queue load.
+
+The report retains the complete captured provider image/dependency inventory and
+explicit bootstrap alongside the base identity. Host CPU/RSS are host-only;
+peak RSS includes prior cells/imports. Public task views do not expose worker
+CPU/RSS, so those fields are explicitly unavailable. Real own-executable worker
+memory guards remain enforced and separately tested; a configured limit is not
+reported as a measured peak. Repeated jobs are mechanical workload observations,
+not independent histories, execution fees or evidence of algorithm superiority.
+
 ## Know what the runtime identity establishes
 
 | Tier | Supported interpretation |

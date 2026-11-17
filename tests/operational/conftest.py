@@ -31,3 +31,13 @@ def replay_example():
 @pytest.fixture(scope="module")
 def measurement():
     return load("coleman_operational_measurement_tests", ROOT / "examples/operational/measure.py")
+
+
+@pytest.fixture(scope="module")
+def bootstrap_measurement():
+    return load("coleman_operational_bootstrap_tests", ROOT / "examples/operational/bootstrap.py")
+
+
+@pytest.fixture(scope="module")
+def task_measurement():
+    return load("coleman_operational_task_load_tests", ROOT / "examples/operational/tasks.py")
