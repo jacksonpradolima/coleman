@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 MAXIMUM_DEPTH = 64
 ReaderLabel = Literal["Replay", "State"]
+_STRUCTURAL = re.compile(r'["\\{}\[\]]')
 
 
 def bounded_json_bytes(payload: str | bytes, maximum_bytes: int, *, label: ReaderLabel = "State") -> bytes:
@@ -58,7 +60,16 @@ def _depth(text: str, label: ReaderLabel) -> None:
     depth = 0
     quoted = escaped = False
     changes = {"[": 1, "{": 1, "]": -1, "}": -1}
-    for character in text:
+    previous = -1
+    # A fixed character class skips only neutral text and materializes no match
+    # list. Any intervening ordinary character consumes an outstanding escape
+    # before the next structural token, including Unicode or a literal newline.
+    for token in _STRUCTURAL.finditer(text):
+        position = token.start()
+        if escaped and position > previous + 1:
+            escaped = False
+        previous = position
+        character = token.group()
         if quoted:
             if escaped:
                 escaped = False
