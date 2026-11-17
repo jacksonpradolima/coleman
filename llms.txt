@@ -20461,6 +20461,29 @@ decode-then-constructor path. The direct constructor and encoder keep their
 independent admission checks. This adds no validation cache, approval flag,
 acknowledgement, new wire format or automatic compatibility with another runtime.
 
+Restoration also compares every real owner's complete re-export with its input.
+For unchanged stock admission, the comparison retains the actual full encode's
+canonical bytes within that operation and runs the second actual selected reader
+against those bytes. It checks the original typed signature before and after
+callbacks, exact bytes and bindings, including signed zero, Decimal quantum and
+declared fields excluded from JSON. Every owner exports before comparisons start;
+a later owner or reader cannot silently mutate an earlier input or export.
+Custom codec, value, stage and method-level writer hooks keep the original
+export-and-encode sequence. Ordinary exports and publication still perform their
+independent full checks. This reuse stores no state across calls and supplies no
+caller-controlled validation flag or durable acknowledgement.
+
+Within one stock local transition, the adapter also retains the complete bytes
+and signatures produced by that transition's actual build. The `before_blobs`
+fault boundary still runs first during publication. The adapter then rechecks
+the current fields and bindings, runs the second actual selected reader, and
+matches every byte count and digest to the complete manifest before writing.
+Later readers cannot silently change an earlier original or decoded state.
+Custom publication, codec, value and writer hooks retain their original path;
+fault-barrier subclasses still exercise the same optimized publication boundary.
+Initialization and migration retain their independent checks. These private
+values live only inside the current commit and authorize no later call or runtime.
+
 Passing `encode` establishes in-process admission; it cannot certify an
 arbitrary host serializer across future processes. In particular, Pydantic
 [serializes sets as JSON arrays](https://docs.pydantic.dev/latest/api/standard_library_types/#sets),

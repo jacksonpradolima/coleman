@@ -246,11 +246,7 @@ class ComponentCodec[S: CoreContract]:
         fields, including nested values. Private implementation caches are not
         inferred; every value needed for continuation belongs in declared state.
         """
-        content, signature = self._canonical_state(state)
-        restored = self.decode(content)
-        if signature != _state_signature(restored):
-            raise ValueError("Component codec must recover the exact complete declared state")
-        return StateBytes(self.binding, content)
+        return _encode_with_signature(self, state)[0]
 
     def _canonical_state(self, state: S) -> tuple[bytes, Hashable]:
         """Validate concrete binding and bounded canonical bytes without recursion.
@@ -297,6 +293,20 @@ class ComponentCodec[S: CoreContract]:
         if checked is not state and signature != _state_signature(state):
             raise ValueError("Component validation must preserve the exact complete declared state")
         return content, signature
+
+
+def _encode_with_signature[S: CoreContract](codec: ComponentCodec[S], state: S) -> tuple[StateBytes, Hashable]:
+    """Run the full encoder and retain its own signature before its reader.
+
+    Both outputs come from this actual admission call. No caller can supply a
+    signature, validation decision or encoded witness. Callback order, complete
+    canonical/binding/bounds checks and public encoder errors remain identical.
+    """
+    content, signature = codec._canonical_state(state)  # pylint: disable=protected-access
+    restored = codec.decode(content)
+    if signature != _state_signature(restored):
+        raise ValueError("Component codec must recover the exact complete declared state")
+    return StateBytes(codec.binding, content), signature
 
 
 @dataclass(frozen=True)
@@ -502,6 +512,15 @@ class PreparedCollection:
         raise ValueError("Requested concrete component is absent or incompatible")
 
 
+@dataclass(frozen=True)
+class _RestoreExport:
+    """Retain this operation's actual full encode and pre-reader typed state."""
+
+    value: ComponentValue[Any]
+    encoded: StateBytes
+    signature: Hashable
+
+
 class StagedCollection:  # pylint: disable=too-few-public-methods
     """Hold fresh restored owners for exactly one trusted local transition.
 
@@ -561,6 +580,90 @@ class StagedCollection:  # pylint: disable=too-few-public-methods
         return tuple(
             ComponentValue(binding.codec, cast(Stateful[Any], owner).export_state()) for binding, owner in self._entries
         )
+
+    def _export_for_restore(self) -> tuple[_RestoreExport, ...]:
+        """Capture real exports only for this stock restoration comparison.
+
+        Returns
+        -------
+        tuple
+            Complete values, actual canonical encode results and typed signatures
+            captured before their selected readers. No byte or field is omitted.
+
+        Raises
+        ------
+        ValueError, TypeError
+            Changed stock dispatch or a value mutated during codec admission.
+            The enclosing stage invalidates itself on any failure.
+
+        Notes
+        -----
+        This private path retains the ordinary constructor's actual full encode.
+        Only its already-audited bytes are reused within the same comparison;
+        the second selected reader still runs before restoration is accepted.
+        Ordinary export and publication paths remain independent full audits.
+        """
+        if not _stock_restore_stage(self):
+            raise ValueError("Stock stage admission changed during owner callbacks")
+        exports = []
+        for binding, owner in self._entries:
+            codec = binding.codec
+            if not _stock_value_reader(ComponentValue, codec):
+                raise ValueError("Stock restore admission changed during owner callbacks")
+            snapshot = cast(Stateful[Any], owner).export_state()
+            encoded, signature = _encode_with_signature(codec, snapshot)
+            if signature != _state_signature(snapshot):
+                raise ValueError("Restored component changed during codec admission")
+            value = object.__new__(ComponentValue)
+            object.__setattr__(value, "codec", codec)
+            object.__setattr__(value, "value", snapshot)
+            exports.append(_RestoreExport(value, encoded, signature))
+        return tuple(exports)
+
+
+# Dispatch metadata only: no snapshots, bytes or validation decisions are cached.
+_STOCK_RESTORE_NAMESPACES = tuple(
+    (cls, tuple(cls.__dict__.items())) for cls in (ComponentValue, ComponentBinding, StagedCollection)
+)
+
+
+def _restore_types_unchanged() -> bool:
+    """Check stock descriptors before looking up any caller's component fields."""
+    return all(
+        len(cls.__dict__) == len(expected)
+        and all(name in cls.__dict__ and cls.__dict__[name] is value for name, value in expected)
+        for cls, expected in _STOCK_RESTORE_NAMESPACES
+    )
+
+
+def _stock_restore_exports(
+    values: tuple[ComponentValue[Any], ...], bindings: tuple[ComponentBinding[Any, Any], ...]
+) -> bool:
+    """Choose a whole stock operation before any owner export is invoked."""
+    # Preserve the existing bounded-inventory error path without enumerating a
+    # generator or touching a custom value/binding attribute during selection.
+    # pylint: disable=unidiomatic-typecheck
+    if type(values) is not tuple or type(bindings) is not tuple or not _restore_types_unchanged():
+        return False
+    if not 1 <= len(values) <= 128 or not 1 <= len(bindings) <= 128:
+        return False
+    if any(type(item) is not ComponentValue for item in values) or any(
+        type(item) is not ComponentBinding for item in bindings
+    ):
+        return False
+    codecs = tuple(item.codec for item in values) + tuple(item.codec for item in bindings)
+    return all(
+        _stock_value_reader(ComponentValue, codec) and codec.state_type.to_json is VersionedContract.to_json
+        for codec in codecs
+    )
+
+
+def _stock_restore_stage(staged: StagedCollection) -> bool:
+    """Preserve subclass or per-instance export hooks through the old path."""
+    if type(staged) is not StagedCollection or not _restore_types_unchanged():  # pylint: disable=unidiomatic-typecheck
+        return False
+    storage = object.__getattribute__(staged, "__dict__")
+    return not any(name in storage for name in ("_export", "_export_for_restore"))
 
 
 def child_frontier(continuation: RetainedContinuation[Any], *, child: Reference) -> ChildFrontier:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Hashable
+from dataclasses import dataclass
 from typing import Any, cast
 
 from coleman.core.protocols import Stateful
@@ -14,6 +16,10 @@ from coleman.state.components import (
     PreparedCollection,
     StagedCollection,
     StateBytes,
+    _encode_with_signature,
+    _state_signature,
+    _stock_restore_exports,
+    _stock_restore_stage,
     child_frontier,
 )
 from coleman.state.storage_contracts import (
@@ -31,6 +37,26 @@ from coleman.state.storage_contracts import (
 type Bindings = tuple[ComponentBinding[Any, Any], ...]
 type Values = tuple[ComponentValue[Any], ...]
 type Codecs = tuple[ComponentCodec[Any], ...]
+
+
+@dataclass(frozen=True)
+class _PublicationValue:
+    """Keep this build's actual bytes and pre-reader complete typed signatures."""
+
+    value: ComponentValue[Any]
+    encoded: StateBytes
+    signature: Hashable
+    binding_signature: Hashable
+
+
+@dataclass(frozen=True)
+class _Publication:
+    """Own one build/publication operation; never a public validation witness."""
+
+    prepared: PreparedCollection
+    bindings: Bindings
+    values: tuple[_PublicationValue, ...] | None
+    manifest_fingerprint: str
 
 
 def _bounded(values: object) -> None:
@@ -270,6 +296,20 @@ def build(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """
     content = encoded(definition, values, limits)
     actual = frontiers(definition, values, bindings)
+    return _assembled(definition, compatibility, request, values, content, actual, limits, migration)
+
+
+def _assembled(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    definition: CollectionDefinition,
+    compatibility: ExecutionCompatibility,
+    request: CommitRequest,
+    values: Values,
+    content: tuple[StateBytes, ...],
+    actual: tuple[ChildFrontier, ...],
+    limits: StorageLimits,
+    migration: MigrationReceipt | None,
+) -> PreparedCollection:
+    """Apply the original complete manifest assembly after actual encoding."""
     manifest = CollectionManifest(
         schema_version=1,
         definition=definition,
@@ -286,6 +326,101 @@ def build(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     if len(manifest.to_json().encode("utf-8")) > limits.maximum_manifest_bytes:
         raise ValueError("Complete manifest exceeds its persisted encoded byte ceiling")
     return PreparedCollection(manifest, tuple(sorted(values, key=lambda item: item.codec.binding.owner.id)))
+
+
+def _build_for_publish(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    definition: CollectionDefinition,
+    compatibility: ExecutionCompatibility,
+    request: CommitRequest,
+    values: Values,
+    bindings: Bindings,
+    limits: StorageLimits,
+) -> _Publication:
+    """Retain own stock admission only for the current transition/publication.
+
+    Custom admission uses the original builder and carries no reusable result.
+    Every stock value still passes the actual full encoder, selected reader,
+    inventory, per-component/aggregate capacities and original manifest checks.
+    No caller supplies bytes, signatures or a validation decision here.
+    """
+    if not _stock_restore_exports(values, bindings):
+        prepared = build(definition, compatibility, request, values, bindings, limits)
+        return _Publication(prepared, bindings, None, prepared.manifest.fingerprint)
+    inventory(definition, tuple(item.codec for item in values))
+    captured = []
+    total = 0
+    for item in sorted(values, key=lambda entry: entry.codec.binding.owner.id):
+        binding_signature = _state_signature(item.codec.binding)
+        content, signature = _encode_with_signature(item.codec, item.value)
+        if content.byte_count > limits.maximum_component_bytes:
+            raise ValueError("Component exceeds its persisted encoded byte ceiling")
+        total += content.byte_count
+        if total > limits.maximum_collection_bytes:
+            raise ValueError("Complete collection exceeds its persisted encoded byte ceiling")
+        captured.append(_PublicationValue(item, content, signature, binding_signature))
+    content = tuple(item.encoded for item in captured)
+    actual = frontiers(definition, values, bindings)
+    prepared = _assembled(definition, compatibility, request, values, content, actual, limits, None)
+    return _Publication(prepared, bindings, tuple(captured), prepared.manifest.fingerprint)
+
+
+def _unchanged_publication_values(values: tuple[_PublicationValue, ...]) -> None:
+    """Reject original-state or binding aliases changed by a later callback."""
+    if any(
+        item.signature != _state_signature(item.value.value)
+        or item.binding_signature != _state_signature(item.value.codec.binding)
+        for item in values
+    ):
+        raise ValueError("Publication component changed after its original full admission")
+
+
+def _publication_content(publication: _Publication, limits: StorageLimits) -> tuple[StateBytes, ...]:
+    """Check actual second readers after before_blobs, reusing only own bytes.
+
+    The complete current state and outer bindings must still match the build's
+    pre-reader signatures. Every selected reader runs again with the original
+    canonical/depth/size checks; later readers cannot mutate earlier originals
+    or decoded states undetected. Nothing survives this one publication call.
+    """
+    prepared, captured = publication.prepared, publication.values
+    if captured is None or not _stock_restore_exports(prepared.values, publication.bindings):
+        raise ValueError("Stock publication admission changed during callbacks")
+    if prepared.manifest.fingerprint != publication.manifest_fingerprint or any(
+        current is not original.value for current, original in zip(prepared.values, captured, strict=True)
+    ):
+        raise ValueError("Publication manifest or actual owned inventory changed")
+    _unchanged_publication_values(captured)
+    decoded = []
+    content = []
+    for item in captured:
+        current = item.value.codec.decode(item.encoded.content)
+        if item.signature != _state_signature(current):
+            raise ValueError("Publication reader must retain the exact complete declared state")
+        decoded.append(current)
+        content.append(StateBytes(item.value.codec.binding, item.encoded.content))
+    _unchanged_publication_values(captured)
+    if any(item.signature != _state_signature(current) for item, current in zip(captured, decoded, strict=True)):
+        raise ValueError("Publication reader changed an earlier complete decoded state")
+    result = tuple(content)
+    _verify_publication_content(prepared, result, limits)
+    return result
+
+
+def _verify_publication_content(
+    prepared: PreparedCollection, content: tuple[StateBytes, ...], limits: StorageLimits
+) -> None:
+    """Bind exactly the bytes to be written to the complete admitted manifest."""
+    total = 0
+    references = []
+    for item in content:
+        if item.byte_count > limits.maximum_component_bytes:
+            raise ValueError("Component exceeds its persisted encoded byte ceiling")
+        total += item.byte_count
+        if total > limits.maximum_collection_bytes:
+            raise ValueError("Complete collection exceeds its persisted encoded byte ceiling")
+        references.append(StateBlobRef(binding=item.binding, fingerprint=item.fingerprint, byte_count=item.byte_count))
+    if tuple(references) != prepared.manifest.components:
+        raise ValueError("Actual publication bytes differ from the complete admitted manifest")
 
 
 def decode(store: Any, manifest: CollectionManifest, codecs: Codecs) -> PreparedCollection:
@@ -387,7 +522,11 @@ def stage(prepared: PreparedCollection, bindings: Bindings) -> StagedCollection:
     Never mutates a previous live collection. Factories must be fresh and free
     of external effects; trusted Python can retain references and is not sandboxed.
     """
+    stock = _stock_restore_exports(prepared.values, bindings)
+    signatures = tuple(_state_signature(item.value) for item in prepared.values) if stock else ()
     verify(prepared, bindings)
+    if stock:
+        _unchanged_restore_values(prepared.values, signatures)
     ordered = tuple(sorted(bindings, key=lambda item: item.codec.binding.owner.id))
     entries = tuple((binding, binding.new_owner()) for binding in ordered)
     if len({id(owner) for _, owner in entries}) != len(entries):
@@ -396,11 +535,47 @@ def stage(prepared: PreparedCollection, bindings: Bindings) -> StagedCollection:
     try:
         for binding, owner in entries:
             cast(Stateful[Any], owner).restore_state(prepared.component(binding.codec))
-        actual = staged._export()  # pylint: disable=protected-access
-        for expected, restored in zip(prepared.values, actual, strict=True):
-            if expected.codec.encode(expected.value) != restored.codec.encode(restored.value):
-                raise ValueError("Fresh owner restore did not re-export the exact complete state")
+        if stock and _stock_restore_exports(prepared.values, bindings) and _stock_restore_stage(staged):
+            _compare_restore_exports(staged, prepared, bindings, signatures)
+        else:
+            actual = staged._export()  # pylint: disable=protected-access
+            for expected, restored in zip(prepared.values, actual, strict=True):
+                if expected.codec.encode(expected.value) != restored.codec.encode(restored.value):
+                    raise ValueError("Fresh owner restore did not re-export the exact complete state")
     except BaseException:
         staged._close()  # pylint: disable=protected-access
         raise
     return staged
+
+
+def _unchanged_restore_values(values: Values, signatures: tuple[Any, ...]) -> None:
+    """Reject changes to complete original fields by a later trusted callback."""
+    if any(_state_signature(item.value) != signature for item, signature in zip(values, signatures, strict=True)):
+        raise ValueError("Prepared component changed during owner restoration")
+
+
+def _compare_restore_exports(
+    staged: StagedCollection, prepared: PreparedCollection, bindings: Bindings, signatures: tuple[Any, ...]
+) -> None:
+    """Reuse only this operation's own audited actual bytes, never caller proof."""
+    if not _stock_restore_exports(prepared.values, bindings):
+        raise ValueError("Stock restore admission changed during owner callbacks")
+    actual = staged._export_for_restore()  # pylint: disable=protected-access
+    _unchanged_restore_values(prepared.values, signatures)
+    for expected, restored, signature in zip(prepared.values, actual, signatures, strict=True):
+        _unchanged_restore_values((expected,), (signature,))
+        expected_bytes = expected.codec.encode(expected.value)
+        # The first full actual encode already performed the same canonical and
+        # typed-preservation audit. Keep its SECOND actual selected reader and
+        # capture-before-reader signature, omitting only an intervening repeat
+        # of that unchanged actual object's canonical-state pass.
+        decoded = restored.value.codec.decode(restored.encoded.content)
+        if (
+            restored.signature != _state_signature(decoded)
+            or restored.signature != _state_signature(restored.value.value)
+            or expected_bytes != StateBytes(restored.value.codec.binding, restored.encoded.content)
+        ):
+            raise ValueError("Fresh owner restore did not re-export the exact complete state")
+    _unchanged_restore_values(prepared.values, signatures)
+    if any(item.signature != _state_signature(item.value.value) for item in actual):
+        raise ValueError("Restored component changed during a later owner callback")
