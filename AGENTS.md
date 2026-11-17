@@ -19,14 +19,67 @@ Verify the assigned issue against current sources and qualification evidence.
   Confirm that the issue still fits the code. Reuse existing capabilities.
 - A planned or Designed item is not implemented. Illustrative issue APIs are
   not authoritative; confirm the real interfaces and prerequisite completion.
-- Implement one dependency-ready issue at a time. Create focused branches from
-  updated `release/v5`; v5 implementation PRs target **`release/v5`**, not main.
-  Independent agents may handle isolated files or reviews within that issue.
-- Keep one coordinating owner for Git/index operations, global builds and
-  coverage runs. Assign explicit file ownership; do not edit another active
-  author's files. Distinguish author checks from independent peer review.
+- Implement assigned, independent, dependency-ready issues in parallel when the
+  current assignment authorizes that scope. Prerequisites must be implemented,
+  qualified and integrated into `release/v5`; a Ready label or a planned API
+  alone does not establish readiness. Keep dependent implementations queued.
+- Create one focused branch and isolated worktree per issue from updated
+  `release/v5`, and record its starting commit. V5 implementation PRs target
+  **`release/v5`**, not main. Agents within an issue may own separate components
+  or reviews; assign explicit file ownership and do not edit another active
+  author's files.
+- Keep one coordinating owner for assignments, shared interfaces and the
+  integration queue. Each worktree has exactly one Git/index owner; only that
+  owner stages, commits or changes its branch. Helpers sharing a worktree edit
+  only assigned files and report changes to that owner. Transfer ownership
+  explicitly after the previous owner stops Git operations and the next owner
+  verifies HEAD, index and working tree. The coordinator owns integration refs and
+  assigns one owner for each frozen candidate's global builds and coverage.
+  Distinguish author checks from independent peer review.
 - Do not create replacement issues when an existing issue can contain the fix.
   Create an issue only for a real otherwise-unresolvable blocker.
+
+### Coordinate parallel work
+
+- These rules apply equally to Codex subagents, separate worktree sessions and
+  external session managers. A separate chat is not automatically a coordinated
+  worker: give it an explicit assignment and reporting route. Do not assume it
+  inherits another session's context, tooling or qualification receipts.
+- Use the existing public issues, PRs and Project 3 as the shared task record.
+  Record each assignment's owner, scope, dependencies, base commit, branch,
+  worktree, allowed paths, shared-interface owner and expected evidence. Keep
+  status current without creating replacement issues or handoff files by default.
+  The coordinator sets a bounded concurrency budget for the available hosts,
+  memory, agent usage limits and CI capacity; it does not expand the user's scope.
+- Check semantic independence as well as different filenames. Changes to shared
+  action/feedback contracts, schemas, state codecs, registry bindings, dependency
+  locks or generated documentation need an explicit owner and implementation
+  order. Integrate and qualify a prerequisite interface before its dependents
+  implement against it. Independent research or read-only review may proceed
+  while implementation waits.
+- Give every worktree its own environment, mutable caches, temporary paths,
+  artifact/checkpoint roots, review receipts and coverage files. Do not share
+  writable `.venv`, `.coverage*`, build outputs or state stores between workers.
+  Any shared immutable source cache must retain the existing integrity and
+  concurrent-access contract; a shared directory alone does not provide one.
+- Workers run focused checks for their assigned change and report the actual
+  branch/head/tree, changed paths, commands/results, evidence locations/hashes,
+  known limits and unresolved findings. A worker's completion message is not
+  acceptance evidence by itself. Workers follow the same pre-push contract;
+  parallel work does not authorize an unqualified push or publication.
+- Reviewers inspect the frozen candidate independently of its author, apply the
+  actual local review rules and report findings with reproductions where possible.
+  Reserve each execution host for one resource-intensive qualification run at a
+  time, with one owner for that run; do not let competing worker workloads force
+  changes to the original test/resource limits. Separate hosts may qualify
+  separate candidates concurrently with isolated, source-bound evidence.
+- Qualify and merge through one integration queue. Bring the next candidate up
+  to date with current `release/v5` using non-destructive Git operations before
+  final qualification. After another issue integrates, reassess composition,
+  resolve conflicts, refresh both actual merge-base reviews and rerun affected
+  gates. Reuse evidence only for exact unchanged sources and applicable context;
+  never combine coverage from different candidates. Required checks and reviews
+  must qualify the actual current head before its normal protected merge.
 
 ## 2. Public scope, architecture and scientific behavior
 
