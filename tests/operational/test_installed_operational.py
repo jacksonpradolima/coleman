@@ -66,6 +66,33 @@ def installed(tmp_path_factory):
     return owned, uv, wheel, virtual, outside, environment
 
 
+@pytest.fixture(scope="module")
+def installed_cli(installed):
+    """Keep the real CLI closure separate from the genuine minimal API image."""
+    owned, uv, wheel, _, outside, environment = installed
+    virtual = owned / "cli"
+    command([uv, "venv", str(virtual), "--python", sys.executable], cwd=outside, environment=environment)
+    seed_locked_dependencies(uv, virtual, environment, extras=("cli",))
+    command(
+        [
+            uv,
+            "pip",
+            "install",
+            "--offline",
+            "--no-index",
+            "--no-deps",
+            "--no-build",
+            "--python",
+            str(virtual / "bin/python"),
+            str(wheel) + "[cli]",
+        ],
+        cwd=outside,
+        environment=environment,
+    )
+    command([uv, "pip", "check", "--python", str(virtual / "bin/python")], cwd=outside, environment=environment)
+    return virtual
+
+
 def invoke(python, filename, arguments, outside, environment, timeout=240):
     return command(
         [str(python), "-I", "-B", str(outside / filename), *arguments],
@@ -77,7 +104,22 @@ def invoke(python, filename, arguments, outside, environment, timeout=240):
 
 def test_actual_minimal_wheel_noop_ci_and_cold_boundary_without_optional_sdk(installed):
     _, _, _, virtual, outside, environment = installed
-    receipt = json.loads(invoke(virtual / "bin/python", "ci.py", ["--mode", "noop"], outside, environment))
+    script = (
+        "import importlib.metadata as metadata,json,runpy,sys; "
+        "namespace=runpy.run_path(sys.argv[1]); "
+        "assert 'click' not in sys.modules; "
+        "assert not any(name=='click' or name.startswith('opentelemetry') "
+        "for name in (item.metadata['Name'].lower() for item in metadata.distributions())); "
+        "receipt=namespace['run'](namespace['Workload'](schema_version=1),'noop'); "
+        "assert 'click' not in sys.modules; print(receipt.to_json())"
+    )
+    receipt = json.loads(
+        command(
+            [str(virtual / "bin/python"), "-I", "-B", "-c", script, str(outside / "ci.py")],
+            cwd=outside,
+            environment=environment,
+        )
+    )
     assert receipt["workload"] == {"schema_version": 1, "experts": 2, "panels": 2, "trajectories": 1}
     assert len(receipt["snapshots"]) == 2
     weights = receipt["final_states"][0]["payload"]["weights"]
@@ -86,6 +128,7 @@ def test_actual_minimal_wheel_noop_ci_and_cold_boundary_without_optional_sdk(ins
     assert result["new_threads"] == []
     assert result["optional_imports"] == []
     assert "opentelemetry-sdk" not in result["installed"]
+    assert "click" not in result["installed"]
 
 
 def test_actual_all_extra_locked_wheel_optional_import_invariance_and_local_sdk(installed):
@@ -135,6 +178,7 @@ def test_actual_all_extra_locked_wheel_optional_import_invariance_and_local_sdk(
     result = json.loads(invoke(python, "cold_import.py", [], outside, environment))
     assert result["optional_imports"] == []
     assert {
+        "click",
         "mcp",
         "opentelemetry-sdk",
         "clickhouse-connect",
@@ -155,16 +199,19 @@ def test_actual_all_extra_locked_wheel_optional_import_invariance_and_local_sdk(
     assert len({row["mathematical_output"] for row in report["measurements"]}) == 1
     instrumentation = report["instrumentation_runtime"]
     assert instrumentation["selected_extras"] == ["telemetry"]
+    driver = report["driver_runtime"]
+    assert driver["selected_extras"] == ["cli"]
+    assert {d["name"]: d["version"] for d in driver["distributions"]}["click"] == "8.1.8"
     versions = {d["name"]: d["version"] for d in instrumentation["distributions"]}
     assert versions["opentelemetry-sdk"] == versions["opentelemetry-api"] == "1.45.2"
     assert not {"numpy", "pylint", "mcp", "clickhouse-connect"} & versions.keys()
 
 
-def test_actual_empty_private_dependency_cache_and_same_offline_warm_cache(installed):
+def test_actual_empty_private_dependency_cache_and_same_offline_warm_cache(installed, installed_cli):
     owned, uv, wheel, virtual, outside, environment = installed
     report = json.loads(
         invoke(
-            virtual / "bin/python",
+            installed_cli / "bin/python",
             "bootstrap.py",
             [
                 "--project",
@@ -186,6 +233,8 @@ def test_actual_empty_private_dependency_cache_and_same_offline_warm_cache(insta
     assert cold["cache_after_files"] == warm["cache_before_files"] > 0
     assert cold["cache_after_bytes"] == warm["cache_before_bytes"] > 0
     assert cold["runtime"] == warm["runtime"]
+    assert report["driver_runtime"]["selected_extras"] == ["cli"]
+    assert {d["name"]: d["version"] for d in report["driver_runtime"]["distributions"]}["click"] == "8.1.8"
     for mode in ("empty-online", "warm-offline"):
         python = owned / "cache-observations" / mode / "bin/python"
         result = json.loads(invoke(python, "cold_import.py", [], outside, environment))
@@ -219,7 +268,7 @@ def installed_task_provider(installed):
         provider_wheels.extend(built)
     virtual = owned / "task-consumer"
     command([uv, "venv", str(virtual), "--python", sys.executable], cwd=outside, environment=environment)
-    seed_locked_dependencies(uv, virtual, environment)
+    seed_locked_dependencies(uv, virtual, environment, extras=("cli",))
     command(
         [
             uv,
@@ -231,7 +280,7 @@ def installed_task_provider(installed):
             "--no-build",
             "--python",
             str(virtual / "bin/python"),
-            str(wheel),
+            str(wheel) + "[cli]",
             *(str(path) for path in provider_wheels),
         ],
         cwd=outside,
@@ -266,6 +315,8 @@ def test_actual_queued_tasks_and_naturally_larger_artifacts_keep_complete_state(
         )
     )
     assert report["planned_updates"] == 132
+    assert report["driver_runtime"]["selected_extras"] == ["cli"]
+    assert {d["name"]: d["version"] for d in report["driver_runtime"]["distributions"]}["click"] == "8.1.8"
     assert report["helper_sources"] == [
         [name, hashlib.sha256((outside / name).read_bytes()).hexdigest()]
         for name in ("task_inputs.py", "task_records.py")
@@ -289,11 +340,13 @@ def test_actual_queued_tasks_and_naturally_larger_artifacts_keep_complete_state(
     for cell in report["cells"]:
         assert (owned / "task-load" / f"cell-{cell['batch']}-{cell['size']}.json").is_file()
         if cell["disposition"] == "not_started":
-            assert cell["jobs"] == [] and cell["observation_status"] == "unavailable"
+            assert cell["jobs"] == []
+            assert cell["observation_status"] == "unavailable"
             assert cell["input_bytes"] is cell["elapsed_seconds"] is cell["host_cpu_seconds"] is None
         else:
             assert len(cell["jobs"]) == cell["batch"]
-            assert cell["worker_peak_rss_mib"] is None and cell["worker_resource_status"] == "unavailable"
+            assert cell["worker_peak_rss_mib"] is None
+            assert cell["worker_resource_status"] == "unavailable"
     assert any(cell["batch"] == 3 and (cell["max_queued_views_per_sweep"] or 0) > 0 for cell in report["cells"])
     for row in jobs:
         assert row["planned_updates"] >= row["accepted_updates"]
@@ -313,3 +366,39 @@ def test_actual_queued_tasks_and_naturally_larger_artifacts_keep_complete_state(
         "coleman-typed-hedge-reference",
         "coleman-typed-hedge-support",
     }
+
+
+@pytest.mark.parametrize("filename", ("ci.py", "measure.py", "bootstrap.py", "tasks.py"))
+def test_actual_installed_cli_help_and_malformed_flags_before_work(installed, installed_cli, filename):
+    """Use actual Click from the noneditable optional image outside checkout."""
+    _, _, _, _, outside, environment = installed
+    python = str(installed_cli / "bin/python")
+    help_output = invoke(python, filename, ["--help"], outside, environment)
+    assert "Usage:" in help_output and "--help" in help_output
+    result = subprocess.run(
+        [python, "-I", "-B", str(outside / filename), "--unknown-operational-flag"],
+        cwd=outside,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=240,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert "No such option" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_actual_installed_cli_noop_and_typed_child_use_only_selected_tooling(installed, installed_cli):
+    """Run the genuine learner through Click without the telemetry SDK."""
+    _, _, _, _, outside, environment = installed
+    python = installed_cli / "bin/python"
+    boundary = json.loads(invoke(python, "cold_import.py", [], outside, environment))
+    assert "click" in boundary["installed"]
+    assert boundary["optional_imports"] == boundary["new_threads"] == []
+    receipt = json.loads(invoke(python, "ci.py", ["--mode", "noop"], outside, environment))
+    assert len(receipt["snapshots"]) == 2
+    assert receipt["final_states"][0]["payload"]["update_count"] == 2
+    child = json.loads(invoke(python, "measure.py", ["--child", "noop", "2", "2", "1"], outside, environment))
+    assert child["accepted_updates"] == 2 and child["mode"] == "noop"
+    assert child["snapshot_bytes"] > 0

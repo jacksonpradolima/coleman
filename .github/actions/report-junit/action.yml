@@ -10,10 +10,6 @@ inputs:
     description: Declared upload identity; qualification fixtures use a distinct name.
     required: false
     default: coleman-test-results
-  fail-ci-if-error:
-    description: String boolean selecting the uploader error policy; normal reporting keeps its original false policy.
-    required: false
-    default: 'false'
 
 outputs:
   files:
@@ -45,11 +41,12 @@ runs:
         PY
     - name: Upload test results to Codecov
       if: ${{ !cancelled() && steps.junit_reports.outputs.files != '' }}
-      uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+      uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6.0.2
       with:
         token: ${{ inputs.token }}
         report_type: test_results
         name: ${{ inputs.upload-name }}
-        fail_ci_if_error: ${{ inputs.fail-ci-if-error }}
+        # The upstream wrapper must exit before executing an unverified CLI.
+        fail_ci_if_error: true
         files: ${{ steps.junit_reports.outputs.files }}
         disable_search: true

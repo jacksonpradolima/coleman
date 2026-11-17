@@ -8,7 +8,6 @@ small workload. No report is published if any child fails or changes the math.
 
 from __future__ import annotations
 
-import argparse
 import hashlib
 import importlib.util
 import os
@@ -71,17 +70,49 @@ class Observation(CoreContract):
 
 
 class Report(CoreContract):
-    """Keep complete finite benchmark evidence and actual hardware/runtime."""
+    """Keep finite benchmark evidence and separately selected tool identities.
+
+    Notes
+    -----
+    ``driver_runtime`` records the command's optional CLI closure, independently
+    of the telemetry SDK being measured. Its absence means the old report did
+    not record that identity; it is omitted from JSON so v1 bytes/digests do
+    not change. Reading never invents or captures a missing runtime.
+    """
 
     complete: Literal[True]
     profile: Literal["quick", "matrix"]
     runtime: InstalledRuntime
+    driver_runtime: SelectedInstalledRuntime | None = Field(default=None, exclude_if=lambda value: value is None)
     instrumentation_runtime: SelectedInstalledRuntime
     hardware: str
     native_threads: tuple[tuple[str, str], ...]
     driver_sha256: Annotated[str, Field(strict=True, pattern=r"^[0-9a-f]{64}$")]
     example_sha256: Annotated[str, Field(strict=True, pattern=r"^[0-9a-f]{64}$")]
     measurements: Annotated[tuple[Observation, ...], Field(min_length=3, max_length=24)]
+
+    @model_validator(mode="after")
+    def _driver_identity(self):
+        """Keep optional command tooling bound to the same exact base image."""
+        driver = self.driver_runtime
+        if driver is not None and (
+            driver.selected_extras != ("cli",)
+            or not any(item.name == "click" and item.version == "8.1.8" for item in driver.distributions)
+            or any(
+                getattr(self.runtime, key) != getattr(driver, key)
+                for key in (
+                    "package_fingerprint",
+                    "python_implementation",
+                    "python_version",
+                    "operating_system",
+                    "machine",
+                )
+            )
+            or not {(item.name, item.version) for item in self.runtime.distributions}
+            <= {(item.name, item.version) for item in driver.distributions}
+        ):
+            raise ValueError("CLI driver identity must select cli and preserve the exact base runtime")
+        return self
 
     @model_validator(mode="after")
     def _complete(self):
@@ -191,11 +222,15 @@ def measure(*, quick: bool = False) -> Report:
 
     Raises
     ------
-    RuntimeError, subprocess.TimeoutExpired
-        A child fails, exceeds its30-second measurement fence or changes math.
+    RuntimeError, subprocess.TimeoutExpired, ImportError, ValueError
+        A child fails, exceeds its30-second measurement fence, changes math,
+        or the actual CLI/telemetry dependency identity is unavailable.
 
     Notes
     -----
+    This API starts Click child commands and therefore requires the CLI extra,
+    even when the parent itself is called programmatically. The report captures
+    that actual selected closure separately from the telemetry-only identity.
     Cases run sequentially. Fresh processes measure cold process/import cost;
     the inner clock excludes imports and includes instrumentation construction
     and shutdown. Dependency caches are retained; this is not an installation
@@ -240,6 +275,7 @@ def measure(*, quick: bool = False) -> Report:
         complete=True,
         profile="quick" if quick else "matrix",
         runtime=InstalledRuntime.capture(),
+        driver_runtime=SelectedInstalledRuntime.capture(extras=("cli",)),
         instrumentation_runtime=SelectedInstalledRuntime.capture(extras=("telemetry",)),
         hardware=(
             f"{platform.platform()};machine={platform.machine()};processor={platform.processor()};cpus={os.cpu_count()}"
@@ -294,17 +330,50 @@ def publish(report: Report, root: Path) -> Path:
 
 
 def main() -> None:
-    """Run one bounded suite; partial child output never becomes a complete file."""
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--quick", action="store_true")
-    parser.add_argument("--output", type=Path, default=Path("operational-results"))
-    parser.add_argument("--child", nargs=4, metavar=("MODE", "EXPERTS", "PANELS", "TRAJECTORIES"))
-    arguments = parser.parse_args()
-    if arguments.child is not None:
-        mode, experts, panels, trajectories = arguments.child
-        print(child(mode, int(experts), int(panels), int(trajectories)).to_json())
-    else:
-        print(publish(measure(quick=arguments.quick), arguments.output))
+    """Run one bounded suite through the optional Click command.
+
+    Raises
+    ------
+    SystemExit
+        Help, malformed flags or a missing CLI extra exit before workload or
+        publication; missing tooling includes explicit installation guidance.
+
+    Notes
+    -----
+    Imports Click only on invocation. The four-value child option retains the
+    original30-second process fence; the parent records its selected CLI
+    closure separately from the telemetry SDK. Partial child output never
+    becomes a complete file. Paths are explicit trusted operator inputs.
+    """
+    try:
+        import click
+    except ImportError as error:
+        raise SystemExit("Install the reviewed COLEMAN wheel with its [cli] extra") from error
+
+    @click.command(help=__doc__)
+    @click.option("--quick", is_flag=True, help="Measure the original single small workload.")
+    @click.option("--output", type=click.Path(path_type=Path), default=Path("operational-results"), show_default=True)
+    @click.option(
+        "--child",
+        "child_spec",
+        type=(
+            click.Choice(("off", "noop", "memory")),
+            click.IntRange(2, 32),
+            click.IntRange(1, 32),
+            click.IntRange(1, 4),
+        ),
+    )
+    def _command(
+        quick: bool, output: Path, child_spec: tuple[Literal["off", "noop", "memory"], int, int, int] | None
+    ) -> None:
+        """Select the original real child or complete finite parent route."""
+        if child_spec is not None:
+            mode, experts, panels, trajectories = child_spec
+            print(child(mode, experts, panels, trajectories).to_json())
+        else:
+            print(publish(measure(quick=quick), output))
+
+    _command()
 
 
 if __name__ == "__main__":

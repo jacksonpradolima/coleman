@@ -163,9 +163,13 @@ def task_snapshot(job: TaskJobRecord, plan: TaskPlan, *, at: datetime) -> Lifecy
     now = _clock(at, ())
     if now.timestamp() < current.changed:
         raise ValueError("Operational clock cannot precede retained job progress")
-    outcome: Outcome = (
-        "failed" if current.state == "failed" else ("accepted" if current.state == "completed" else "pending")
-    )
+    outcome: Outcome
+    if current.state == "failed":
+        outcome = "failed"
+    elif current.state == "completed":
+        outcome = "accepted"
+    else:
+        outcome = "pending"
     return LifecycleSnapshot(
         schema_version=1,
         route="task",

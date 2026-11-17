@@ -385,6 +385,9 @@ ci = [
     { name = "pyarrow" },
     { name = "pyyaml" },
 ]
+cli = [
+    { name = "click" },
+]
 clickhouse = [
     { name = "clickhouse-connect" },
 ]
@@ -451,6 +454,7 @@ security = [
 
 [package.metadata]
 requires-dist = [
+    { name = "click", marker = "extra == 'cli'", specifier = "==8.1.8" },
     { name = "clickhouse-connect", marker = "extra == 'clickhouse'", specifier = "==0.13.0" },
     { name = "codecarbon", marker = "extra == 'dev'", specifier = "==3.2.6" },
     { name = "duckdb", marker = "extra == 'analytics'", specifier = "==1.5.0" },
@@ -498,7 +502,7 @@ requires-dist = [
     { name = "xenon", marker = "extra == 'dev'", specifier = "==0.9.3" },
     { name = "zensical", marker = "extra == 'docs'", specifier = "==0.0.70" },
 ]
-provides-extras = ["ci", "analytics", "mcp", "dev", "docs", "release", "notebook", "telemetry", "clickhouse"]
+provides-extras = ["cli", "ci", "analytics", "mcp", "dev", "docs", "release", "notebook", "telemetry", "clickhouse"]
 
 [package.metadata.requires-dev]
 build = [

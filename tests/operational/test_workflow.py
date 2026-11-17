@@ -10,7 +10,7 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).parents[2]
-UPLOADER = "codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2"
+UPLOADER = "codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f"
 COMPOSITE = "./.github/actions/report-junit"
 
 
@@ -78,15 +78,24 @@ def test_current_supported_schema_pins_and_original_inventory_resources_are_pres
     assert coverage["uses"] == junit["uses"] == UPLOADER
     assert junit["with"]["report_type"] == "test_results"
     assert junit["with"]["disable_search"] is True
-    assert "!cancelled()" in reporting["if"] and "!cancelled()" in junit["if"]
+    assert "!cancelled()" in reporting["if"]
+    assert "!cancelled()" in junit["if"]
     assert "!cancelled()" in caller["if"]
     assert "outputs.files != ''" in junit["if"]
-    assert reporting["shell"] == "bash" and shared["runs"]["using"] == "composite"
+    assert reporting["shell"] == "bash"
+    assert shared["runs"]["using"] == "composite"
     assert shared["outputs"]["files"]["value"] == "${{ steps.junit_reports.outputs.files }}"
     assert junit["with"]["token"] == "${{ inputs.token }}"
-    assert junit["with"]["fail_ci_if_error"] == "${{ inputs.fail-ci-if-error }}"
+    assert junit["with"]["fail_ci_if_error"] is True
+    assert coverage["with"]["fail_ci_if_error"] is True
+    assert not junit["with"].get("skip_validation", False)
+    assert not coverage["with"].get("skip_validation", False)
+    assert "fail-ci-if-error" not in shared["inputs"]
+    assert not junit.get("continue-on-error", False)
+    assert caller["continue-on-error"] is True
+    assert coverage["continue-on-error"] is True
     assert caller["with"]["token"] == "${{ secrets.CODECOV_TOKEN }}"
-    assert caller["with"]["fail-ci-if-error"] == shared["inputs"]["fail-ci-if-error"]["default"] == "false"
+    assert "fail-ci-if-error" not in caller["with"]
     parallel = next(s["run"] for s in current if s.get("name") == "Run tests")
     assert "-n 4 --dist=loadfile" in parallel
     assert parallel.count("--ignore=") == 2
@@ -94,6 +103,9 @@ def test_current_supported_schema_pins_and_original_inventory_resources_are_pres
     for path in ("tests/corpus/test_installed_public_ci.py", "tests/corpus/test_installed_westermo.py"):
         assert path in parallel and path in serial
     assert "--cov-append --cov-fail-under=95" in serial
+    for step in current:
+        if step.get("name") == "Run tests" or step.get("name", "").startswith("Complete installed corpus"):
+            assert not step.get("continue-on-error", False)
     policy = yaml.safe_load((ROOT / ".github/workflows/codecov.yml").read_text())
     assert policy["permissions"] == {"contents": "read"}
     assert policy["jobs"]["test"]["timeout-minutes"] == 120
@@ -108,12 +120,13 @@ def test_real_ci_probe_reuses_uploader_and_preserves_normal_required_check_ident
     assert normal["name"] == "Run ${{ github.event_name }} tests and collect coverage"
     assert set(policy["jobs"]) == {"test"}
     assert policy[True]["push"] == {"branches-ignore": references, "tags": ["**"]}
-    assert "pull_request" in policy[True] and policy[True]["pull_request"] is None
+    assert "pull_request" in policy[True]
+    assert policy[True]["pull_request"] is None
     assert qualification[True] == {"push": {"branches": references}}
     assert qualification["permissions"] == {"contents": "read"}
     assert probe["timeout-minutes"] == 5
     assert probe["steps"][-1]["uses"] == normal["steps"][-1]["uses"] == COMPOSITE
-    assert probe["steps"][-1]["with"]["fail-ci-if-error"] == "true"
+    assert "fail-ci-if-error" not in probe["steps"][-1]["with"]
     assert "uploader-qualification-" in probe["steps"][-1]["with"]["upload-name"]
     assert "!cancelled()" in probe["steps"][-1]["if"]
     assert all(not step.get("continue-on-error") for step in probe["steps"])

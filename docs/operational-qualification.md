@@ -17,6 +17,15 @@ noneditable wheel. The example uses shipped constant Hedge on two deliberately
 authored CI expert loss panels. These are coefficient updates, not physical
 test executions or evidence that an adaptive method wins.
 
+Install command support from that reviewed wheel before invoking the copied
+examples. The `cli` extra supplies the locked Click dependency; the mathematical
+base package remains independent of it:
+
+```bash
+COLEMAN_WHEEL=/absolute/path/to/reviewed/coleman-4.20.0-py3-none-any.whl
+python -m pip install "${COLEMAN_WHEEL}[cli]"
+```
+
 | Input | CI rule 00 | CI rule 01 | Meaning |
 | --- | --- | --- | --- |
 | Initial coefficients | 0.5 | 0.5 | Dimensionless expert mixture, not calibrated failure probabilities |
@@ -41,11 +50,24 @@ With the optional telemetry extra installed, this uses a real SDK in-memory
 reader, without starting a collector, exporter thread or network connection:
 
 ```bash
+python -m pip install "${COLEMAN_WHEEL}[cli,telemetry]"
 python ci.py --mode memory
 ```
 
 The result additionally names `coleman.lifecycle.updates`,
 `coleman.lifecycle.concentration` and `coleman.lifecycle.availability`.
+
+For a direct Python call, copy the same `ci.py` and use the base wheel:
+
+```python
+from ci import Workload, run
+
+receipt = run(Workload(schema_version=1), mode="noop")
+print(receipt.to_json())
+```
+
+That call imports neither Click nor the optional telemetry SDK. Command parsing
+belongs to the Click entry point; it is not part of the learner's interface.
 
 ## Connect an existing host
 
@@ -188,6 +210,14 @@ the report is bounded to 2 MiB. Only every matched case/profile with identical
 math can publish the immutable final JSON. A failed child or interrupted suite
 produces no falsely completed report. The real writer retains its existing
 identical-write idempotency/concurrent-publication contract.
+
+The command drivers record the actual selected `cli` dependency closure in
+`driver_runtime`, separately from the learner's base and telemetry identities.
+The measurement API also uses Click child commands, so it records that closure.
+Pure API calls to the bootstrap/task drivers can leave the command identity
+unavailable. Earlier v1 reports without `driver_runtime` remain readable with
+that field omitted on serialization; no CLI identity is reconstructed, and the
+old canonical bytes and content fingerprint stay unchanged.
 
 Subtract matched off/noop/memory measurements to inspect snapshot-validation
 and SDK setup, recording, readout and shutdown overhead. The inner clock includes
@@ -394,11 +424,22 @@ reports use precision 8, while CI prints the raw percentage, configured
 Historical 94.94% observations do not become 95% measurements through rounding.
 
 Coverage and JUnit are separate submissions through the reviewed Node24
-[Codecov v6 action schema](https://github.com/codecov/codecov-action/blob/v6.0.0/action.yml).
+[Codecov v6.0.2 action schema](https://github.com/codecov/codecov-action/blob/fb8b3582c8e4def4969c97caa2f19720cb33a72f/action.yml).
 Test results use `report_type: test_results`. After a failed parallel phase,
 the serial report can be absent: CI warns for each missing expected file and
 uploads only actual reports. Cancellation still suppresses JUnit upload. Neither
 an uploaded JUnit file nor a successful export turns a failed test gate green.
+
+The pinned compatible v6.0.2 action uses the
+[official replacement signing-key endpoint](https://github.com/codecov/codecov-action/issues/1956).
+The retired endpoint caused the original reviewed probes to fail before upload.
+Every coverage and JUnit invocation sets `fail_ci_if_error=true`: an invalid GPG
+signature or checksum stops the wrapper before the downloaded CLI can execute.
+Normal coverage and JUnit reporting retain best-effort behavior through their
+outer workflow steps, which can continue after a reporting failure. This never
+applies to product tests, the raw coverage gate or qualification probes. Their
+outcomes stay strict; successful actual server receipts are required to qualify
+the uploader. Cancellation still suppresses JUnit reporting.
 
 For release qualification, the same reviewed source can run a bounded uploader
 probe on the exact refs `qualification/v5-372-uploader-success` and
@@ -414,7 +455,7 @@ the deliberate negative run fails its primary phase and leaves the second file
 absent. Its overall failure is expected and remains a failure. The reporter and
 uploader use the same reviewed local composite action as the normal suite, with
 a distinct `uploader-qualification-*` upload name. Probe upload errors fail the
-step explicitly; ordinary uploader error/cancellation policy remains unchanged.
+step explicitly; normal reporting stays best effort after strict verification.
 The probe has its own workflow, triggered only by these two exact branch names.
 The normal workflow excludes only those branch pushes while retaining every tag
 push and every pull request. Its required job remains unconditional with its

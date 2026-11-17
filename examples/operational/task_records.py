@@ -14,6 +14,7 @@ from coleman.core.base import CoreContract
 from coleman.core.numeric import Binary64
 from coleman.core.primitives import Fingerprint
 from coleman.spec.runtime_identity import InstalledRuntime
+from coleman.spec.selected_runtime import SelectedInstalledRuntime
 from coleman.tasks.contracts import TaskJobRecord, TaskLimits
 from coleman.tasks.identity import ExecutorImplementationIdentity, HostBootstrapProfile
 from coleman.tasks.requests import TaskJobView
@@ -260,7 +261,15 @@ class NotStartedCell(CoreContract):
 
 
 class TaskLoadReport(CoreContract):
-    """Publish only every actual finite cell, without inventing queue pressure."""
+    """Retain every finite cell and separate driver from executor dependencies.
+
+    Notes
+    -----
+    ``driver_runtime`` optionally binds the actual selected CLI closure. None
+    means unavailable identity and is omitted from serialization, preserving
+    historical v1 bytes/digests. It neither changes the executor's independently
+    captured closure nor claims a missing driver identity was observed.
+    """
 
     complete: StrictBool
     outcome: Literal["completed", "limited"]
@@ -269,6 +278,7 @@ class TaskLoadReport(CoreContract):
     entry_reserve_seconds: Annotated[Binary64, Field(ge=30, le=30)]
     acknowledged_update_lower_bound: Annotated[int, Field(strict=True, ge=0, le=132)]
     runtime: InstalledRuntime
+    driver_runtime: SelectedInstalledRuntime | None = Field(default=None, exclude_if=lambda value: value is None)
     bootstrap: HostBootstrapProfile
     implementation: ExecutorImplementationIdentity
     hardware: Annotated[str, Field(strict=True, min_length=1, max_length=1024)]
@@ -282,6 +292,29 @@ class TaskLoadReport(CoreContract):
     ]
     queue_evidence: Literal["observed", "insufficient"]
     cells: Annotated[tuple[TaskCell | NotStartedCell, ...], Field(min_length=4, max_length=4)]
+
+    @model_validator(mode="after")
+    def _driver_identity(self):
+        """Keep optional command tooling bound to the same exact base image."""
+        driver = self.driver_runtime
+        if driver is not None and (
+            driver.selected_extras != ("cli",)
+            or not any(item.name == "click" and item.version == "8.1.8" for item in driver.distributions)
+            or any(
+                getattr(self.runtime, key) != getattr(driver, key)
+                for key in (
+                    "package_fingerprint",
+                    "python_implementation",
+                    "python_version",
+                    "operating_system",
+                    "machine",
+                )
+            )
+            or not {(item.name, item.version) for item in self.runtime.distributions}
+            <= {(item.name, item.version) for item in driver.distributions}
+        ):
+            raise ValueError("CLI driver identity must select cli and preserve the exact base runtime")
+        return self
 
     @model_validator(mode="after")
     def _installed_image(self):

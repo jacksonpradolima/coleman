@@ -98,19 +98,21 @@ def test_permutations_preserve_exact_identity_and_duplicate_coordinates_reject()
         changed = LifecycleSnapshot.model_validate({**current.model_dump(), "points": ordering})
         assert changed.to_json() == current.to_json()
         assert changed.fingerprint == current.fingerprint
+    duplicated = {**current.model_dump(), "points": (current.points[0],) * 2}
     with pytest.raises(ValueError):
-        LifecycleSnapshot.model_validate({**current.model_dump(), "points": (current.points[0],) * 2})
+        LifecycleSnapshot.model_validate(duplicated)
 
 
 def test_unknown_fields_duplicate_json_keys_and_naive_clock_reject():
+    duplicate_keys = GOLDEN.read_text().replace('"schema_version": 1', '"schema_version": 1,"schema_version": 1')
     with pytest.raises(ValueError):
-        LifecycleSnapshot.from_json(
-            GOLDEN.read_text().replace('"schema_version": 1', '"schema_version": 1,"schema_version": 1')
-        )
+        LifecycleSnapshot.from_json(duplicate_keys)
+    unknown_fields = {**sample().model_dump(), "undocumented": True}
     with pytest.raises(ValueError):
-        LifecycleSnapshot.model_validate({**sample().model_dump(), "undocumented": True})
+        LifecycleSnapshot.model_validate(unknown_fields)
+    naive_clock = {**sample().model_dump(), "observed_at": datetime(2026, 1, 1)}
     with pytest.raises(ValueError):
-        LifecycleSnapshot.model_validate({**sample().model_dump(), "observed_at": datetime(2026, 1, 1)})
+        LifecycleSnapshot.model_validate(naive_clock)
     assert LifecycleSnapshot.model_validate({**sample().model_dump(), "observed_at": datetime(2026, 1, 1, tzinfo=UTC)})
 
 

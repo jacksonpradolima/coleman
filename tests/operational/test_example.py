@@ -37,5 +37,6 @@ def test_workload_caps_and_unknown_instrumentation_are_explicit(ci_example):
         ci_example.Workload(schema_version=1, panels=33)
     with pytest.raises(ValueError):
         ci_example.Workload(schema_version=1, trajectories=5)
+    workload = ci_example.Workload(schema_version=1)
     with pytest.raises(ValueError):
-        ci_example.run(ci_example.Workload(schema_version=1), "unrecognized")
+        ci_example.run(workload, "unrecognized")

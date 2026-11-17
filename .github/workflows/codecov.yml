@@ -82,16 +82,19 @@ jobs:
           raise SystemExit(0 if accepted else 1)
           PY
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+        # Reporting is optional; binary verification inside the action is strict.
+        continue-on-error: true
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6.0.2
         with:
+          fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.xml
           flags: unittests
           name: codecov-coverage-report
       - name: Report and upload test results to Codecov
         if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: ./.github/actions/report-junit
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           upload-name: coleman-test-results
-          fail-ci-if-error: 'false'

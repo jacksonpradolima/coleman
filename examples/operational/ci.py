@@ -8,7 +8,6 @@ benchmark, a physical CI execution, or independent statistical observations.
 
 from __future__ import annotations
 
-import argparse
 import math
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Literal
@@ -263,16 +262,32 @@ def run(workload: Workload, mode: Mode = "noop") -> Receipt:
 def main() -> None:
     """Print one complete canonical receipt; no output means no completed report.
 
+    Raises
+    ------
+    SystemExit
+        Click handles help or invalid arguments before learner execution;
+        a missing CLI extra exits with its explicit installation guidance.
+
     Notes
     -----
     Reads explicit command-line mode and writes stdout only after run returns.
-    Unknown arguments exit through argparse; learner/provider errors propagate.
-    This CLI example owns no persistent checkpoint or physical execution.
+    Click is imported only when this command is invoked; importing this module
+    or calling ``run`` does not require the optional CLI extra. Unknown flags
+    and help exit through Click; learner/provider errors propagate. This
+    example owns no persistent checkpoint or physical execution.
     """
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", choices=("off", "noop", "memory"), default="noop")
-    arguments = parser.parse_args()
-    print(run(Workload(schema_version=1), arguments.mode).to_json())
+    try:
+        import click
+    except ImportError as error:
+        raise SystemExit("Install the reviewed COLEMAN wheel with its [cli] extra") from error
+
+    @click.command(help=__doc__)
+    @click.option("--mode", type=click.Choice(("off", "noop", "memory")), default="noop", show_default=True)
+    def _command(mode: Mode) -> None:
+        """Run the explicitly selected local observation profile."""
+        print(run(Workload(schema_version=1), mode).to_json())
+
+    _command()
 
 
 if __name__ == "__main__":

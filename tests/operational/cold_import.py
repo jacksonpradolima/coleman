@@ -9,6 +9,7 @@ import threading
 from pathlib import Path
 
 FORBIDDEN = (
+    "click",
     "opentelemetry",
     "mcp",
     "duckdb",

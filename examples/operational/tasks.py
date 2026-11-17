@@ -9,7 +9,6 @@ provider or guard is substituted.
 
 from __future__ import annotations
 
-import argparse
 import hashlib
 import importlib
 import importlib.util
@@ -29,9 +28,10 @@ from coleman.application.tasks import TaskService
 from coleman.artifacts import ArtifactWriter
 from coleman.core.primitives import Fingerprint, fingerprint
 from coleman.spec.runtime_identity import InstalledRuntime
+from coleman.spec.selected_runtime import SelectedInstalledRuntime
 from coleman.state.local import LocalStateStore
 from coleman.state.storage_contracts import CollectionManifest
-from coleman.tasks.contracts import TaskJobRecord, TaskPlan
+from coleman.tasks.contracts import TaskCoordinate, TaskJobRecord, TaskPlan
 from coleman.tasks.identity import HostBootstrapProfile
 from coleman.tasks.requests import TaskExecuteRequest, TaskJobView
 from coleman.telemetry.resources import ProcessResourceTracker
@@ -363,6 +363,20 @@ class _Final:
     committed_digest: Fingerprint
 
 
+def _required_updates(view: TaskJobView, coordinate: TaskCoordinate, index: int) -> int | None:
+    """Read the outer ACK's minimum original accepted-panel requirement.
+
+    Completed coordinates require their original target. An explicit current
+    frontier may raise that lower bound; it never measures physical work or
+    substitutes for reading the actual SQL-selected checkpoint. An unstarted
+    coordinate has no outer requirement, which is distinct from observed zero.
+    """
+    required = coordinate.target.position if index < view.job.completed_coordinates else None
+    if coordinate.fingerprint == view.job.current_coordinate and view.job.frontier is not None:
+        required = view.job.frontier.position if required is None else max(required, view.job.frontier.position)
+    return required
+
+
 def _acknowledged(run: _Run, view: TaskJobView) -> _Ack:
     """Count actual SQL ACKs, including partial coordinates and real U0 states."""
     if run.service.bootstrap_profile is None:
@@ -376,9 +390,7 @@ def _acknowledged(run: _Run, view: TaskJobView) -> _Ack:
             run.service.store.root / "jobs" / view.job.job_id / "evidence" / coordinate.fingerprint[7:] / "state"
         )
         selected = _ack_component(directory, run.plan, coordinate) if directory.exists() else None
-        required = coordinate.target.position if index < view.job.completed_coordinates else None
-        if coordinate.fingerprint == view.job.current_coordinate and view.job.frontier is not None:
-            required = view.job.frontier.position if required is None else max(required, view.job.frontier.position)
+        required = _required_updates(view, coordinate, index)
         if required is not None and (selected is None or selected[0] < required):
             raise ValueError("Retained outer ACK progress has missing or regressed actual acknowledged state")
         if selected is not None:
@@ -507,7 +519,9 @@ def _measure_cells(output, profile, example, deadline):
     return tuple(cells)
 
 
-def measure(profile_path: Path, output: Path) -> TaskLoadReport:
+def measure(
+    profile_path: Path, output: Path, *, driver_runtime: SelectedInstalledRuntime | None = None
+) -> TaskLoadReport:
     """Measure four real installed task/queue/input/artifact workload cells.
 
     Parameters
@@ -518,6 +532,10 @@ def measure(profile_path: Path, output: Path) -> TaskLoadReport:
     output : pathlib.Path
         New private root. Actual task workspaces/logs survive failure, without a
         completed report. Every cell retains original60-second worker guards.
+    driver_runtime : SelectedInstalledRuntime or None, optional
+        Actual selected CLI closure supplied by ``main`` before publication.
+        None preserves unavailable historical identity without claiming Click
+        was used; direct task measurement does not need the CLI extra.
 
     Returns
     -------
@@ -544,6 +562,10 @@ def measure(profile_path: Path, output: Path) -> TaskLoadReport:
     consume only the remaining original180-second aggregate allowance.
     Partial cells publish limited.json with complete=False, never complete.json.
     Unexpected exceptions still propagate without an aggregate report.
+    This standalone operator script is not an HTTP, MCP or agent tool endpoint.
+    The operator supplies the trusted profile path at startup; task requests
+    cannot choose or replace that authority. Exposing this function through an
+    untrusted transport requires a separate host-selected profile boundary.
     """
     deadline = time.monotonic() + OUTER_SECONDS
     with profile_path.open("rb") as stream:
@@ -571,6 +593,7 @@ def measure(profile_path: Path, output: Path) -> TaskLoadReport:
         entry_reserve_seconds=30.0,
         acknowledged_update_lower_bound=sum(row.accepted_updates for cell in cells for row in cell.jobs),
         runtime=InstalledRuntime.capture(),
+        driver_runtime=driver_runtime,
         bootstrap=profile,
         implementation=image,
         hardware=f"{platform.platform()}; processor={platform.processor()}; logical_cpus={os.cpu_count()}",
@@ -601,12 +624,34 @@ def _publish(report: TaskLoadReport, output: Path) -> Path:
 
 
 def main() -> None:
-    """Run explicit trusted local load qualification, without package installs."""
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--profile", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
-    arguments = parser.parse_args()
-    print(measure(arguments.profile, arguments.output).to_json())
+    """Run trusted local load qualification through the optional Click command.
+
+    Raises
+    ------
+    SystemExit
+        Help, malformed flags or a missing CLI extra exit before profile
+        acquisition/task work; missing tooling includes installation guidance.
+
+    Notes
+    -----
+    Click is imported only for command invocation. The operator supplies both
+    required paths; the command never installs packages or accepts a profile
+    from a task request. The selected CLI identity is captured before the
+    original60/180-second measurement and before immutable publication.
+    """
+    try:
+        import click
+    except ImportError as error:
+        raise SystemExit("Install the reviewed COLEMAN wheel with its [cli] extra") from error
+
+    @click.command(help=__doc__)
+    @click.option("--profile", type=click.Path(path_type=Path), required=True)
+    @click.option("--output", type=click.Path(path_type=Path), required=True)
+    def _command(profile: Path, output: Path) -> None:
+        """Measure the original fixed four-case real task grid."""
+        print(measure(profile, output, driver_runtime=SelectedInstalledRuntime.capture(extras=("cli",))).to_json())
+
+    _command()
 
 
 if __name__ == "__main__":

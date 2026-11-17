@@ -59,10 +59,12 @@ def test_observing_readonly_source_and_explicit_clock_does_not_apply_a_pending_l
         assert points(replay_snapshot(replay.state, at=ex.instant(at)))["updates"].value == 0
     assert replay.export_continuation().to_json() == before
     assert host.export_state().update_count == 0
+    before_decision = ex.instant(-1)
     with pytest.raises(ValueError):
-        replay_snapshot(replay.state, at=ex.instant(-1))
+        replay_snapshot(replay.state, at=before_decision)
+    naive_clock = datetime(2026, 1, 1)
     with pytest.raises(ValueError):
-        replay_snapshot(replay.state, at=datetime(2026, 1, 1))
+        replay_snapshot(replay.state, at=naive_clock)
     action = action_snapshot(first.executed, at=ex.instant(2), outcome="accepted")
     assert points(action)["concentration"].status == "not_applicable"
     assert first.executed.fingerprint == action.source_fingerprint
@@ -76,12 +78,17 @@ def test_old_task_goldens_remain_readable_and_false_completion_or_plan_join_reje
     assert observation.outcome == "pending"
     assert points(observation)["task_progress"].value == 0
     assert TaskJobRecord.from_json(job.to_json()).to_json() == job.to_json()
+    false_completion = job.model_copy(update={"state": "completed"})
+    completion_clock = datetime(2026, 1, 1, tzinfo=UTC)
     with pytest.raises(ValueError):
-        task_snapshot(job.model_copy(update={"state": "completed"}), plan, at=datetime(2026, 1, 1, tzinfo=UTC))
+        task_snapshot(false_completion, plan, at=completion_clock)
+    changed_plan = job.model_copy(update={"plan_id": "0" * 64})
+    plan_clock = datetime(2026, 1, 1, tzinfo=UTC)
     with pytest.raises(ValueError):
-        task_snapshot(job.model_copy(update={"plan_id": "0" * 64}), plan, at=datetime(2026, 1, 1, tzinfo=UTC))
+        task_snapshot(changed_plan, plan, at=plan_clock)
+    before_progress = datetime(1970, 1, 1, tzinfo=UTC)
     with pytest.raises(ValueError):
-        task_snapshot(job, plan, at=datetime(1970, 1, 1, tzinfo=UTC))
+        task_snapshot(job, plan, at=before_progress)
 
 
 @pytest.mark.parametrize(
@@ -108,5 +115,6 @@ def test_existing_retained_v2_preserves_lifetime_counts_and_lost_update_clock(fi
         replay_snapshot(RetainedReplayState.from_json(before), at=snapshot.observed_at).to_json() == snapshot.to_json()
     )
     assert state.to_json() == before
+    future_version = state.model_copy(update={"schema_version": 3})
     with pytest.raises(ValueError):
-        replay_snapshot(state.model_copy(update={"schema_version": 3}), at=snapshot.observed_at)
+        replay_snapshot(future_version, at=snapshot.observed_at)

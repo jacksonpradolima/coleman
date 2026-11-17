@@ -254,7 +254,8 @@ def test_limited_reader_keeps_actual_partial_ack_work_and_nondelivery_distinct(t
     assert partial.accepted_updates == 18  # ActualACK work can exceed completed coordinate prefixes.
     assert partial.before_cleanup.job.state == "running"
     assert partial.job.state == "cancelled"
-    assert partial.mathematical_digest is None and partial.complete_state_status == "not_applicable"
+    assert partial.mathematical_digest is None
+    assert partial.complete_state_status == "not_applicable"
     assert unstarted.before_cleanup.job.state == "queued"
     assert unstarted.job.invocations == unstarted.accepted_updates == unstarted.artifact_bytes == 0
     assert unstarted.result_bytes is None  # N/A complete result is not an observed zero-byte result.
@@ -509,7 +510,8 @@ def test_uncertain_admission_retries_exact_request_then_cleans_its_original_job(
         with ExitStack() as cleanup:
             ids, _, _ = task_measurement._admit(run, cleanup, 60.0)
             assert ids == [job.job_id]
-    assert len(calls) == 2 and all(supplied is command for supplied in calls)
+    assert len(calls) == 2
+    assert all(supplied is command for supplied in calls)
     assert lookups == [(store, job.owner, command.request_id)]
     assert cancelled == [job.job_id]
 

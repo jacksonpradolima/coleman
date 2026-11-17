@@ -8,7 +8,6 @@ The existing interpreter, OS and remote index/CDN caches are not cleared.
 
 from __future__ import annotations
 
-import argparse
 import hashlib
 import os
 import platform
@@ -26,7 +25,11 @@ from coleman.artifacts import ArtifactWriter
 from coleman.core.base import CoreContract
 from coleman.core.numeric import Binary64
 from coleman.spec.runtime_identity import InstalledRuntime
+from coleman.spec.selected_runtime import SelectedInstalledRuntime
 from coleman.telemetry.resources import ProcessResourceTracker
+
+
+LOCK_FILENAME = "uv.lock"
 
 
 class CacheCell(CoreContract):
@@ -58,9 +61,13 @@ class BootstrapReport(CoreContract):
     V1 is a finite installation observation, not a universal bootstrap budget
     or source attestation. Unknown versions and partial/inconsistent reports
     reject. Host timestamps and paths are deliberately outside identity.
+    An absent ``driver_runtime`` means the old artifact did not record CLI
+    tooling; omitted-when-null metadata preserves its v1 bytes/fingerprint.
+    The measured cells retain their actual minimal base dependency identities.
     """
 
     complete: Literal[True]
+    driver_runtime: SelectedInstalledRuntime | None = Field(default=None, exclude_if=lambda value: value is None)
     hardware: Annotated[str, Field(strict=True, min_length=1, max_length=1024)]
     uv_version: Literal["0.13.1"]
     uv_sha256: Annotated[str, Field(strict=True, pattern=r"^[0-9a-f]{64}$")]
@@ -69,6 +76,29 @@ class BootstrapReport(CoreContract):
     wheel_sha256: Annotated[str, Field(strict=True, pattern=r"^[0-9a-f]{64}$")]
     driver_sha256: Annotated[str, Field(strict=True, pattern=r"^[0-9a-f]{64}$")]
     cells: tuple[CacheCell, CacheCell]
+
+    @model_validator(mode="after")
+    def _driver_identity(self):
+        """Keep optional command tooling bound to the same exact base image."""
+        driver = self.driver_runtime
+        if driver is not None and (
+            driver.selected_extras != ("cli",)
+            or not any(item.name == "click" and item.version == "8.1.8" for item in driver.distributions)
+            or any(
+                getattr(self.cells[0].runtime, key) != getattr(driver, key)
+                for key in (
+                    "package_fingerprint",
+                    "python_implementation",
+                    "python_version",
+                    "operating_system",
+                    "machine",
+                )
+            )
+            or not {(item.name, item.version) for item in self.cells[0].runtime.distributions}
+            <= {(item.name, item.version) for item in driver.distributions}
+        ):
+            raise ValueError("CLI driver identity must select cli and preserve the exact base runtime")
+        return self
 
     @model_validator(mode="after")
     def _paired(self):
@@ -206,7 +236,14 @@ def _cell(mode: Literal["empty-online", "warm-offline"], setup: _Setup) -> Cache
     )
 
 
-def measure(project: Path, wheel: Path, uv: Path, output: Path) -> BootstrapReport:
+def measure(
+    project: Path,
+    wheel: Path,
+    uv: Path,
+    output: Path,
+    *,
+    driver_runtime: SelectedInstalledRuntime | None = None,
+) -> BootstrapReport:
     """Install the same wheel twice using an empty cache and offline warm cache.
 
     Parameters
@@ -221,6 +258,10 @@ def measure(project: Path, wheel: Path, uv: Path, output: Path) -> BootstrapRepo
     output : pathlib.Path
         New private measurement directory. Existing paths reject before work;
         partial command logs remain on failure, without a completed report.
+    driver_runtime : SelectedInstalledRuntime or None, optional
+        Actual selected CLI closure supplied by ``main`` before publication.
+        None records unavailable driver identity without inferring Click usage;
+        direct programmatic installation measurement does not require Click.
 
     Returns
     -------
@@ -244,8 +285,8 @@ def measure(project: Path, wheel: Path, uv: Path, output: Path) -> BootstrapRepo
     project, wheel, uv, output = (path.absolute() for path in (project, wheel, uv, output))
     if wheel.suffix != ".whl" or not wheel.is_file() or not uv.is_file():
         raise ValueError("Bootstrap requires an existing reviewed wheel and verified uv executable")
-    sources = {path: path.read_bytes() for path in (project / "pyproject.toml", project / "uv.lock", uv, wheel)}
-    packages = tomllib.loads(sources[project / "uv.lock"].decode())["package"]
+    sources = {path: path.read_bytes() for path in (project / "pyproject.toml", project / LOCK_FILENAME, uv, wheel)}
+    packages = tomllib.loads(sources[project / LOCK_FILENAME].decode())["package"]
     if any(item["source"] != {"registry": "https://pypi.org/simple"} for item in packages if item["name"] != "coleman"):
         raise ValueError("This bootstrap profile admits only the reviewed public PyPI registry closure")
     output.mkdir(parents=True, exist_ok=False)
@@ -274,10 +315,11 @@ def measure(project: Path, wheel: Path, uv: Path, output: Path) -> BootstrapRepo
     report = BootstrapReport(
         schema_version=1,
         complete=True,
+        driver_runtime=driver_runtime,
         hardware=f"{platform.platform()}; processor={platform.processor()}; logical_cpus={os.cpu_count()}",
         uv_version="0.13.1",
         uv_sha256=hashlib.sha256(sources[uv]).hexdigest(),
-        lock_sha256=hashlib.sha256(sources[project / "uv.lock"]).hexdigest(),
+        lock_sha256=hashlib.sha256(sources[project / LOCK_FILENAME]).hexdigest(),
         project_sha256=hashlib.sha256(sources[project / "pyproject.toml"]).hexdigest(),
         wheel_sha256=hashlib.sha256(sources[wheel]).hexdigest(),
         driver_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
@@ -288,13 +330,37 @@ def measure(project: Path, wheel: Path, uv: Path, output: Path) -> BootstrapRepo
 
 
 def main() -> None:
-    """Run explicit trusted installation qualification without task execution."""
-    parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("project", "wheel", "uv", "output"):
-        parser.add_argument("--" + name, type=Path, required=True)
-    arguments = parser.parse_args()
-    report = measure(arguments.project, arguments.wheel, arguments.uv, arguments.output)
-    print(report.to_json())
+    """Run trusted installation qualification through the optional Click command.
+
+    Raises
+    ------
+    SystemExit
+        Help, malformed flags or a missing CLI extra exit before creating any
+        output/cache; missing tooling includes installation guidance.
+
+    Notes
+    -----
+    Click loads only for command invocation. All four paths remain required
+    trusted operator inputs. The selected CLI closure belongs to this driver;
+    the actual empty/warm cells still install and measure the minimal package.
+    The original240-second installer fences remain unchanged.
+    """
+    try:
+        import click
+    except ImportError as error:
+        raise SystemExit("Install the reviewed COLEMAN wheel with its [cli] extra") from error
+
+    @click.command(help=__doc__)
+    @click.option("--project", type=click.Path(path_type=Path), required=True)
+    @click.option("--wheel", type=click.Path(path_type=Path), required=True)
+    @click.option("--uv", type=click.Path(path_type=Path), required=True)
+    @click.option("--output", type=click.Path(path_type=Path), required=True)
+    def _command(project: Path, wheel: Path, uv: Path, output: Path) -> None:
+        """Measure the original empty-cache and offline warm-cache pair."""
+        report = measure(project, wheel, uv, output, driver_runtime=SelectedInstalledRuntime.capture(extras=("cli",)))
+        print(report.to_json())
+
+    _command()
 
 
 if __name__ == "__main__":
