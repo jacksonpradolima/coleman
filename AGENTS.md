@@ -29,8 +29,11 @@ Verify the assigned issue against current sources and qualification evidence.
   or reviews; assign explicit file ownership and do not edit another active
   author's files.
 - Keep one coordinating owner for assignments, shared interfaces and the
-  integration queue. Writers may manage Git/index operations and commits only
-  in their assigned branch/worktree. The coordinator owns integration refs and
+  integration queue. Each worktree has exactly one Git/index owner; only that
+  owner stages, commits or changes its branch. Helpers sharing a worktree edit
+  only assigned files and report changes to that owner. Transfer ownership
+  explicitly after the previous owner stops Git operations and the next owner
+  verifies HEAD, index and working tree. The coordinator owns integration refs and
   assigns one owner for each frozen candidate's global builds and coverage.
   Distinguish author checks from independent peer review.
 - Do not create replacement issues when an existing issue can contain the fix.
