@@ -65,7 +65,8 @@ def _scalar_signature(value: Any) -> Hashable:
     return type(value), value
 
 
-def _state_signature(value: Any) -> Hashable:
+# Preserve a separate return for each original representation and callback/error path.
+def _state_signature(value: Any) -> Hashable:  # pylint: disable=too-many-return-statements
     """Compare declared typed fields without invoking model equality overrides.
 
     Parameters
@@ -88,7 +89,13 @@ def _state_signature(value: Any) -> Hashable:
     Reads only declared fields; private implementation caches are not captured.
     The host still owns snapshot completeness. Validators and serializers must
     remain pure and deterministic; this is not an arbitrary-Python sandbox.
+    Exact builtin text, integers, booleans, bytes and None retain their existing
+    type-tagged values without model/container introspection. Subclasses and
+    other scalar representations follow the original comparison checks.
     """
+    kind = type(value)
+    if kind is str or kind is int or kind is bool or value is None or kind is bytes:
+        return kind, value
     if isinstance(value, BaseModel):
         return type(value), tuple((name, _state_signature(getattr(value, name))) for name in type(value).model_fields)
     if is_dataclass(value) and not isinstance(value, type):

@@ -384,7 +384,10 @@ the same declared field values and types before publication. This also preserves
 signed zero and Decimal precision. Validators and serializers must be pure and
 deterministic; the host still owns snapshot completeness. An invalid initial
 snapshot receives no acknowledgement; an invalid successor leaves the previous
-acknowledged head intact.
+acknowledged head intact. Exact builtin text, integer, boolean, bytes and null
+fields retain the same type-tagged comparison values directly; subclasses and
+other scalars keep their existing checks. This changes no reader, field,
+canonical byte, numeric representation or validation boundary.
 
 For the unchanged inherited core writer, the codec serializes the value it has
 just fully validated without repeating that same validation inside the writer.
