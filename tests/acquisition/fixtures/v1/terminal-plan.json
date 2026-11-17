@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "reference": {"id": "tiny-ci-terminal", "version": "1"},
+  "source_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "candidates": [{"reference": {"id": "recipe-A", "version": "1"}, "setup_group": null}],
+  "fidelities": [{"reference": {"id": "terminal-build", "version": "1"}, "resource": {"value": "1", "semantics": {"unit": "build_replays", "meaning": "one-public-constructed-build-v1"}}}],
+  "method": "equal_allocation_v1",
+  "billing": "stateless_rerun",
+  "budget": {"value": "2", "semantics": {"unit": "build_replays", "meaning": "one-public-constructed-build-v1"}},
+  "outcome": {"dimension": {"id": "signed-ci-score", "version": "1"}, "semantics": {"unit": "1", "meaning": "constructed-ci-score-v1"}, "role": "objective", "minimum": null, "maximum": null},
+  "direction": "maximize",
+  "setups": [],
+  "qualification": null
+}
