@@ -1,0 +1,15 @@
+{
+  "algorithm": {"id": "ci-rule-mixture", "version": "1"},
+  "observed_at": "2026-01-01T00:00:00Z",
+  "outcome": "accepted",
+  "points": [
+    {"name": "concentration", "status": "observed", "unit": "1", "value": 0.625},
+    {"name": "pending", "status": "observed", "unit": "1", "value": 0},
+    {"name": "rss", "status": "unavailable", "unit": "MiB", "value": null},
+    {"name": "update_age", "status": "not_applicable", "unit": "s", "value": null}
+  ],
+  "route": "replay",
+  "schema_version": 1,
+  "source_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "state_codec": {"id": "ci-state", "version": "1"}
+}

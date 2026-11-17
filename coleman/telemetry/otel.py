@@ -68,6 +68,16 @@ except ImportError:  # pragma: no cover – tested via NoOpTelemetry path
     pass
 
 
+def _dispose_partial(*owners: Any) -> None:
+    """Attempt every partial-owner shutdown without masking initialization failure."""
+    for owner in owners:
+        if owner is not None:
+            try:
+                owner.shutdown()
+            except Exception:  # Cleanup must still attempt the other independent provider.
+                logger.exception("Failed to dispose a partially initialized telemetry resource")
+
+
 class Telemetry:
     """OpenTelemetry facade for Coleman.
 
@@ -110,6 +120,18 @@ class Telemetry:
         ------
         ImportError
             If the ``opentelemetry`` SDK is not installed.
+        RuntimeError, OSError
+            SDK/provider/instrument construction or registration failure after
+            acquired owned resources have been offered shutdown. The factory
+            logs these failures and retains its existing no-op fallback.
+
+        Notes
+        -----
+        Construction is explicitly opt-in: successful providers own exporter
+        threads and normal process-wide SDK registration. Failed construction
+        disposes acquired resources before propagating its original exception;
+        registration waits until providers and instruments are constructed.
+        SDK global registrations retain their existing write-once semantics.
         """
         if not _HAS_OTEL:
             raise ImportError(
@@ -121,24 +143,36 @@ class Telemetry:
         attrs["service.name"] = service_name
         resource = Resource.create(attrs)
 
-        # Metrics
-        reader = PeriodicExportingMetricReader(
-            OTLPMetricExporter(endpoint=f"{otlp_endpoint}/v1/metrics"),
-            export_interval_millis=export_interval_millis,
-        )
-        meter_provider = MeterProvider(resource=resource, metric_readers=[reader])
-        otel_metrics.set_meter_provider(meter_provider)
-        self._meter_provider = meter_provider
-        self.meter = meter_provider.get_meter("coleman")
+        self._initialize(resource, otlp_endpoint, export_interval_millis)
 
-        # Traces
-        tracer_provider = TracerProvider(resource=resource)
-        tracer_provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{otlp_endpoint}/v1/traces")))
-        otel_trace.set_tracer_provider(tracer_provider)
-        self._tracer_provider = tracer_provider
-        self.tracer = tracer_provider.get_tracer("coleman")
+    def _initialize(self, resource: Any, endpoint: str, interval: int) -> None:
+        """Transfer shutdown ownership only after each parent accepts its child."""
+        metric_owner = span_owner = tracer_owner = None
+        try:
+            metric_owner = OTLPMetricExporter(endpoint=f"{endpoint}/v1/metrics")
+            metric_owner = PeriodicExportingMetricReader(metric_owner, export_interval_millis=interval)
+            metric_owner = MeterProvider(resource=resource, metric_readers=[metric_owner])
+            self._meter_provider = metric_owner
+            self.meter = metric_owner.get_meter("coleman")
 
-        # Pre-create instruments
+            span_owner = OTLPSpanExporter(endpoint=f"{endpoint}/v1/traces")
+            span_owner = BatchSpanProcessor(span_owner)
+            tracer_owner = TracerProvider(resource=resource)
+            tracer_owner.add_span_processor(span_owner)
+            span_owner, tracer_owner = tracer_owner, None
+            self._tracer_provider = span_owner
+            self.tracer = span_owner.get_tracer("coleman")
+            self._create_instruments()
+            # These retain the SDK's normal process-wide write-once behavior.
+            # No partial exporter/provider is registered during construction.
+            otel_metrics.set_meter_provider(self._meter_provider)
+            otel_trace.set_tracer_provider(self._tracer_provider)
+        except BaseException:
+            _dispose_partial(tracer_owner, span_owner, metric_owner)
+            raise
+
+    def _create_instruments(self) -> None:
+        """Construct the unchanged native instruments before global registration."""
         self.run_active = self.meter.create_up_down_counter(
             "coleman.run_active", description="Currently active experiment runs"
         )
@@ -184,11 +218,35 @@ class Telemetry:
         self.cycles_total.add(1, attributes=attributes)
 
     def mark_run_started(self, attributes: dict[str, Any] | None = None) -> None:
-        """Mark an experiment run as active."""
+        """Increment the existing native active-run up/down counter.
+
+        Parameters
+        ----------
+        attributes : dict or None, optional
+            Native series labels, default none. The host owns their cardinality
+            and must use identical labels for the matching finished event.
+
+        Notes
+        -----
+        Records through the configured SDK; it neither starts nor acknowledges
+        a job. Calls are not deduplicated and must be balanced by the host.
+        """
         self.run_active.add(1, attributes=attributes)
 
     def mark_run_finished(self, attributes: dict[str, Any] | None = None) -> None:
-        """Mark an experiment run as finished."""
+        """Decrement the existing native active-run counter after a host event.
+
+        Parameters
+        ----------
+        attributes : dict or None, optional
+            Same native series labels as the corresponding started event.
+
+        Notes
+        -----
+        Exports an observation only. It cannot complete a job, validate an
+        artifact, release a worker lock or prove exactly-once physical execution.
+        Repeated/unbalanced calls retain the legacy counter behavior.
+        """
         self.run_active.add(-1, attributes=attributes)
 
     def record_latency(self, name: str, duration: float, attributes: dict[str, Any] | None = None) -> None:
@@ -229,7 +287,27 @@ class Telemetry:
         cpu_utilization_percent: float | None,
         attributes: dict[str, Any] | None = None,
     ) -> None:
-        """Record a point-in-time process resource sample."""
+        """Record existing current-executable resource observations.
+
+        Parameters
+        ----------
+        current_rss_mib : float or None
+            Sampled executable RSS in MiB (1048576bytes), or unavailable.
+        peak_rss_mib : float or None
+            Executable lifetime high-water RSS in MiB; may include earlier work.
+        cpu_utilization_percent : float or None
+            CPU/wall interval ratio times100; can exceed100 with native threads.
+        attributes : dict or None, optional
+            Host-controlled native labels; no per-step cardinality limit is
+            imposed by this retained legacy facade.
+
+        Notes
+        -----
+        None omits the sample, never records zero. These are not child-process
+        totals, exclusive per-policy allocations or subject CI infrastructure.
+        The existing facade trusts the caller's units/values and exports to its
+        SDK; use typed lifecycle snapshots for strict finite/status validation.
+        """
         if current_rss_mib is not None:
             self.process_memory_rss.record(current_rss_mib, attributes=attributes)
         if peak_rss_mib is not None:
@@ -244,18 +322,55 @@ class Telemetry:
         peak_rss_mib: float | None,
         attributes: dict[str, Any] | None = None,
     ) -> None:
-        """Record final resource totals for one experiment."""
+        """Record one attempt's cumulative seconds and executable lifetime peak.
+
+        Parameters
+        ----------
+        wall_time_seconds : float
+            Monotonic elapsed seconds since this attempt tracker was created.
+        cpu_time_seconds : float
+            Current-executable CPU seconds since tracker creation, not fees or
+            total subject workload. Do not sum cumulative intermediate samples.
+        peak_rss_mib : float or None
+            Executable lifetime high-water MiB, or unavailable (sample omitted).
+        attributes : dict or None, optional
+            Existing host-controlled native labels and their cardinality policy.
+
+        Notes
+        -----
+        Writes SDK observations only, without changing run/task completion.
+        Legacy caller validation and artifact meanings remain unchanged.
+        """
         self.experiment_wall_time.record(wall_time_seconds, attributes=attributes)
         self.experiment_cpu_time.record(cpu_time_seconds, attributes=attributes)
         if peak_rss_mib is not None:
             self.process_memory_peak_rss.record(peak_rss_mib, attributes=attributes)
 
     def record_checkpoint_save(self, attributes: dict[str, Any] | None = None) -> None:
-        """Record one successful checkpoint save event."""
+        """Record one host-declared successful checkpoint-save event.
+
+        Parameters
+        ----------
+        attributes : dict or None, optional
+            Existing native labels. The caller owns finite cardinality and
+            calls only after its actual successful checkpoint operation.
+
+        Notes
+        -----
+        Increments a diagnostic counter; does not write/acknowledge state or
+        deduplicate retries. A metric cannot establish durable completion.
+        """
         self.checkpoint_saves_total.add(1, attributes=attributes)
 
     def flush(self) -> None:
-        """Force pending metrics and traces to be exported."""
+        """Request the existing SDK metric/trace flush without an export receipt.
+
+        Notes
+        -----
+        Retains legacy return behavior: SDK timeout booleans are not returned
+        by this facade. This is neither durable publication nor proof that a
+        remote collector persisted every observation; inspect SDK/backend health.
+        """
         self._meter_provider.force_flush()
         self._tracer_provider.force_flush()
 
@@ -295,10 +410,22 @@ class NoOpTelemetry:
         """
 
     def mark_run_started(self, attributes: dict[str, Any] | None = None) -> None:
-        """No-op."""
+        """Accept the legacy started-event signature without instrumentation.
+
+        Parameters
+        ----------
+        attributes : dict or None, optional
+            Ignored native labels. No provider, counter or run is created.
+        """
 
     def mark_run_finished(self, attributes: dict[str, Any] | None = None) -> None:
-        """No-op."""
+        """Accept the legacy finished-event signature without instrumentation.
+
+        Parameters
+        ----------
+        attributes : dict or None, optional
+            Ignored native labels. No job is completed or acknowledged.
+        """
 
     def record_latency(self, name: str, duration: float, attributes: dict[str, Any] | None = None) -> None:
         """No-op.
@@ -333,7 +460,17 @@ class NoOpTelemetry:
         cpu_utilization_percent: float | None,
         attributes: dict[str, Any] | None = None,
     ) -> None:
-        """No-op."""
+        """Accept existing process samples without reading or exporting resources.
+
+        Parameters
+        ----------
+        current_rss_mib, peak_rss_mib : float or None
+            Ignored current/lifetime-peak MiB measurements, including zero/null.
+        cpu_utilization_percent : float or None
+            Ignored CPU/wall interval percentage, possibly above100.
+        attributes : dict or None, optional
+            Ignored native labels. No validation or retention is introduced.
+        """
 
     def record_experiment_resources(
         self,
@@ -342,10 +479,26 @@ class NoOpTelemetry:
         peak_rss_mib: float | None,
         attributes: dict[str, Any] | None = None,
     ) -> None:
-        """No-op."""
+        """Accept the retained final-resource signature with no side effects.
+
+        Parameters
+        ----------
+        wall_time_seconds, cpu_time_seconds : float
+            Ignored attempt-tracker cumulative seconds, never interpreted as fees.
+        peak_rss_mib : float or None
+            Ignored executable lifetime high-water MiB or unavailable reading.
+        attributes : dict or None, optional
+            Ignored native labels. No validation, provider or counters are added.
+        """
 
     def record_checkpoint_save(self, attributes: dict[str, Any] | None = None) -> None:
-        """No-op."""
+        """Accept a checkpoint diagnostic without writing or acknowledging state.
+
+        Parameters
+        ----------
+        attributes : dict or None, optional
+            Ignored native labels. This does not establish checkpoint completion.
+        """
 
     def flush(self) -> None:
         """No-op flush."""

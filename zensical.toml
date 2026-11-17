@@ -89,7 +89,8 @@ nav = [
     { "Durable experiments and MCP" = "durable-experiments.md" },
     { "Durable adaptive tasks" = "typed-execution.md" },
     { "Workflow contracts and recovery" = "workflow-contracts.md" },
-    { "Observability" = "observability.md" }
+    { "Live dashboards and result storage" = "observability.md" },
+    { "Observe and measure operations" = "operational-qualification.md" }
   ] },
   { "Reference" = [
     { "Quality and security evidence" = "quality-and-security.md" },
@@ -122,6 +123,7 @@ nav = [
       { "Discrete chosen-feedback learning API" = "api/discrete.md" },
       { "Forecasting and continuous allocation API" = "api/continuous.md" },
       { "Typed task execution API" = "api/tasks.md" },
+      { "Lifecycle observations API" = "api/operational.md" },
       { "TCPCI problem mapping API" = "api/tcpci-problems.md" },
       { "Subset actions and acquisition API" = "api/subset-acquisition.md" },
       { "Synthetic funded-portfolio API" = "api/synthetic-portfolio.md" },

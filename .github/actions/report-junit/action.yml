@@ -1,0 +1,52 @@
+name: Report and upload retained JUnit results
+description: Report actual phase files and upload them through the pinned Codecov test-results action.
+
+inputs:
+  token:
+    description: Optional Codecov token supplied explicitly by the calling workflow.
+    required: false
+    default: ''
+  upload-name:
+    description: Declared upload identity; qualification fixtures use a distinct name.
+    required: false
+    default: coleman-test-results
+
+outputs:
+  files:
+    description: Comma-separated actual phase reports; empty when both are absent.
+    value: ${{ steps.junit_reports.outputs.files }}
+
+runs:
+  using: composite
+  steps:
+    - name: Report retained JUnit files
+      id: junit_reports
+      if: ${{ !cancelled() }}
+      shell: bash
+      # Failed parallel execution can leave the serial phase report absent.
+      run: |
+        python - <<'PY'
+        import os
+        from pathlib import Path
+        expected = ('junit.xml', 'junit-installed-corpus.xml')
+        present = []
+        for name in expected:
+            if Path(name).is_file():
+                present.append(name)
+                print(f'Retained JUnit report: {name}')
+            else:
+                print(f'::warning::Missing JUnit report: {name}; its phase may not have run')
+        with Path(os.environ['GITHUB_OUTPUT']).open('a') as output:
+            output.write('files=' + ','.join(present) + '\n')
+        PY
+    - name: Upload test results to Codecov
+      if: ${{ !cancelled() && steps.junit_reports.outputs.files != '' }}
+      uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6.0.2
+      with:
+        token: ${{ inputs.token }}
+        report_type: test_results
+        name: ${{ inputs.upload-name }}
+        # The upstream wrapper must exit before executing an unverified CLI.
+        fail_ci_if_error: true
+        files: ${{ steps.junit_reports.outputs.files }}
+        disable_search: true

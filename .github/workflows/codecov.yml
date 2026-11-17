@@ -2,6 +2,11 @@ name: Run tests and upload coverage and analytics
 
 on:
   push:
+    branches-ignore:
+      - qualification/v5-372-uploader-success
+      - qualification/v5-372-uploader-failure
+    # Preserve the original push workflow for every tag as well as other branches.
+    tags: ['**']
   pull_request:
 
 permissions:
@@ -34,7 +39,7 @@ jobs:
         run: uv venv .venv --python 3.14 --managed-python
       - name: Install dependencies
         run: |
-          uv sync --frozen --extra ci --extra analytics --extra dev --extra mcp --extra release --group build --no-build --no-install-project
+          uv sync --frozen --extra ci --extra analytics --extra dev --extra mcp --extra telemetry --extra release --group build --no-build --no-install-project
           uv pip install --no-deps --no-build --no-build-isolation --editable .
       - name: Qualify linked SQLite runtime
         run: |
@@ -67,21 +72,31 @@ jobs:
           uv run --frozen --no-sync --no-build python - <<'PY'
           import json
           from pathlib import Path
+          import tomllib
           total = json.loads(Path('coverage-final.json').read_text())['totals']['percent_covered']
-          print(f'Exact combined coverage: {total:.8f}% (required 95%)')
-          raise SystemExit(0 if total >= 95.0 else 1)
+          policy = tomllib.loads(Path('pyproject.toml').read_text())['tool']['coverage']['report']
+          threshold = policy['fail_under']
+          print(f'Raw combined coverage: {total!r}%; fail_under={threshold}; precision={policy["precision"]}')
+          accepted = total >= threshold
+          print(f'Unrounded coverage policy: {"PASS" if accepted else "FAIL"}')
+          raise SystemExit(0 if accepted else 1)
           PY
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+        # Reporting is optional; binary verification inside the action is strict.
+        continue-on-error: true
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6.0.2
         with:
+          fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.xml
+          # Domain coverage-selection fixtures are not code-coverage reports.
+          disable_search: true
           flags: unittests
           name: codecov-coverage-report
-      - name: Upload test results to Codecov
+      - name: Report and upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1.0.0
+        continue-on-error: true
+        uses: ./.github/actions/report-junit
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: junit.xml,junit-installed-corpus.xml
-          disable_search: true
+          upload-name: coleman-test-results

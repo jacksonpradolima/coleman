@@ -97,6 +97,7 @@ flowchart TD
 | Compare adaptive CI prioritization policies | The native TCPCI runner, [37 policies](#mab-policies-available), RNFail/TimeRank rewards, contextual inputs and [parameter sweeps](#sweep-engine) |
 | Watch experiments while they run | [Provisioned Grafana dashboards](docs/observability.md#watch-a-run): active executions, cycle progress, NAPFD/APFDc, checkpoint activity and ranking/evaluation latency |
 | Understand the framework's resource footprint | [Persisted CPU and memory samples](docs/observability.md#understand-resource-measurements), plus [Scalene and py-spy profiling](docs/code-cost.md) for investigating hotspots |
+| Inspect feedback delays, queues and resource limits | [Typed operational observations](docs/operational-qualification.md), optional bounded OpenTelemetry gauges, cold/warm bootstrap measurements and actual durable-job workloads; requires the unreleased v5 source wheel |
 | Query results with your analytical tools | [Parquet, embedded DuckDB or optional ClickHouse](#results-and-live-observability), SQL and Polars analysis, with configuration and provenance retained locally |
 | Stress a difficult CI decision | [32 deterministic interaction-covering cases](docs/ci-stress-laboratory.md), explicit truth and feedback clocks, native Parquet and resumable agents |
 | Replay late CI outcomes | [Typed delayed-feedback replay](docs/causal-replay.md), explicit maturity/receipt, immutable live decisions and pending feedback; requires the unreleased v5 source wheel |
@@ -311,6 +312,13 @@ explains platform support and sampling limits.
 
 The [observability guide](docs/observability.md) connects a complete runnable
 example to Docker Compose, dashboard filters, result-sink configuration and SQL.
+For generic learners, replay and durable tasks, the v5 source adds
+[typed lifecycle observations and finite operational measurements](docs/operational-qualification.md).
+Inspect pending feedback age, queue pressure, checkpoint and artifact sizes with
+explicit units and availability. Instrumentation can stay off, validate through
+a no-op observer, or use a host-owned OpenTelemetry meter. Workload reports retain
+limited outcomes and the work actually observed; collecting a valid report does
+not imply every requested job completed or establish a performance guarantee.
 Live telemetry complements stored results; [operational accounting](docs/operational-pilot.md)
 and [resource replay](docs/resource-replay.md) address evidence about the subject
 CI workload and its physical costs.
