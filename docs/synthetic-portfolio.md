@@ -408,6 +408,16 @@ operation. The manifest, source, execution bindings and fresh head must agree;
 concurrent advancement follows the existing reload/refusal rules. These are
 explicit combined reads, with no cache or caller-provided validation token.
 Separate `open`, `checkpoint` and `reconcile` calls still perform fresh reads.
+`advance_with_checkpoint(store, guard)` explicitly combines an actual transition,
+its complete post-ACK selected acquisition, and a real retained SQL retry of the
+same original command. It returns both progress records and the full checked
+snapshot. Reuse stays inside that call and requires matching fresh heads,
+manifest and receipts; an advanced head reloads or refuses. The staged callback's
+unacknowledged state never substitutes for this acquisition. The transition
+and retained lookup are separate store operations: a later error can occur
+after the first transition has already committed. After an uncertain response,
+reconcile the original command retained in the acknowledged manifest and receipt.
+Do not assume rollback or blindly replay the transition body.
 The installed continuation example selects these combined operations while
 retaining the full sixteen periods, actual interruption, competing writers,
 retained-command checks and complete direct-state comparison.

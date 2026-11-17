@@ -595,6 +595,68 @@ class Layout:
         supplies that count. Old commands remain retained under their original
         intent and are never rewritten into this command generation.
         """
+        return self._advance_acquisition(store, guard).progress
+
+    def advance_with_checkpoint(
+        self, store: LocalStateStore, guard: Callable[[], None]
+    ) -> tuple[CommittedProgress[OwnedCommitProof], CommittedProgress[OwnedCommitProof], PortfolioCheckpoint]:
+        """Advance, reconcile the same command and return its actual checked state.
+
+        Parameters
+        ----------
+        store : LocalStateStore
+            Actual initialized store for this exact original source and plan.
+        guard : callable
+            Existing deadline/ownership/resource guard before every period.
+
+        Returns
+        -------
+        tuple
+            Actual first acceptance progress, real retained-command progress,
+            and complete snapshot joined to that retained progress.
+
+        Raises
+        ------
+        ValueError, OSError
+            Failed transition, retained/source/head mismatch or concurrent change.
+
+        Notes
+        -----
+        Only the actual complete post-ACK selected load is reused, inside this
+        call. The same original request is reissued with a forbidden body and
+        must return a real retained receipt. Matching before/after fresh heads,
+        manifest and receipts permit reuse; advancement takes the original full
+        reload/refusal path. No callback snapshot, caller token or cross-call
+        cache supplies authority. Standalone operations remain fresh.
+
+        The transition and retained lookup are separate store operations, not
+        an atomic transaction. The first transition can remain committed when
+        a later lookup, read or head check fails. After an uncertain response,
+        reconcile the original command retained in the acknowledged manifest
+        and receipt; do not assume rollback or replay the transition body.
+        """
+        acquired = self._advance_acquisition(store, guard)
+        accepted = acquired.progress
+        request = accepted.proof.request
+        before = store.read_head()
+        receipt = store.commit_transition(
+            request, (self.binding,), _forbidden, compatibility=self.context.preparation.compatibility
+        )
+        if receipt.status != "retained":
+            raise ValueError("Portfolio reconciliation requires the real retained original command")
+        if (
+            before == accepted.proof.observed_head
+            and receipt.accepted_head == receipt.current_head
+            and receipt.current_head == before
+            and acquired.manifest.fingerprint == receipt.current_head.manifest_fingerprint
+        ):
+            retained = self._progress_from_checkpoint(store, request, receipt, acquired.checkpoint)
+            return accepted, retained, acquired.checkpoint
+        current = self._progress_evidence(store, request, receipt)
+        return accepted, current.progress, current.checkpoint
+
+    def _advance_acquisition(self, store: LocalStateStore, guard: Callable[[], None]) -> _AcknowledgedState:
+        """Keep the actual post-ACK selected acquisition inside this operation."""
         selected = self.binding
         head = store.read_head()
         if head is None or head.definition_fingerprint != self.definition.fingerprint:
@@ -636,7 +698,7 @@ class Layout:
             apply,
             compatibility=self.context.preparation.compatibility,
         )
-        return self.progress(store, request, receipt)
+        return self._progress_evidence(store, request, receipt)
 
     def _completed_evidence(self, store: LocalStateStore) -> tuple[PortfolioCoordinateResultV2, PortfolioCheckpoint]:
         """Join one terminal retained receipt to complete current selected bytes."""

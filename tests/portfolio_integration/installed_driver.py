@@ -230,8 +230,8 @@ def durable(root):
     )
     assert retained_command.status == "retained"
     assert layout.checkpoint(reopened).experiment.next_index == 9
-    completed = layout.advance(reopened, lambda: None)
-    retained, final_checkpoint = layout.reconcile_with_checkpoint(reopened)
+    completed, retained, final_checkpoint = layout.advance_with_checkpoint(reopened, lambda: None)
+    assert retained.proof.receipt.status == "retained"
     assert completed.frontier.position == retained.frontier.position == 16
     final = final_checkpoint.experiment
     from coleman_synthetic_portfolio.experiment import Experiment
