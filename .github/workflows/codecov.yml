@@ -29,11 +29,24 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
       - name: Create venv
-        run: uv venv .venv --python 3.14
+        # The runner's system Python can link an unqualified SQLite release.
+        # Use uv's managed distribution; verify the actual engine below.
+        run: uv venv .venv --python 3.14 --managed-python
       - name: Install dependencies
         run: |
           uv sync --frozen --extra ci --extra analytics --extra dev --extra mcp --extra release --group build --no-build --no-install-project
           uv pip install --no-deps --no-build --no-build-isolation --editable .
+      - name: Qualify linked SQLite runtime
+        run: |
+          .venv/bin/python - <<'PY'
+          import sqlite3
+          import sys
+          from coleman.state._disk import qualify_sqlite
+
+          print(f'Python: {sys.version}; executable: {sys.executable}')
+          print(f'Linked SQLite: {sqlite3.sqlite_version}')
+          qualify_sqlite()
+          PY
       - name: Run tests
         # Keep installed-package modules together. Collect partial coverage here;
         # the serial completion below enforces the unchanged combined 95% gate.
