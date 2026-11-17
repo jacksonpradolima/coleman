@@ -15,6 +15,7 @@ import platform
 import subprocess
 import sys
 import time
+from importlib import import_module
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -92,31 +93,10 @@ class Report(CoreContract):
     measurements: Annotated[tuple[Observation, ...], Field(min_length=3, max_length=24)]
 
     @model_validator(mode="after")
-    def _driver_identity(self):
-        """Keep optional command tooling bound to the same exact base image."""
-        driver = self.driver_runtime
-        if driver is not None and (
-            driver.selected_extras != ("cli",)
-            or not any(item.name == "click" and item.version == "8.1.8" for item in driver.distributions)
-            or any(
-                getattr(self.runtime, key) != getattr(driver, key)
-                for key in (
-                    "package_fingerprint",
-                    "python_implementation",
-                    "python_version",
-                    "operating_system",
-                    "machine",
-                )
-            )
-            or not {(item.name, item.version) for item in self.runtime.distributions}
-            <= {(item.name, item.version) for item in driver.distributions}
-        ):
-            raise ValueError("CLI driver identity must select cli and preserve the exact base runtime")
-        return self
-
-    @model_validator(mode="after")
     def _complete(self):
         """Reject missing/duplicate mode cells and unequal mathematical outputs."""
+        if self.driver_runtime is not None:
+            self.driver_runtime.require_base(self.runtime, extras=("cli",), pins=(("click", "8.1.8"),))
         selected = self.instrumentation_runtime
         if selected.selected_extras != ("telemetry",) or not {
             "opentelemetry-api",
@@ -346,11 +326,10 @@ def main() -> None:
     becomes a complete file. Paths are explicit trusted operator inputs.
     """
     try:
-        import click
+        click = import_module("click")
     except ImportError as error:
         raise SystemExit("Install the reviewed COLEMAN wheel with its [cli] extra") from error
 
-    @click.command(help=__doc__)
     @click.option("--quick", is_flag=True, help="Measure the original single small workload.")
     @click.option("--output", type=click.Path(path_type=Path), default=Path("operational-results"), show_default=True)
     @click.option(
@@ -373,7 +352,8 @@ def main() -> None:
         else:
             print(publish(measure(quick=quick), output))
 
-    _command()
+    command = click.command(help=__doc__)(_command)
+    command.main()
 
 
 if __name__ == "__main__":

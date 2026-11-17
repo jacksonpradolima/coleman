@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 from datetime import UTC, datetime, timedelta
+from importlib import import_module
 from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
@@ -277,17 +278,17 @@ def main() -> None:
     example owns no persistent checkpoint or physical execution.
     """
     try:
-        import click
+        click = import_module("click")
     except ImportError as error:
         raise SystemExit("Install the reviewed COLEMAN wheel with its [cli] extra") from error
 
-    @click.command(help=__doc__)
     @click.option("--mode", type=click.Choice(("off", "noop", "memory")), default="noop", show_default=True)
     def _command(mode: Mode) -> None:
         """Run the explicitly selected local observation profile."""
         print(run(Workload(schema_version=1), mode).to_json())
 
-    _command()
+    command = click.command(help=__doc__)(_command)
+    command.main()
 
 
 if __name__ == "__main__":

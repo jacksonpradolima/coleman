@@ -640,18 +640,18 @@ def main() -> None:
     original60/180-second measurement and before immutable publication.
     """
     try:
-        import click
+        click = importlib.import_module("click")
     except ImportError as error:
         raise SystemExit("Install the reviewed COLEMAN wheel with its [cli] extra") from error
 
-    @click.command(help=__doc__)
     @click.option("--profile", type=click.Path(path_type=Path), required=True)
     @click.option("--output", type=click.Path(path_type=Path), required=True)
     def _command(profile: Path, output: Path) -> None:
         """Measure the original fixed four-case real task grid."""
         print(measure(profile, output, driver_runtime=SelectedInstalledRuntime.capture(extras=("cli",))).to_json())
 
-    _command()
+    command = click.command(help=__doc__)(_command)
+    command.main()
 
 
 if __name__ == "__main__":

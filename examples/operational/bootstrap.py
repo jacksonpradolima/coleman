@@ -16,6 +16,7 @@ import sys
 import time
 import tomllib
 from dataclasses import dataclass
+from importlib import import_module
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -27,7 +28,6 @@ from coleman.core.numeric import Binary64
 from coleman.spec.runtime_identity import InstalledRuntime
 from coleman.spec.selected_runtime import SelectedInstalledRuntime
 from coleman.telemetry.resources import ProcessResourceTracker
-
 
 LOCK_FILENAME = "uv.lock"
 
@@ -78,31 +78,10 @@ class BootstrapReport(CoreContract):
     cells: tuple[CacheCell, CacheCell]
 
     @model_validator(mode="after")
-    def _driver_identity(self):
-        """Keep optional command tooling bound to the same exact base image."""
-        driver = self.driver_runtime
-        if driver is not None and (
-            driver.selected_extras != ("cli",)
-            or not any(item.name == "click" and item.version == "8.1.8" for item in driver.distributions)
-            or any(
-                getattr(self.cells[0].runtime, key) != getattr(driver, key)
-                for key in (
-                    "package_fingerprint",
-                    "python_implementation",
-                    "python_version",
-                    "operating_system",
-                    "machine",
-                )
-            )
-            or not {(item.name, item.version) for item in self.cells[0].runtime.distributions}
-            <= {(item.name, item.version) for item in driver.distributions}
-        ):
-            raise ValueError("CLI driver identity must select cli and preserve the exact base runtime")
-        return self
-
-    @model_validator(mode="after")
     def _paired(self):
         """Refuse a populated cold cache, changed frontier or changed runtime."""
+        if self.driver_runtime is not None:
+            self.driver_runtime.require_base(self.cells[0].runtime, extras=("cli",), pins=(("click", "8.1.8"),))
         cold, warm = self.cells
         if (cold.mode, warm.mode) != ("empty-online", "warm-offline"):
             raise ValueError("Both ordered empty-online and warm-offline profiles are required")
@@ -346,11 +325,10 @@ def main() -> None:
     The original240-second installer fences remain unchanged.
     """
     try:
-        import click
+        click = import_module("click")
     except ImportError as error:
         raise SystemExit("Install the reviewed COLEMAN wheel with its [cli] extra") from error
 
-    @click.command(help=__doc__)
     @click.option("--project", type=click.Path(path_type=Path), required=True)
     @click.option("--wheel", type=click.Path(path_type=Path), required=True)
     @click.option("--uv", type=click.Path(path_type=Path), required=True)
@@ -360,7 +338,8 @@ def main() -> None:
         report = measure(project, wheel, uv, output, driver_runtime=SelectedInstalledRuntime.capture(extras=("cli",)))
         print(report.to_json())
 
-    _command()
+    command = click.command(help=__doc__)(_command)
+    command.main()
 
 
 if __name__ == "__main__":

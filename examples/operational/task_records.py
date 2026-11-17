@@ -294,49 +294,16 @@ class TaskLoadReport(CoreContract):
     cells: Annotated[tuple[TaskCell | NotStartedCell, ...], Field(min_length=4, max_length=4)]
 
     @model_validator(mode="after")
-    def _driver_identity(self):
-        """Keep optional command tooling bound to the same exact base image."""
-        driver = self.driver_runtime
-        if driver is not None and (
-            driver.selected_extras != ("cli",)
-            or not any(item.name == "click" and item.version == "8.1.8" for item in driver.distributions)
-            or any(
-                getattr(self.runtime, key) != getattr(driver, key)
-                for key in (
-                    "package_fingerprint",
-                    "python_implementation",
-                    "python_version",
-                    "operating_system",
-                    "machine",
-                )
-            )
-            or not {(item.name, item.version) for item in self.runtime.distributions}
-            <= {(item.name, item.version) for item in driver.distributions}
-        ):
-            raise ValueError("CLI driver identity must select cli and preserve the exact base runtime")
-        return self
-
-    @model_validator(mode="after")
     def _installed_image(self):
         """Join the exact captured approval and actual selected/base runtime."""
+        if self.driver_runtime is not None:
+            self.driver_runtime.require_base(self.runtime, extras=("cli",), pins=(("click", "8.1.8"),))
         if len(self.bootstrap.executors) != 1 or (
             self.bootstrap.executors[0].implementation != self.implementation.binding
             or self.bootstrap.executors[0].recipe != self.implementation.recipe
         ):
             raise ValueError("The actual captured executor image must match its explicit current approval")
-        if any(
-            getattr(self.runtime, key) != getattr(self.implementation.runtime, key)
-            for key in (
-                "package_fingerprint",
-                "python_implementation",
-                "python_version",
-                "operating_system",
-                "machine",
-            )
-        ) or not {(d.name, d.version) for d in self.runtime.distributions} <= {
-            (d.name, d.version) for d in self.implementation.runtime.distributions
-        }:
-            raise ValueError("Base and selected executor identities must describe the same exact actual runtime")
+        self.implementation.runtime.require_base(self.runtime)
         return self
 
     @model_validator(mode="after")

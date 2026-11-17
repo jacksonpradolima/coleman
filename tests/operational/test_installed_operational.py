@@ -374,7 +374,8 @@ def test_actual_installed_cli_help_and_malformed_flags_before_work(installed, in
     _, _, _, _, outside, environment = installed
     python = str(installed_cli / "bin/python")
     help_output = invoke(python, filename, ["--help"], outside, environment)
-    assert "Usage:" in help_output and "--help" in help_output
+    assert "Usage:" in help_output
+    assert "--help" in help_output
     result = subprocess.run(
         [python, "-I", "-B", str(outside / filename), "--unknown-operational-flag"],
         cwd=outside,
@@ -400,5 +401,6 @@ def test_actual_installed_cli_noop_and_typed_child_use_only_selected_tooling(ins
     assert len(receipt["snapshots"]) == 2
     assert receipt["final_states"][0]["payload"]["update_count"] == 2
     child = json.loads(invoke(python, "measure.py", ["--child", "noop", "2", "2", "1"], outside, environment))
-    assert child["accepted_updates"] == 2 and child["mode"] == "noop"
+    assert child["accepted_updates"] == 2
+    assert child["mode"] == "noop"
     assert child["snapshot_bytes"] > 0

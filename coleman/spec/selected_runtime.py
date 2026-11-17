@@ -126,6 +126,75 @@ class SelectedInstalledRuntime(CoreContract, _RuntimeEnvironment):
         object.__setattr__(self, "distributions", tuple(sorted(self.distributions, key=lambda item: item.name)))
         return self
 
+    def require_base(
+        self,
+        base: InstalledRuntime,
+        *,
+        extras: tuple[str, ...] | None = None,
+        pins: tuple[tuple[str, str], ...] = (),
+    ) -> None:
+        """Require consistency between declared selected and base identities.
+
+        Parameters
+        ----------
+        base : InstalledRuntime
+            Complete generation-one base identity. Both records are revalidated
+            before comparing package bytes, Python implementation/version,
+            operating system, machine and exact base dependency name/versions.
+        extras : tuple[str, ...] or None, optional
+            Required exact canonical selected-extra tuple, at most128 names.
+            None imposes no extra-selection condition; it does not infer one.
+        pins : tuple[tuple[str, str], ...], optional
+            At most4096 required canonical distribution name/version pairs.
+            Empty imposes no additional package requirement. These are declared
+            versions, not installed resource or cryptographic attestations.
+
+        Returns
+        -------
+        None
+            The selected identity contains every unchanged base dependency and
+            matches all supplied selection/pin requirements.
+
+        Raises
+        ------
+        ValueError, TypeError
+            Invalid or unsupported identity generation, malformed requirements,
+            different package/platform/Python fields, changed/missing base
+            dependencies, selection mismatch or absent required name/version.
+
+        Notes
+        -----
+        Compares only supplied immutable declarations and performs no I/O,
+        metadata capture, provider/CLI import, installation, network request or
+        state restoration. Success does not prove the current installed image,
+        authenticate either source or authorize checkpoint continuation. No old
+        record is upgraded and no missing runtime identity is manufactured.
+        """
+        selected = SelectedInstalledRuntime.model_validate(self)
+        original = InstalledRuntime.model_validate(base)
+        selection = None if extras is None else TypeAdapter(_ExtraSelection).validate_python(extras, strict=True)
+        required = TypeAdapter(Annotated[tuple[tuple[str, str], ...], Field(max_length=4096)]).validate_python(
+            pins, strict=True
+        )
+        available = {(item.name, item.version) for item in selected.distributions}
+        base_versions = {(item.name, item.version) for item in original.distributions}
+        if (
+            (selection is not None and selected.selected_extras != selection)
+            or any(
+                getattr(original, key) != getattr(selected, key)
+                for key in (
+                    "package_fingerprint",
+                    "python_implementation",
+                    "python_version",
+                    "operating_system",
+                    "machine",
+                )
+            )
+            or not base_versions <= available
+            or not set(required) <= available
+        ):
+            raise ValueError("Selected runtime must preserve the declared base image, selection and required versions")
+
     @classmethod
     def capture(cls, *, extras: tuple[str, ...]) -> SelectedInstalledRuntime:
         """Capture the actual installed closure of an explicit root selection.
