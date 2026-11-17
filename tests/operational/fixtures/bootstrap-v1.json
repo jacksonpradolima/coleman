@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "complete": true,
+  "hardware": "hand-authored unit fixture; not measured performance",
+  "uv_version": "0.13.1",
+  "uv_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "project_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+  "wheel_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+  "driver_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+  "cells": [
+    {
+      "schema_version": 1,
+      "mode": "empty-online",
+      "cache_before_files": 0,
+      "cache_before_bytes": 0,
+      "cache_after_files": 10,
+      "cache_after_bytes": 1024,
+      "elapsed_seconds": 2.0,
+      "host_cpu_seconds": 0.0,
+      "host_peak_rss_mib": null,
+      "runtime": {
+        "schema_version": 1,
+        "distributions": [{"name": "coleman", "version": "0.0.0"}],
+        "machine": "x86_64",
+        "operating_system": "Linux",
+        "package_fingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "python_implementation": "CPython",
+        "python_version": "3.14.0"
+      }
+    },
+    {
+      "schema_version": 1,
+      "mode": "warm-offline",
+      "cache_before_files": 10,
+      "cache_before_bytes": 1024,
+      "cache_after_files": 10,
+      "cache_after_bytes": 1024,
+      "elapsed_seconds": 1.0,
+      "host_cpu_seconds": 0.0,
+      "host_peak_rss_mib": null,
+      "runtime": {
+        "schema_version": 1,
+        "distributions": [{"name": "coleman", "version": "0.0.0"}],
+        "machine": "x86_64",
+        "operating_system": "Linux",
+        "package_fingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "python_implementation": "CPython",
+        "python_version": "3.14.0"
+      }
+    }
+  ]
+}

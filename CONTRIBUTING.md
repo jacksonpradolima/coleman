@@ -35,9 +35,14 @@ PR against `release/v5`. Stable v4 maintenance continues from `main`. See the
 [v5 integration guide](docs/v5-release-integration.md) for the reviewed release
 route and how to record integrated but unreleased work.
 
-Keep source archives, raw capture
-outputs and large datasets outside the Git worktree. Normal tests use small owned
-fixtures and run without network access.
+Keep source archives, raw capture outputs and large datasets outside the Git
+worktree. Unit and state tests use small owned fixtures. Installed-package
+qualification needs the locked public dependency artifacts; its ordinary
+installed profiles can run from a populated local cache. The explicit
+[cold/warm bootstrap measurement](docs/operational-qualification.md#separate-an-empty-dependency-cache-from-a-fresh-environment)
+starts with an empty owned package cache and accesses public PyPI, then repeats
+offline in a fresh environment. Record that network requirement separately from
+offline fixture execution; neither route needs a private service or consumer data.
 
 ## Choose the right boundary
 

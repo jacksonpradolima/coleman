@@ -18,6 +18,7 @@ do not install a second overlapping package or start a service.
 | You want to use | Select | Direct dependencies added |
 | --- | --- | --- |
 | Core contracts, objectives, host-owned learners, finite solving and JSON codecs | Base wheel | Pydantic and packaging |
+| Copied operational command examples | `cli` | Click |
 | Native TCPCI execution, source/Parquet workflows and DuckDB results | `ci` | DuckDB, NumPy, Polars, PyArrow and PyYAML |
 | Analytical Parquet/DuckDB operations and normal-model statistical evaluation | `analytics` | DuckDB, NumPy, Polars, PyArrow, SciPy and scikit-posthocs |
 | A native CI experiment followed by normal-model comparison | `ci,analytics` | Union of the two profiles |
@@ -33,6 +34,11 @@ needs neither profile. The existing bounded-mean protected method uses its
 explicit bounded mathematical contract without SciPy; the native durable workflow
 uses that route with `ci`. The normal-model paired method requires `analytics`.
 
+The [operational command examples](operational-qualification.md) use Click from
+the `cli` extra. Their Python functions keep CLI imports at the command boundary;
+direct learning and solver calls still use the base wheel. Select `cli,telemetry`
+when invoking the examples' in-memory instrumentation profile.
+
 The existing `mcp`, `telemetry` and `clickhouse` extras install their respective
 SDKs/drivers. `notebook`, `docs`, `dev` and `release` select tools; they do not
 implicitly enable CI or analytical operations. For the complete supplied
@@ -46,6 +52,8 @@ flowchart TD
     CI[ci extra] --> Native[Native TCPCI, Parquet and DuckDB workflows]
     Analytics[analytics extra] --> Inference[Analytical storage and normal-model comparison]
     MCP[mcp extra] --> Transport[Optional MCP transport]
+    CLI[cli extra: Click] --> Commands[Operational command examples]
+    Commands --> Math
     Native --> Math
     Inference --> Math
     Transport --> Native
