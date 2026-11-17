@@ -9,7 +9,16 @@ permissions:
 
 jobs:
   test:
-    name: Run ${{ github.event_name }} tests and collect coverage
+    if: >-
+      ${{ github.event_name != 'push' ||
+          (github.ref != 'refs/heads/qualification/v5-372-uploader-success' &&
+           github.ref != 'refs/heads/qualification/v5-372-uploader-failure') }}
+    name: >-
+      ${{ github.event_name == 'push' &&
+          (github.ref == 'refs/heads/qualification/v5-372-uploader-success' ||
+           github.ref == 'refs/heads/qualification/v5-372-uploader-failure') &&
+          'Uploader qualification: product suite intentionally not executed' ||
+          format('Run {0} tests and collect coverage', github.event_name) }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
@@ -34,7 +43,7 @@ jobs:
         run: uv venv .venv --python 3.14 --managed-python
       - name: Install dependencies
         run: |
-          uv sync --frozen --extra ci --extra analytics --extra dev --extra mcp --extra release --group build --no-build --no-install-project
+          uv sync --frozen --extra ci --extra analytics --extra dev --extra mcp --extra telemetry --extra release --group build --no-build --no-install-project
           uv pip install --no-deps --no-build --no-build-isolation --editable .
       - name: Qualify linked SQLite runtime
         run: |
@@ -67,9 +76,14 @@ jobs:
           uv run --frozen --no-sync --no-build python - <<'PY'
           import json
           from pathlib import Path
+          import tomllib
           total = json.loads(Path('coverage-final.json').read_text())['totals']['percent_covered']
-          print(f'Exact combined coverage: {total:.8f}% (required 95%)')
-          raise SystemExit(0 if total >= 95.0 else 1)
+          policy = tomllib.loads(Path('pyproject.toml').read_text())['tool']['coverage']['report']
+          threshold = policy['fail_under']
+          print(f'Raw combined coverage: {total!r}%; fail_under={threshold}; precision={policy["precision"]}')
+          accepted = total >= threshold
+          print(f'Unrounded coverage policy: {"PASS" if accepted else "FAIL"}')
+          raise SystemExit(0 if accepted else 1)
           PY
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
@@ -78,10 +92,143 @@ jobs:
           files: coverage.xml
           flags: unittests
           name: codecov-coverage-report
-      - name: Upload test results to Codecov
+      - &junit_reports_step
+        name: Report retained JUnit files
+        id: junit_reports
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1.0.0
+        # A failed parallel phase prevents the serial phase from producing its
+        # report. Upload only actual files and report every missing expected one.
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          expected = ('junit.xml', 'junit-installed-corpus.xml')
+          present = []
+          for name in expected:
+              if Path(name).is_file():
+                  present.append(name)
+                  print(f'Retained JUnit report: {name}')
+              else:
+                  print(f'::warning::Missing JUnit report: {name}; its phase may not have run')
+          with Path(os.environ['GITHUB_OUTPUT']).open('a') as output:
+              output.write('files=' + ','.join(present) + '\n')
+          PY
+      - &junit_upload_step
+        name: Upload test results to Codecov
+        if: ${{ !cancelled() && steps.junit_reports.outputs.files != '' }}
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: junit.xml,junit-installed-corpus.xml
+          report_type: test_results
+          name: >-
+            ${{ github.event_name == 'push' &&
+                github.ref == 'refs/heads/qualification/v5-372-uploader-failure' &&
+                'uploader-qualification-failure' ||
+                github.event_name == 'push' &&
+                github.ref == 'refs/heads/qualification/v5-372-uploader-success' &&
+                'uploader-qualification-success' || 'coleman-test-results' }}
+          fail_ci_if_error: >-
+            ${{ github.event_name == 'push' &&
+                (github.ref == 'refs/heads/qualification/v5-372-uploader-success' ||
+                 github.ref == 'refs/heads/qualification/v5-372-uploader-failure') }}
+          files: ${{ steps.junit_reports.outputs.files }}
           disable_search: true
+
+  uploader_qualification:
+    name: Uploader qualification (${{ github.ref_name }})
+    if: >-
+      ${{ github.event_name == 'push' &&
+          (github.ref == 'refs/heads/qualification/v5-372-uploader-success' ||
+           github.ref == 'refs/heads/qualification/v5-372-uploader-failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      COLEMAN_PROBE_PYTHON: .venv/bin/python
+      COLEMAN_PROBE_EXPECTATION: >-
+        ${{ github.ref == 'refs/heads/qualification/v5-372-uploader-failure' && 'failure' || 'success' }}
+    steps:
+      - name: Checkout exact qualification source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install verified uv
+        uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: '0.13.1'
+          checksum: eadd9d27c134ab5ac1ffd4473b97a741407f3ea238288f03121fc4deddf90220
+          python-version: '3.14'
+          enable-cache: true
+      - name: Install only the locked probe tooling
+        run: uv sync --frozen --only-group dev --no-install-project --no-build
+      - name: Prepare a real tiny pytest case outside product collection
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import tempfile
+          root = Path(tempfile.mkdtemp(prefix='coleman-uploader-', dir=os.environ['RUNNER_TEMP']))
+          source = (
+              "import os\n\n"
+              "def test_upload_probe():\n"
+              "    assert os.environ['COLEMAN_PROBE_EXPECTATION'] == 'success', "
+              "'Intentional negative uploader qualification'\n"
+          )
+          (root / 'test_upload_probe.py').write_text(source)
+          with Path(os.environ['GITHUB_ENV']).open('a') as output:
+              output.write('COLEMAN_UPLOADER_PROBE=' + str(root) + '\n')
+          print('Qualification fixture is outside product test collection; no full-suite claim.')
+          PY
+      - name: Run real primary probe (failure ref intentionally fails)
+        id: probe_primary
+        run: >-
+          "$COLEMAN_PROBE_PYTHON" -m pytest -c /dev/null -q
+          "$COLEMAN_UPLOADER_PROBE/test_upload_probe.py"
+          --junitxml=junit.xml -o junit_family=legacy
+      - name: Run real second phase only after successful primary
+        run: >-
+          "$COLEMAN_PROBE_PYTHON" -m pytest -c /dev/null -q
+          "$COLEMAN_UPLOADER_PROBE/test_upload_probe.py"
+          --junitxml=junit-installed-corpus.xml -o junit_family=legacy
+      - *junit_reports_step
+      - name: Record actual probe reports and expected outcome
+        if: ${{ !cancelled() }}
+        env:
+          COLEMAN_PRIMARY_OUTCOME: ${{ steps.probe_primary.outcome }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          reports = {}
+          for name in ('junit.xml', 'junit-installed-corpus.xml'):
+              path = Path(name)
+              if path.is_file():
+                  suites = tuple(ET.parse(path).getroot().iter('testsuite'))
+                  reports[name] = {
+                      'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                      'tests': sum(int(s.get('tests', '0')) for s in suites),
+                      'failures': sum(int(s.get('failures', '0')) for s in suites),
+                      'errors': sum(int(s.get('errors', '0')) for s in suites),
+                      'skipped': sum(int(s.get('skipped', '0')) for s in suites),
+                  }
+          negative = os.environ['COLEMAN_PROBE_EXPECTATION'] == 'failure'
+          primary = reports.get('junit.xml')
+          valid = primary is not None and primary['tests'] == 1
+          if negative:
+              valid = valid and primary['failures'] == 1 and primary['errors'] == 0 and primary['skipped'] == 0
+              valid = valid and 'junit-installed-corpus.xml' not in reports
+              valid = valid and os.environ['COLEMAN_PRIMARY_OUTCOME'] == 'failure'
+          else:
+              valid = valid and len(reports) == 2 and all(
+                  r['tests'] == 1 and r['failures'] == 0 and r['errors'] == 0 and r['skipped'] == 0
+                  for r in reports.values())
+          if not valid:
+              raise RuntimeError('Qualification did not produce the declared actual success/failure report shape')
+          receipt = {'sha': os.environ['GITHUB_SHA'], 'expected_negative': negative,
+                     'product_suite_executed': False, 'reports': reports}
+          text = json.dumps(receipt, sort_keys=True)
+          print(text)
+          with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a') as output:
+              output.write('Uploader-only qualification; full product gates are separate.\n\n' + text + '\n')
+          PY
+      - *junit_upload_step

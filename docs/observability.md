@@ -8,6 +8,11 @@ and Grafana when you want a live view of longer experiments and sweeps.
 **Start locally:** the [first experiment](getting-started.md) needs none of these
 services. Process resource samples are persisted even with telemetry disabled.
 
+For generic decision, replay and durable-task observations, use the
+[operational qualification guide](operational-qualification.md). It includes a
+complete local CI example, explicit missingness, bounded lifecycle labels and
+matched instrumentation overhead measurements, without requiring a collector.
+
 ```mermaid
 flowchart LR
     R[Native CI replay] --> S[Configured result sink]
@@ -57,10 +62,14 @@ the runner does not emit energy measurements by default.
 ### 1. Install the optional client
 
 Use the virtual environment from the [first experiment](getting-started.md).
-Install telemetry support from a pinned release wheel:
+Install telemetry support from the reviewed source wheel described by the
+[installation guide](core-installation.md). This source revision includes the
+patched optional OpenTelemetry pins; an older release wheel does not acquire
+those pins simply because this documentation changed. Set the actual wheel path:
 
 ```bash
-python -m pip install "coleman[telemetry] @ https://github.com/jacksonpradolima/coleman/releases/download/v4.19.1/coleman-4.19.1-py3-none-any.whl#sha256=ca470ba2be14ca755952f0bb3bc92615d76b90f95ebdd41dc1cdc9847713cc93"
+COLEMAN_WHEEL=/absolute/path/to/coleman-4.20.0-py3-none-any.whl
+python -m pip install --force-reinstall "${COLEMAN_WHEEL}[telemetry]"
 ```
 
 ### 2. Start the optional local services
@@ -131,6 +140,15 @@ enabled. A run directory alone does not certify successful completion.
 | `duckdb` | `coleman_results` in local `.duckdb` files under the same results directory | Embedded dependency; process-parallel executions get separate files by default to avoid writer conflicts |
 | `clickhouse` | `coleman_results` in the configured server/database | Requires the `clickhouse` extra and a reachable server; this sink appends rows and does not provide the local Parquet checkpoint reconciliation guarantee |
 
+A [DuckLake catalog](https://ducklake.select/docs/stable/duckdb/introduction.html)
+is a separate optional analytical integration over exported data. This revision
+ships the native sink choices listed above; it does not register a `ducklake`
+sink or qualify an external catalog's ingestion, credentials, retention or
+concurrent writers. Keep those operations explicit in your analytical workflow.
+The linked upstream DuckLake 1.1 guide requires DuckDB 2.0 or newer; COLEMAN's
+native profile pins DuckDB 1.5.0. Qualify a separate analytical environment rather
+than silently replacing that tested native dependency.
+
 For embedded DuckDB, add this before `run(spec)` in the tutorial:
 
 ```python
@@ -160,7 +178,8 @@ contract; ClickHouse does not currently implement that capability.
 Install both optional clients if you want both workflows:
 
 ```bash
-python -m pip install "coleman[telemetry,clickhouse] @ https://github.com/jacksonpradolima/coleman/releases/download/v4.19.1/coleman-4.19.1-py3-none-any.whl#sha256=ca470ba2be14ca755952f0bb3bc92615d76b90f95ebdd41dc1cdc9847713cc93"
+COLEMAN_WHEEL=/absolute/path/to/coleman-4.20.0-py3-none-any.whl
+python -m pip install --force-reinstall "${COLEMAN_WHEEL}[telemetry,clickhouse]"
 ```
 
 From the checkout root, start ClickHouse and select the collector configuration

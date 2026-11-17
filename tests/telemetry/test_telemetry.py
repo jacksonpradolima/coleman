@@ -65,10 +65,11 @@ class TestGetTelemetry:
 
     def test_enabled_without_sdk_returns_noop(self):
         """Even if enabled, without OTel SDK we get NoOp (graceful fallback)."""
-        # Since the test environment may or may not have OTel installed,
-        # the important thing is that it doesn't crash
-        t = get_telemetry(enabled=True)
-        # Should be either Telemetry or NoOpTelemetry (both work)
+        # A full-extra environment also tests this genuinely unavailable branch;
+        # no default localhost exporter/thread is started by a fallback test.
+        with patch("coleman.telemetry.otel._HAS_OTEL", False):
+            t = get_telemetry(enabled=True)
+        assert isinstance(t, NoOpTelemetry)
         assert hasattr(t, "record_cycle")
         assert hasattr(t, "record_latency")
         assert hasattr(t, "record_fitness")
@@ -76,10 +77,12 @@ class TestGetTelemetry:
 
     def test_enabled_with_resource_attributes_does_not_crash(self):
         """Passing resource_attributes should not crash regardless of SDK availability."""
-        t = get_telemetry(
-            enabled=True,
-            resource_attributes={"execution_id": "test|tr=0.50|exp=1|abc12345", "run_id": "abc123def456"},
-        )
+        with patch("coleman.telemetry.otel._HAS_OTEL", False):
+            t = get_telemetry(
+                enabled=True,
+                resource_attributes={"execution_id": "test|tr=0.50|exp=1|abc12345", "run_id": "abc123def456"},
+            )
+        assert isinstance(t, NoOpTelemetry)
         assert hasattr(t, "record_cycle")
         assert hasattr(t, "span")
 
