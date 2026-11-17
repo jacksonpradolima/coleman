@@ -156,9 +156,11 @@ in `[0, 1]`, and a declared finite horizon up to `2**40` updates. Zero is valid;
 null, unknown, unavailable, not applicable, negatives and nonfinite observations
 cannot become counted rewards. An external versioned transform can map signed
 source quantities to this reward domain; its scientific validity remains the
-consumer's responsibility. Transform identity, units, bounds and permitted
-origins must match exactly. Only realized or explicitly synthetic origins are
-supported. Additional diagnostic quantities do not become reward.
+consumer's responsibility. Transform identity, dimension/version, units and
+permitted origins must match the contract. Supplied bounds may be narrower
+within the declared admissible `[0, 1]` interval, following the core capability
+contract. Only realized or explicitly synthetic origins are supported.
+Additional diagnostic quantities do not become reward.
 
 Exp3 requires `gamma >= K/2**53` to retain full exploration support, and centered
 logs must stay within `[-700, 0]`. Exceeding that numerical envelope raises

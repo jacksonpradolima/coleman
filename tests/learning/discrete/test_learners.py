@@ -12,7 +12,7 @@ from typing import cast
 import pytest
 
 from coleman.core.actions import ChoiceAction
-from coleman.core.capabilities import ProblemCapabilities
+from coleman.core.capabilities import ProblemCapabilities, validate_feedback
 from coleman.core.decisions import Decision
 from coleman.core.feedback import ChosenFeedback, FeedbackRow, FullPanel, OutcomeValue
 from coleman.learning.discrete import DiscreteBandit, DiscreteConfig, DiscreteState
@@ -236,6 +236,39 @@ def test_hidden_panel_wrong_chosen_transform_and_units_rejected():
         with pytest.raises(ValueError):
             learner.update(batch.model_copy(update={"feedback": feedback}))
         assert learner.export_state() == before
+
+
+@pytest.mark.parametrize("profile", ("exp3-dyadic53-v1", "ucb1-binary64-v1"))
+def test_compatible_narrower_reward_bounds_and_unrelated_diagnostics_preserve_update(profile):
+    config = configuration(profile)
+    learner = DiscreteBandit(config)
+    expected = DiscreteBandit(config)
+    learner.decide(request(config, 0))
+    expected.decide(request(config, 0))
+    batch = observation(learner, 0.5)
+    assert isinstance(batch.feedback, ChosenFeedback)
+    original = batch.feedback.row.values[0]
+    narrowed = original.model_copy(update={"spec": config.reward.model_copy(update={"minimum": 0.25, "maximum": 0.75})})
+    diagnostic = original.model_copy(
+        update={
+            "spec": config.reward.model_copy(
+                update={"dimension": reference("a-diagnostic"), "role": "diagnostic", "minimum": None, "maximum": None}
+            ),
+            "value": -123.0,
+        }
+    )
+    batch = batch.model_copy(
+        update={
+            "feedback": ChosenFeedback(row=batch.feedback.row.model_copy(update={"values": (diagnostic, narrowed)}))
+        }
+    )
+    execution = learner.pending_execution
+    assert execution is not None
+    # The existing core accepts schema containment and unrelated diagnostics.
+    validate_feedback(execution, batch, learner.capability)
+    learner.update(batch)
+    expected.update(observation(expected, 0.5))
+    assert learner.export_state().to_json() == expected.export_state().to_json()
 
 
 def test_unknown_versions_configuration_restore_and_pending_tamper_reject():

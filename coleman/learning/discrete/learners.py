@@ -247,7 +247,9 @@ class DiscreteBandit:
         ----------
         batch : FeedbackBatch
             Immediate root chosen-feedback batch bound to pending_execution, with
-            the exact declared reward, units, origin and transform; horizon null.
+            the declared reward dimension, units, origin and transform; horizon
+            null. Supplied bounds may be narrower within the admissible [0, 1]
+            interval. Unrelated diagnostic quantities do not become reward.
 
         Raises
         ------
@@ -276,7 +278,9 @@ class DiscreteBandit:
                 or batch.timing is not None
             ):
                 raise ValueError("Only immediate untimed root chosen feedback with null horizon is supported")
-            value = next(value for value in batch.feedback.row.values if value.spec == state.config.reward)
+            value = next(
+                value for value in batch.feedback.row.values if value.spec.dimension == state.config.reward.dimension
+            )
             reward = value.value
             if value.transform != state.config.transform or reward is None:
                 raise ValueError("Reward requires its exact declared transform and observed value")
