@@ -8,7 +8,8 @@ from dataclasses import dataclass, fields, is_dataclass
 from datetime import datetime, time
 from decimal import Decimal
 from math import isfinite
-from typing import Any, cast
+from types import MethodType
+from typing import Any, Self, cast
 
 from pydantic import BaseModel
 
@@ -320,6 +321,96 @@ class ComponentValue[S: CoreContract]:
     def __post_init__(self) -> None:
         """Validate the actual concrete value without erasing its fields."""
         self.codec.encode(self.value)
+
+    @classmethod
+    def from_bytes(cls, codec: ComponentCodec[S], payload: bytes) -> Self:
+        """Admit complete owned bytes through both actual selected-reader calls.
+
+        Parameters
+        ----------
+        codec : ComponentCodec
+            Explicit complete concrete interpretation and immutable outer binding.
+            Custom codec/value subclasses and overridden hooks retain the
+            ordinary decode-then-constructor sequence.
+        payload : bytes
+            Immutable complete canonical UTF-8 JSON, at most 16 MiB/depth 64.
+
+        Returns
+        -------
+        Self
+            The first freshly decoded complete value and its original codec.
+            No owner, file, factory or durable acknowledgement is accessed.
+
+        Raises
+        ------
+        ValueError, TypeError, UnicodeError
+            Invalid outer binding, mutable/invalid/oversized bytes, unsupported
+            fields/versions, noncanonical serialization or nonrepeatable declared
+            state, including reader defaults excluded from the JSON writer.
+
+        Notes
+        -----
+        Both actual selected readers run. The first complete typed signature is
+        captured before the second read, so that read cannot hide a change by
+        mutating the first object. Each stock decode retains its full concrete
+        validation, binding, canonical-byte and typed-preservation checks. Only
+        the redundant intervening encode is omitted for unmodified base codecs
+        and value construction hooks. No caller-supplied validation flag, cache
+        or trust token is accepted. Ordinary construction and encoding retain
+        their existing independent admission behavior and exact byte format.
+        Selected callbacks retain the existing pure, deterministic codec
+        contract; framework implementations remain unchanged during the call.
+        """
+        if not _stock_value_reader(cls, codec):
+            return cls(codec, codec.decode(payload))
+        first = codec.decode(payload)
+        signature = _state_signature(first)
+        second = codec.decode(payload)
+        if signature != _state_signature(second):
+            raise ValueError("Component codec must recover the exact complete declared state")
+        StateBytes(codec.binding, payload)
+        result = object.__new__(cls)
+        object.__setattr__(result, "codec", codec)
+        object.__setattr__(result, "value", first)
+        return result
+
+
+# Immutable dispatch identities, not snapshot/validation caches. Exact class
+# descriptors and bound methods preserve all existing custom admission hooks.
+_STOCK_CODEC_METHODS = tuple((name, ComponentCodec.__dict__[name]) for name in ("decode", "encode", "_canonical_state"))
+_STOCK_CODEC_FIELDS = tuple(
+    (name, name in ComponentCodec.__dict__, ComponentCodec.__dict__.get(name)) for name in ("binding", "state_type")
+)
+_STOCK_VALUE_HOOKS = tuple(
+    (name, name in ComponentValue.__dict__, ComponentValue.__dict__.get(name))
+    for name in ("__init__", "__post_init__", "__new__", "__getattribute__", "codec", "value")
+)
+_STOCK_CODEC_GETATTRIBUTE = ComponentCodec.__getattribute__
+
+
+def _stock_value_reader(cls: type[ComponentValue[Any]], codec: ComponentCodec[Any]) -> bool:
+    """Select only unchanged own dispatch; preserve every custom fallback hook."""
+    if cls is not ComponentValue or type(codec) is not ComponentCodec:  # pylint: disable=unidiomatic-typecheck
+        return False
+    if any(
+        (name in ComponentValue.__dict__) != present or ComponentValue.__dict__.get(name) is not expected
+        for name, present, expected in _STOCK_VALUE_HOOKS
+    ):
+        return False
+    if ComponentCodec.__getattribute__ is not _STOCK_CODEC_GETATTRIBUTE or any(
+        (name in ComponentCodec.__dict__) != present or ComponentCodec.__dict__.get(name) is not expected
+        for name, present, expected in _STOCK_CODEC_FIELDS
+    ):
+        return False
+    storage = object.__getattribute__(codec, "__dict__")
+    for name, expected in _STOCK_CODEC_METHODS:
+        if name in storage or ComponentCodec.__dict__.get(name) is not expected:
+            return False
+        method = getattr(codec, name)
+        # Exact stock binding is required; accepting custom dispatch skips its hooks.
+        if type(method) is not MethodType or method.__self__ is not codec or method.__func__ is not expected:  # pylint: disable=unidiomatic-typecheck
+            return False
+    return True
 
 
 @dataclass(frozen=True)

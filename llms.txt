@@ -20450,6 +20450,17 @@ its own writer path. Every route still passes the selected reader, canonical-byt
 and exact typed-field checks before publication. No snapshot validation is cached
 between calls, and the existing wire format and continuation rules are unchanged.
 
+Loading existing bytes uses `ComponentValue.from_bytes(codec, payload)`. For
+unchanged base codecs and value-construction hooks, it reuses the first complete
+read's canonical admission and still invokes the actual selected reader a second
+time. The first full typed-field signature is captured before that second read;
+even a changing reader default excluded from JSON must repeat exactly. The
+factory wraps the first value only after this comparison. Custom codec/value
+subclasses, overridden methods and construction hooks retain their original
+decode-then-constructor path. The direct constructor and encoder keep their
+independent admission checks. This adds no validation cache, approval flag,
+acknowledgement, new wire format or automatic compatibility with another runtime.
+
 Passing `encode` establishes in-process admission; it cannot certify an
 arbitrary host serializer across future processes. In particular, Pydantic
 [serializes sets as JSON arrays](https://docs.pydantic.dev/latest/api/standard_library_types/#sets),

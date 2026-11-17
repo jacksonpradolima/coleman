@@ -332,7 +332,7 @@ def decode(store: Any, manifest: CollectionManifest, codecs: Codecs) -> Prepared
         raise ValueError("Acknowledged component byte count differs from its manifest")
     if sum(map(len, blobs)) > store.limits.maximum_collection_bytes:
         raise ValueError("Acknowledged collection exceeds its persisted byte ceiling")
-    values = tuple(ComponentValue(codec, codec.decode(blob)) for codec, blob in zip(ordered, blobs, strict=True))
+    values = tuple(ComponentValue.from_bytes(codec, blob) for codec, blob in zip(ordered, blobs, strict=True))
     return PreparedCollection(manifest, values)
 
 
