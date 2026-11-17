@@ -88,6 +88,8 @@ def test_current_supported_schema_pins_and_original_inventory_resources_are_pres
     assert junit["with"]["token"] == "${{ inputs.token }}"
     assert junit["with"]["fail_ci_if_error"] is True
     assert coverage["with"]["fail_ci_if_error"] is True
+    assert coverage["with"]["files"] == "coverage.xml"
+    assert coverage["with"]["disable_search"] is True
     assert not junit["with"].get("skip_validation", False)
     assert not coverage["with"].get("skip_validation", False)
     assert "fail-ci-if-error" not in shared["inputs"]
@@ -101,7 +103,8 @@ def test_current_supported_schema_pins_and_original_inventory_resources_are_pres
     assert parallel.count("--ignore=") == 2
     serial = next(s["run"] for s in current if s.get("name", "").startswith("Complete installed corpus"))
     for path in ("tests/corpus/test_installed_public_ci.py", "tests/corpus/test_installed_westermo.py"):
-        assert path in parallel and path in serial
+        assert path in parallel
+        assert path in serial
     assert "--cov-append --cov-fail-under=95" in serial
     for step in current:
         if step.get("name") == "Run tests" or step.get("name", "").startswith("Complete installed corpus"):

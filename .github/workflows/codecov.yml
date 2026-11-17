@@ -89,6 +89,8 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.xml
+          # Domain coverage-selection fixtures are not code-coverage reports.
+          disable_search: true
           flags: unittests
           name: codecov-coverage-report
       - name: Report and upload test results to Codecov
