@@ -20,6 +20,7 @@ parallel execution, and extensibility via hooks and namespaced custom config.
 - docs/api/cli.md
 - docs/api/continuous.md
 - docs/api/core-contracts.md
+- docs/api/discrete.md
 - docs/api/environment.md
 - docs/api/evaluation.md
 - docs/api/experiment-api.md
@@ -39,6 +40,7 @@ parallel execution, and extensibility via hooks and namespaced custom config.
 - docs/api/spec-run-id.md
 - docs/api/spec-sweep.md
 - docs/api/state.md
+- docs/api/subset-acquisition.md
 - docs/api/synthetic-portfolio.md
 - docs/api/tasks.md
 - docs/api/tcpci-problems.md
@@ -65,6 +67,7 @@ parallel execution, and extensibility via hooks and namespaced custom config.
 - docs/decision-contracts.md
 - docs/decisions/001-point-in-time-observations.md
 - docs/dependency-security.md
+- docs/discrete-feedback.md
 - docs/domain-results.md
 - docs/durable-experiments.md
 - docs/evaluation-guide.md
@@ -132,6 +135,7 @@ parallel execution, and extensibility via hooks and namespaced custom config.
 - docs/scenario-payoffs.md
 - docs/setup.md
 - docs/state-recovery.md
+- docs/subset-acquisition.md
 - docs/synthetic-portfolio.md
 - docs/tcpci-problems.md
 - docs/typed-execution.md
@@ -253,6 +257,7 @@ flowchart TD
 | Resume independent adaptive recipes | [Owned state and complete checkpoints](docs/state-recovery.md): explicit RNG buffers, pending labels, predictor/cache and applied/virtual paths, with bounded replay retention and local acknowledgements; requires the unreleased v5 source wheel |
 | Manage changing CI recipes safely | [Versioned eligibility and explicit ownership](docs/registry-lifecycle.md): prospective lifecycle, original feedback epochs and checked declared roots across complete 32-child checkpoints; requires the unreleased v5 source wheel |
 | Combine declared CI experts | [Full-information expert mixtures](docs/expert-mixtures.md): Hedge, anytime Hedge and Fixed Share, plus separately controlled coefficients with target sharing, hard bounds, release cadence and a joint L1 movement penalty; requires the unreleased v5 source wheel |
+| Learn from the CI recipe you actually run | [Standalone chosen-feedback learners](docs/discrete-feedback.md): sampled Exp3 with its actual finite-grid selection mass, stationary UCB1 and complete owned RNG/state continuation; requires the unreleased v5 source wheel |
 | Learn forecasts and choose feasible allocations | [Independent online ridge and continuous optimization](docs/continuous-decisions.md): eligible signed labels, coupled quadratic solves, projected online updates and explicit net/cash/gross limits, with separate prediction errors and own-path charges; requires the unreleased v5 source wheel |
 | Connect learning to a funded allocation path | [Synthetic portfolio experiment](docs/synthetic-portfolio.md): real expert learners, ridge and constrained solvers compose with exact modeled holdings, cash, drift and own-path charges; coefficient penalties remain separate from paid costs; requires the unreleased v5 source wheel |
 | Model test selection without a runner | [Independent TCPCI problem mapping](docs/tcpci-problems.md): explicit duration quotes, an exact modeled-work prefix, selected feedback and direct Hedge/coverage compositions; requires the unreleased v5 source wheel |
@@ -269,6 +274,7 @@ flowchart TD
 | Inspect a constructed C weakness | [Pinned Juliet/GCC capture](docs/c-seeded-source-capture.md), an independent arithmetic oracle, raw process evidence and interruption recovery |
 | Reproduce and inspect an experiment | [Typed RunSpec and the library API](#library-api), [configuration identity and provenance](#provenance), Parquet results and resumable checkpoints |
 | Select finite coverage under a budget | [Coverage selection](docs/finite-coverage.md), explicit costs and solver-specific certificates and limits |
+| Choose a test subset or the next CI experiment | [Subset actions and bounded acquisition](docs/subset-acquisition.md): retained coverage certificates, equal allocation or successive halving, purchased-only observations and resumable actual-resource accounting; requires the unreleased v5 source wheel |
 | Allocate resources under declared scenarios | [Scenario-payoff allocation](docs/scenario-payoffs.md), signed outcomes, resource constraints and conservative evidence handling |
 | Check a CI decision before adoption | [Independent mathematical benchmarks](docs/decision-benchmarks.md), [protected comparisons](docs/protected-evaluation.md) and [operational accounting](docs/operational-pilot.md) |
 | Extend or integrate the platform | [Library API](#library-api), [application API and optional MCP](docs/application-api.md), [versioned domain results](docs/domain-results.md), hooks and [runner extensions](docs/extensibility.md) |
@@ -1116,6 +1122,52 @@ dependency split is qualified separately.
 
 
 
+### FILE: docs/api/discrete.md
+
+# Discrete chosen-feedback learning API
+
+Start with [Learn from the CI recipe you actually run](../discrete-feedback.md)
+for the complete input, decision, observed feedback and continuation example.
+These are unreleased v5 source APIs, usable with the base package alone.
+
+| Module | Responsibility |
+| --- | --- |
+| `contracts` | Fixed catalogue, explicit bounded reward semantics, method parameters, numerical compatibility and complete pending/RNG state |
+| `sampling` | Deterministic finite-grid Exp3 proposal and integer-ticket selection with exact effective masses |
+| `learners` | Owned sampled Exp3 or stationary UCB1, chosen-only updates and atomic direct continuation |
+
+The public entry points are `DiscreteConfig`, `DiscreteBandit` and
+`DiscreteState` in `coleman.learning.discrete`. Each instance owns its statistics,
+pending original decision and, for Exp3, complete random stream. Calls require no
+runner, registry, workspace, Parquet, CLI or application service.
+
+The method profiles `exp3-dyadic53-v1` and `ucb1-binary64-v1` are distinct from
+the existing TCPCI ranking policies. Both require fixed alternatives and
+immediate, observed, chosen-only feedback with explicit dimensionless reward
+bounds. Unsupported timing, contexts, changed catalogues and feedback revisions
+reject. The guide explains the reference assumptions and the finite numerical
+envelopes; a logged selection mass is not an outcome probability.
+
+Reading state validates its version and typed statistics. Restoring additionally
+checks the configured method, host compatibility and original pending proposal.
+Neither operation acknowledges external work. Use the existing
+[state infrastructure](../state-recovery.md) with an explicitly selected codec
+and delivery adapter when durable publication is needed.
+
+## Configuration, pending support and owned state
+
+::: coleman.learning.discrete.contracts
+
+## Exact finite-grid selection mechanics
+
+::: coleman.learning.discrete.sampling
+
+## Direct learner lifecycle
+
+::: coleman.learning.discrete.learners
+
+
+
 ### FILE: docs/api/environment.md
 
 # Environment
@@ -1698,6 +1750,60 @@ callback replay. Callback CPU is not forcibly preempted by acquisition limits.
 
 
 
+### FILE: docs/api/subset-acquisition.md
+
+# Subset actions and acquisition API
+
+Start with [Choose a subset, or buy one observation](../subset-acquisition.md)
+for complete CI inputs, the purchased-observation cycle, metered resource
+arithmetic and checkpoint recovery. These are unreleased v5 source APIs.
+
+| Entry point | Responsibility |
+| --- | --- |
+| `coleman.selection.subsets` | Reuse the finite coverage solver and retain its complete certificate alongside a genuine subset or abstention |
+| `coleman.acquisition.contracts` | Declare the complete terminal-allocation plan, resource units, fidelity evidence, purchases, producer receipts and verified ledger state |
+| `coleman.acquisition.engine` | Inspect purchased knowledge or accept one original receipt with exact-content delivery deduplication |
+| `coleman.acquisition.session` | Own complete in-memory terminal-allocation state without executing a provider or publishing a checkpoint |
+
+The subset adapter keeps union coverage, additive modeled costs, restricted
+scope and solver-specific certificates unchanged. Its action is not a ranking
+and supplies no invented subset reward or inclusion probability.
+
+The terminal allocator supports equal allocation or a declared deterministic
+halving schedule. It sees purchased receipts only. Quotes control which work
+starts; actual charges, unknown amounts and overruns remain separate evidence.
+An empirical training-only fidelity gate does not guarantee held-out validity.
+The recommendation concerns purchased terminal survivors, not a certified
+full-pool optimum or a cumulative-reward result.
+
+All mathematical components work with the base package alone. The
+[acknowledged-store example](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/acquisition/checkpoint.py)
+adds the existing concrete codec and state store explicitly. It does not make
+remote execution exactly once. Identical complete plans identify continuation
+of one logical run; independent repetitions require distinct plan references.
+
+## Existing coverage as an actual subset
+
+::: coleman.selection.subsets
+
+## Plan, resource and purchased-observation inputs
+
+::: coleman.acquisition.model
+
+## Verified complete ledger state
+
+::: coleman.acquisition.contracts.AllocationState
+
+## Inspection and exact-content delivery
+
+::: coleman.acquisition.engine
+
+## Direct state ownership
+
+::: coleman.acquisition.session
+
+
+
 ### FILE: docs/api/synthetic-portfolio.md
 
 # Synthetic funded-portfolio API
@@ -1880,9 +1986,11 @@ understand their scope before composing a host-owned learner or solver.
 | [State and recovery](api/state.md), v5 source | Pure owned state, bounded replay retention and complete locally acknowledged collections | [Resume complete CI decision state](state-recovery.md) |
 | [Registry and ownership](api/registry.md), v5 source | Versioned eligibility, exact original recipe producers and declared-root checks | [Manage independent CI recipes](registry-lifecycle.md) |
 | [Expert learning and constrained output](api/learning.md), v5 source | Pure full-information references, controlled coefficient output and optional direct/replay adapters | [Combine CI experts](expert-mixtures.md) |
+| [Discrete chosen-feedback learning](api/discrete.md), v5 source | Fixed-action sampled Exp3, stationary UCB1, effective sampling mass and complete direct continuation | [Learn from the recipe you run](discrete-feedback.md) |
 | [Forecasting and continuous allocation](api/continuous.md), v5 source | Independent append-only ridge, bounded coupled quadratic solves, projections and online gradient steps | [Predict, allocate and account separately](continuous-decisions.md) |
 | [Typed task execution](api/tasks.md), v5 source | Pure executor contracts, approved installed capture and the shared durable application lifecycle | [Run a durable adaptive task](typed-execution.md) |
 | [TCPCI problem mapping](api/tcpci-problems.md), v5 source | Independently usable test catalogues, semantic objectives, exact estimated-duration prefixes and original proposal/slate records | [Model a CI decision without a runner](tcpci-problems.md) |
+| [Subset actions and acquisition](api/subset-acquisition.md), v5 source | Coverage subsets, terminal experiment allocation, original purchased observations and complete bounded ledgers | [Choose a subset or buy an observation](subset-acquisition.md) |
 | [Synthetic funded portfolios](api/synthetic-portfolio.md), v5 source | Exact typed holdings, cash, valuation, original trade receipts and complete local book continuation | [Compose an auditable synthetic portfolio](synthetic-portfolio.md) |
 | [Specification models](api/spec-models.md) | `RunSpec` and typed configuration sections | [Configuration](configuration.md) |
 | [YAML I/O](api/spec-io.md) | `load_spec`, `load_sweep_spec`, `save_resolved` | [Configuration](configuration.md) |
@@ -7725,6 +7833,223 @@ atomically after validation; a failed tool or interrupted write retains prior by
 
 
 
+### FILE: docs/discrete-feedback.md
+
+# Learn from the CI recipe you actually run
+
+Suppose a CI build can run either of two fixed test recipes, but the budget
+allows only one. After choosing, you observe that recipe's fault-detection credit;
+you do not observe what the other recipe would have found. This is a discrete
+chosen-feedback problem. COLEMAN supplies two standalone learners for it:
+
+| Profile | Selection | Feedback used | Selection probability |
+| --- | --- | --- | --- |
+| `exp3-dyadic53-v1` | Owned randomized integer-ticket draw | Only the chosen reward, divided by its actual selection mass | Exact finite-grid mass, all arms supported |
+| `ucb1-binary64-v1` | Unobserved arms first, then largest UCB1 index | Only actual chosen counts and reward sums | One for the chosen arm, zero for alternatives |
+
+These are independent methods. The existing TCPCI `EXP3Policy` and UCB ranking
+adaptations keep their existing identities and behavior. Ranking scores are not
+propensities, and ranking snapshots cannot resume these choice learners.
+
+```mermaid
+flowchart LR
+    A[Fixed catalogue and bounded reward contract] --> B[DiscreteBandit.decide]
+    B --> C[Choice and actual sampling mass]
+    C --> D[Host runs only the chosen CI recipe]
+    D --> E[ChosenFeedback bound to original producer]
+    E --> F[DiscreteBandit.update]
+    F --> B
+    B --> G[Typed complete state including pending producer and RNG]
+    G --> H[Validated in-memory restore]
+    H --> B
+```
+
+## Input, cycle and output
+
+| Input | Example | Meaning |
+| --- | --- | --- |
+| Fixed alternatives | `recipe-a@v1`, `recipe-b@v1` | Canonical exact member versions, unchanged during this learner's lifetime |
+| Reward | observed `0.5`, unit `1`, bounds `[0, 1]` | Dimensionless credit to maximize, with declared semantic identity |
+| Transform | `identity-credit@v1` | An externally applied transformation; the learner never fits or changes it |
+| Opportunity | `build-0`, round `0` | Caller-owned identity; round equals completed chosen observations |
+| Exp3 parameter | `gamma=0.5` | Exploration coefficient; the coupled update coefficient is `gamma/K` |
+
+This complete example needs the base package only. It creates no RunSpec,
+Parquet file, workspace, application service or TCPCI runner.
+
+```python
+from coleman.core.actions import ChoiceSpace
+from coleman.core.decisions import DecisionRequest
+from coleman.core.feedback import ChosenFeedback, FeedbackBatch, FeedbackRow, OutcomeValue
+from coleman.core.identity import Reference
+from coleman.core.numeric import ScalarSpec
+from coleman.core.units import UnitSemantics
+from coleman.learning.discrete import DiscreteBandit, DiscreteConfig, DiscreteState
+
+def ref(name):
+    return Reference(id=name, version="v1")
+
+reward = ScalarSpec(
+    dimension=ref("fault-credit"),
+    semantics=UnitSemantics(unit="1", meaning="observed-fault-credit-v1"),
+    role="reward", minimum=0.0, maximum=1.0,
+)
+config = DiscreteConfig(
+    schema_version=1, profile="exp3-dyadic53-v1",
+    task=ref("ci-recipe-choice"), objective=ref("maximize-credit"),
+    transform=ref("identity-credit"), reward=reward, gamma=0.5,
+    space=ChoiceSpace(
+        feasible_set=ref("fixed-recipes"),
+        members=(ref("recipe-a"), ref("recipe-b")),
+    ),
+)
+learner = DiscreteBandit(config, seed=19)
+decision = learner.decide(DecisionRequest(
+    schema_version=1, task=config.task, objective=config.objective,
+    decision_id="build-0", round=0, space=config.space,
+))
+print(decision.action.chosen.id, decision.sampling.probability)
+# recipe-a 0.5
+
+# The host runs decision.action.chosen. This constructed example supplies its
+# observed credit; it supplies no alternative outcome to the learner.
+execution = learner.pending_execution
+batch = FeedbackBatch(
+    schema_version=1, decision_fingerprint=execution.fingerprint,
+    feedback_id="credit-build-0", revision_id="root", supersedes=None, horizon=None,
+    feedback=ChosenFeedback(row=FeedbackRow(
+        member=decision.action.chosen,
+        values=(OutcomeValue(
+            spec=reward, value=0.5, status="observed", origin="synthetic",
+            transform=config.transform,
+        ),),
+    )),
+)
+
+# A checkpoint can be taken after the draw, before its observation arrives.
+saved = learner.export_state().to_json()
+continued = DiscreteBandit(config, seed=999)
+continued.restore_state(DiscreteState.from_json(saved))
+learner.update(batch)
+continued.update(batch)
+assert learner.export_state().to_json() == continued.export_state().to_json()
+print(learner.export_state().counts)       # (1, 0)
+print(learner.export_state().log_weights)  # (0.0, -0.25)
+```
+
+For UCB1 use `profile="ucb1-binary64-v1", gamma=None`; the rest of the cycle is
+the same. Run `python examples/discrete/ci.py` for both real eight-round synthetic
+CI experiments, including restart after every pending choice. Its receipts show
+choices, actual masses and observed counts. They establish mechanics, not an
+adaptive performance advantage or physical CI execution.
+
+## Why the sampler uses integer tickets
+
+The reference [Exp3 algorithm, Figure 1](https://doi.org/10.1137/S0097539701398375)
+forms `(1-gamma)*w/sum(w) + gamma/K`, samples one arm and updates that arm with
+`reward / probability`. A float cumulative-distribution sampler generally does
+not sample that exact real-valued formula. Recording the nominal float instead
+would give the importance estimator the wrong denominator.
+
+This separately versioned profile exponentiates centered binary64 log weights,
+rationalizes those finite values, and constructs the exploration mixture using
+exact rational arithmetic. Largest-remainder apportionment assigns exactly
+`2**53` tickets; equal remainders favor canonical member order. A complete owned
+`Random.getrandbits(53)` draw selects an integer ticket. Recorded probability is
+exactly `chosen_tickets / 2**53`, representable in binary64. The importance
+estimator uses that same effective probability. Every mass differs from the
+rationalized proposal by less than one ticket; this is distinct from a bound on
+the host math library's exponential rounding error.
+
+For two initial equal arms, `gamma=0.5`, chosen reward `0.5` and chosen mass
+`0.5`, the importance estimate is `1`, the log-weight increment is `0.25`, and
+the centered next logs are `(0, -0.25)` when the first arm was chosen. Unchosen
+estimated reward is zero; it is not an observed zero or an invented outcome.
+
+The finite sampler's exact mass is conditional on its declared uniform-bit
+randomized mechanism. A seed or a publicly known deterministic PRNG state does
+not establish independent observations, source authentication, unpredictability
+or a calibrated outcome probability. No offline policy evaluation is provided.
+
+## Assumptions and numerical limits
+
+[UCB1](https://doi.org/10.1023/A:1013689704352) initializes by observing every arm
+once, then maximizes `mean + sqrt(2*log(t)/count)` with `t` the next one-based
+play number. Exact ties choose the first canonical member. Its reference analysis
+uses fixed arms and stationary bounded reward laws with the paper's independence
+assumptions. Counts increase only after eligible actual chosen observations;
+deciding, retrying a pending request, failed feedback and restoring do not add
+observations. Deterministic UCB provides no alternative-action support for OPE.
+
+The Exp3 reference comparator is the best fixed arm over the declared reward
+sequence, under that paper's bounded-payoff and randomization assumptions. The
+shipped finite-grid, binary64 profile changes its arithmetic and sampling, so
+COLEMAN does **not** claim the reference real-arithmetic regret bound for it.
+Neither profile promises stationary regret for nonstationary, delayed,
+cost-coupled, inventory-dependent or reactive environments.
+
+Both profiles admit 1–256 fixed alternatives, observed dimensionless rewards
+in `[0, 1]`, and a declared finite horizon up to `2**40` updates. Zero is valid;
+null, unknown, unavailable, not applicable, negatives and nonfinite observations
+cannot become counted rewards. An external versioned transform can map signed
+source quantities to this reward domain; its scientific validity remains the
+consumer's responsibility. Transform identity, dimension/version, units and
+permitted origins must match the contract. Supplied bounds may be narrower
+within the declared admissible `[0, 1]` interval, following the core capability
+contract. Only realized or explicitly synthetic origins are supported.
+Additional diagnostic quantities do not become reward.
+
+Exp3 requires `gamma >= K/2**53` to retain full exploration support, and centered
+logs must stay within `[-700, 0]`. Exceeding that numerical envelope raises
+`ValueError` before committing any update; it never clips, resets or declares
+success. Parameters should be fixed using development data only. Neither
+selection mass nor learner reward is a paid cost, holding, trade or risk bound.
+
+Ordinary binary64 rounding is part of these profiles, including index arithmetic.
+A positive reward that disappears when added to its existing reward sum, or a
+positive Exp3 update that underflows or is completely absorbed in the retained
+log weights, raises `ValueError` atomically. This differs from observing zero;
+the pending original producer remains available for an explicit consumer
+decision. This finite envelope does not promise exact real-arithmetic updates.
+
+## Continuation, delivery and compatibility
+
+`DiscreteState` schema1 contains exact configuration and profile, Python
+interpreter build, implementation, platform, OS release/version and architecture,
+all counts/reward sums/log weights, complete owned
+MT19937 state and the pending original producer with every arm's tickets and
+the actual draw. Export performs no I/O. Canonical JSON and fingerprints are
+deterministic content identifiers, not authentication. The public codec rejects
+duplicate keys, unsupported versions and nonfinite values.
+
+Restore checks configuration/runtime and recomputes the pending policy,
+selection and proposal before replacing live state. Reading a snapshot does
+not execute it. No migration from legacy ranking snapshots is supported;
+unknown future generations require an explicitly implemented reader. Reading
+their existing artifacts is unaffected. Current continuation is qualified for
+the same compatible host numerical environment. Its typed runtime binding
+rejects a different Python patch/build, operating-system release/version or
+architecture. Matching descriptors do not certify arbitrary replaced math
+libraries; cross-host/library portability requires separate qualification.
+
+One original decision may await feedback. An identical pending request returns
+the same decision without another draw. Different pending work, changed
+availability, contexts, temporal requests, delays, absent/full-panel/component
+feedback and corrections reject. Feedback must identify the exact unchanged
+execution; overriding a sampled action invalidates this route. Consuming its
+root observation clears the producer. Repeated raw feedback then rejects with
+no second update; it is not a durable idempotent delivery acknowledgement.
+
+Calls serialize within one instance; independent instances own independent
+state and RNG. A failed call or failed restore leaves the complete previous
+state intact. If persistence or crash recovery is needed, use the existing
+[state and session infrastructure](state-recovery.md) with an explicitly
+owned concrete codec and delivery adapter. These direct learners write no
+artifact, checkpoint file or completion marker and claim no exactly-once
+external effect.
+
+
+
 ### FILE: docs/domain-results.md
 
 # Versioned result records for CI intelligence
@@ -11397,6 +11722,7 @@ The links below provide the same routes as the graph, including keyboard access.
 | Stress a difficult CI decision | [32 deterministic interaction-covering cases](ci-stress-laboratory.md), explicit truth and feedback clocks, native Parquet and resumable agents |
 | Manage changing CI recipes safely | [Versioned eligibility and explicit ownership](registry-lifecycle.md), prospective lifecycle, original feedback epochs and complete 32-child recovery; requires the unreleased v5 source wheel |
 | Combine declared CI experts | [Full-information expert mixtures](expert-mixtures.md), three mathematical references and separately controlled coefficients, explicit cadence, bounds and a soft movement penalty; requires the unreleased v5 source wheel |
+| Learn from the CI recipe you actually run | [Standalone chosen-feedback learners](discrete-feedback.md), sampled Exp3 with actual selection masses, stationary UCB1 and complete owned RNG/state continuation; requires the unreleased v5 source wheel |
 | Learn forecasts and choose feasible allocations | [Independent online ridge and continuous optimization](continuous-decisions.md), eligible signed labels, coupled constraints and projected updates, with separate prediction errors and own-path charges; requires the unreleased v5 source wheel |
 | Connect learning to a funded allocation path | [Synthetic portfolio experiment](synthetic-portfolio.md), exact modeled holdings/cash/drift and separate paths for actual learners, continuous solvers and simple baselines, with coefficient movement separate from paid charges; requires the unreleased v5 source wheel |
 | Model test selection without a runner | [Independent TCPCI mapping](tcpci-problems.md), explicit duration quotes, exact modeled-work accounting and separate ranking/slate feedback; requires the unreleased v5 source wheel |
@@ -11411,6 +11737,7 @@ The links below provide the same routes as the graph, including keyboard access.
 | Inspect a constructed C weakness | [Pinned Juliet/GCC capture](c-seeded-source-capture.md), an independent arithmetic oracle, raw process evidence and interruption recovery |
 | Reproduce and inspect an experiment | [Typed RunSpec and the library API](api/experiment-api.md), [configuration identity and provenance](setup.md#identity-and-reproducibility), Parquet results and resumable checkpoints |
 | Select finite coverage under a budget | [Coverage selection](finite-coverage.md), explicit costs and solver-specific certificates and limits |
+| Choose a test subset or the next CI experiment | [Subset actions and bounded acquisition](subset-acquisition.md), existing coverage certificates, equal allocation or successive halving and resumable purchased-resource ledgers; requires the unreleased v5 source wheel |
 | Allocate resources under declared scenarios | [Scenario-payoff allocation](scenario-payoffs.md), signed outcomes, resource constraints and conservative evidence handling |
 | Check a CI decision before adoption | [Independent mathematical benchmarks](decision-benchmarks.md), [protected comparisons](protected-evaluation.md) and [operational accounting](operational-pilot.md) |
 | Extend or integrate the platform | [Library API](api/experiment-api.md), [application API and optional MCP](application-api.md), [versioned domain results](domain-results.md), hooks and [runner extensions](extensibility.md) |
@@ -20165,6 +20492,276 @@ Continue with the [state API](api/state.md),
 [delayed-feedback timeline](causal-replay.md),
 [point-in-time inputs](point-in-time-observations.md) and
 [compatibility policy](v5-compatibility.md).
+
+
+
+### FILE: docs/subset-acquisition.md
+
+# Choose a subset, or buy one observation
+
+Use a subset when the decision is *which tests to execute together*. Use an
+acquisition when the decision is *which experiment to observe next, and at what
+resource target*. Neither decision is a permutation of every candidate.
+
+COLEMAN supplies two small, independent interfaces: the existing finite coverage
+solver now produces an actual `SubsetAction`, and a terminal allocator produces
+an actual `AcquisitionAction` for equal allocation or deterministic successive
+halving. Both are usable as Python components without a runner, CLI or MCP.
+
+```mermaid
+flowchart LR
+    C[Coverage problem: tests, faults, modeled cost] --> S[Existing finite solver]
+    S --> A[Chosen subset and unchanged solver certificate]
+    P[Frozen experiment plan and training fidelity gate] --> L[Terminal allocator]
+    L --> Q[One candidate and explicit resource target]
+    Q --> E[Host executes or reconciles the purchase]
+    E --> R[Original producer receipt: score, actual charge, delay]
+    R --> L
+    L --> D[Existing state codec and acknowledged local store]
+    D --> L
+    V[Protected terminal evaluator] -. evaluates recommendation after freeze .-> L
+```
+
+## Selecting tests under a coverage budget
+
+Import `select_coverage_subset` from `coleman.selection.subsets` and pass an
+existing `CoverageProblem`. The result retains its full `CoverageResult` and an
+`action`. `action.selected` is the actual unordered chosen set. It is an empty
+set when selecting nothing is feasible; infeasible or refused computations
+produce an `AbstainAction`, retaining the original solver status and reason.
+
+The solver's objective is still weighted **union** coverage, counting an
+outcome once when several selected tests cover it. Candidate costs are still
+additive modeled quantities. Shared setup interactions do not become additive
+because the action is a subset. Exact-search certificates, restricted scope,
+interruption and computational limits retain their existing meanings; see the
+[finite coverage guide](finite-coverage.md).
+
+The action boundary supports at most 4096 explicitly declared members. Larger
+solver inputs are refused by this adapter. A caller can declare and fingerprint
+an intentional restricted problem; COLEMAN never silently truncates the pool or
+calls the resulting restricted optimum a full-universe optimum. This adapter
+manufactures neither subset rewards nor joint/inclusion propensities.
+
+## A complete terminal-allocation cycle
+
+This standalone base-package example compares two CI recipes on one purchased
+terminal build each. Its source is a small constructed validation pool. The
+executor reads only the chosen recipe; the allocator receives the resulting
+receipt, not the source table.
+
+```python
+from decimal import Decimal
+
+from coleman.acquisition.contracts import (
+    AcquisitionReceipt, AllocationPlan, Candidate, Fidelity,
+)
+from coleman.acquisition.session import TerminalAllocator
+from coleman.core.identity import Reference
+from coleman.core.numeric import Scalar, ScalarSpec
+from coleman.core.primitives import fingerprint
+from coleman.core.quantities import Quantity
+from coleman.core.units import UnitSemantics
+
+resource = UnitSemantics(unit="build_replays", meaning="constructed-build-replay-v1")
+objective = ScalarSpec(
+    dimension=Reference(id="missed-fault-fraction", version="1"),
+    semantics=UnitSemantics(unit="1", meaning="missed-faults-at-two-tests-v1"),
+    role="objective", minimum=0, maximum=1,
+)
+# Host-owned constructed data, frozen before allocation. It is not in learner state.
+pool = {"recipe-A": 0.0, "recipe-B": 0.5}
+plan = AllocationPlan(
+    schema_version=1,
+    reference=Reference(id="two-ci-recipes", version="1"),
+    source_fingerprint=fingerprint(pool),
+    candidates=tuple(Candidate(reference=Reference(id=key, version="1")) for key in pool),
+    fidelities=(Fidelity(
+        reference=Reference(id="terminal-build", version="1"),
+        resource=Quantity(value=Decimal(1), semantics=resource),
+    ),),
+    method="equal_allocation_v1", billing="stateless_rerun",
+    budget=Quantity(value=Decimal(2), semantics=resource),
+    outcome=objective, direction="minimize",
+)
+allocator = TerminalAllocator(plan)
+while (purchase := allocator.inspect().next_purchase) is not None:
+    observed = pool[purchase.action.chosen.id]  # Only the purchased member is read.
+    receipt = AcquisitionReceipt(
+        schema_version=1, purchase=purchase,
+        producer=Reference(id="constructed-ci-executor", version="1"),
+        outcome=Scalar(spec=objective, value=observed, status="observed"),
+        charge=Quantity(value=Decimal(1), semantics=resource), delay_steps=0,
+    )
+    allocator.accept(receipt)
+report = allocator.inspect()
+assert report.status == "completed" and report.winner is not None
+print(report.winner.id, report.known_charge.value)
+```
+
+Output: `recipe-A 2`. This recommendation minimizes purchased terminal scores;
+it is not a cumulative-reward, optimal-information-value or full-pool superiority
+certificate. With elimination, the terminal recommendation concerns surviving
+candidates only. An eliminated candidate's terminal outcome remains unobserved.
+
+## What the larger CI example actually observes
+
+[The executable CI pool](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/acquisition/ci_pool.py)
+uses four recipes and four constructed builds. Each recipe runs two tests per
+build. The objective is the fraction of builds whose known fault those tests
+miss. The resource unit is one replay of one recipe on one build.
+
+| Recipe | Selected tests per build | One-build proxy | Two-build proxy | Four-build terminal |
+| --- | --- | --- | --- | --- |
+| A | t1, t2 | 0 | 0 | 0 |
+| B | t1, t3 | 0 | 0.5 | 0.25 |
+| C | t2, t3 | 1 | 0.5 | 0.75 |
+| D | t3, t4 | 1 | 1 | 1 |
+
+This table explains the complete constructed source to the reader. In an actual
+run, the planner sees only purchased entries. Successive halving buys A/B/C/D
+at target 1, keeps A/B, buys those at target 2, keeps A and buys A at terminal 4.
+Ties use stable candidate IDs. C/D targets 2/4 and B target 4 are never read by that
+learner. A separate protected evaluator may inspect terminal truth **after**
+configuration and recommendation are frozen.
+
+The schedule is declared rather than inferred from a cost budget: every
+nonterminal stage retains `ceil(active/2)`, and the last stage identifies the
+best purchased terminal survivor. Fidelities must be strictly increasing
+positive cumulative targets. This finite schedule is inspired by
+[Jamieson and Talwalkar's successive-halving formulation (AISTATS 2016)](https://proceedings.mlr.press/v51/jamieson16.html),
+which distinguishes terminal identification from cumulative reward. COLEMAN's
+fixed finite schedules, setup interactions, empirical fidelity gate and stopping
+rules do not inherit that paper's convergence or budget guarantees.
+
+| Method and billing profile | Actual replay charge | Maximum admitted budget | Unused budget |
+| --- | --- | --- | --- |
+| Equal allocation, all terminal targets | 16 | 16 | 0 |
+| Halving, incremental continuation | 8 | 16 | 8 |
+| Halving, stateless full reruns | 12 | 16 | 4 |
+
+Incremental work is `4×1 + 2×(2−1) + 1×(4−2) = 8`. Stateless work is
+`4×1 + 2×2 + 1×4 = 12`. Equal allocation buys `4×4 = 16`. These are matched
+**budget ceilings**, not matched actual spending. The example meters actual
+build reads, rather than copying a quote into the actual-cost field. It makes no
+adaptive-win claim. Run it with `python examples/acquisition/ci_pool.py`.
+
+## Qualify a proxy before eliminating
+
+An early score is not a terminal label. A multi-fidelity halving plan requires a
+`FidelityQualification` with explicit distinct development/evaluation logical partition IDs
+and source fingerprints, an original producer for each development case, every
+early target, terminal scores and an admitted maximum absolute training error.
+Its required `fidelities` field retains the complete ordered `Fidelity` tuple,
+including every versioned target identity, exact cumulative resource value,
+resource units/meaning and the terminal target. Each case's early scores map to
+the nonterminal entries in that order. The allocator requires an exact canonical
+match with its own schedule. Keeping the same number of stages does not qualify
+different resources, target versions or terminal observations. Decimal values
+with equivalent quantum remain equivalent under the declared canonical contract.
+All training pairs must be observed and share the plan's objective. Failing the
+training gate rejects the plan; the host can freeze a separate terminal-only
+equal-allocation plan as its conservative fallback.
+
+Passing this empirical gate does **not** bound held-out error. The tiny example's
+training cases demonstrate contract use, not adequate empirical validation for
+adoption. A prefix ranking can reverse on a new evaluation path, eliminating the
+true terminal winner. That is a valid negative result, not permission to consult
+unbought terminal truth or retune the schedule after seeing it. Freeze method,
+resource schedule, qualification, source scope and any projections using the
+[protected evaluation workflow](protected-evaluation.md). Source fingerprints
+are identities, not authentication or proof that an external provider respected
+partition boundaries.
+
+No external benchmark adapter is selected here. The complete public constructed
+CI pool is admitted for both methods without a hidden projection. Larger source
+pools must be explicitly admitted in full or use a predeclared hashed,
+training-only projection shared by the compared methods. In particular, a
+stateless HPO provider must pay for complete reruns; its prefix cannot be treated
+as a resumed optimizer without owning and restoring that optimizer's full state.
+Hyperband and bandits with knapsacks remain separate formulations.
+
+## Actual charges, missingness and stopping
+
+`Purchase.quoted_charge` reserves the next declared increment or full rerun plus
+any first shared setup. No request is released when its quote exceeds the
+remaining observed budget. `SetupCharge` explicitly models a once-per-run shared
+group: four terminal requests of 4 units with one shared setup of 3 quote
+`7, 4, 4, 4`, totaling 19. Arbitrary overlapping joint cost functions are outside
+this profile.
+
+`AcquisitionReceipt.charge` records actual nonnegative resource use in exactly
+the budget's units/meaning. It is never inferred from the objective score.
+Budgets and single actual receipts are bounded at 10^12 declared units; the full
+ledger has at most 640 purchases from at most 64 candidates and 10 fidelities.
+New resource fields canonicalize Decimal quantum while preserving exact numeric
+value and units, making complete state codecs reversible. No old quantity,
+coverage artifact or result meaning changes.
+
+| Receipt or boundary | Retained evidence and outcome |
+| --- | --- |
+| Observed zero score or actual zero charge | Valid observed zero; continue if the schedule permits |
+| Permitted negative objective | Valid observed score; minimize/maximize as declared |
+| Null score with unknown/unavailable/not_applicable status | Retain its distinct status and any actual charge; stop `outcome_missing` |
+| Null actual charge | Retain unknown amount; stop `cost_unknown`; known subtotal excludes it |
+| Actual charge exceeds the quote or total budget | Retain the real observed charge; stop `cost_overrun` |
+| Quote exceeds remaining observed budget | Start no purchase; stop `budget_exhausted` |
+| Terminal stage finishes | Stop `completed`, with one stable-ID tie-broken survivor recommendation |
+
+The external executor can exceed a quote; the planner cannot physically enforce
+an unknown producer charge. Unknown or overrun receipts stop further work
+without inventing a completed experiment. `delay_steps` retains producer-reported
+application-step delay; this sequential reference waits for each receipt. It
+provides neither parallel in-flight scheduling nor wall-clock deadline claims.
+
+## Resume and acknowledge without duplicating accepted charges
+
+`AllocationState` contains the exact plan and complete ordered receipt ledger.
+The plan reference is the logical run identity: identical complete plans produce
+identical purchase IDs and represent retries/continuations of that run. Give each
+intentional independent repetition a distinct `plan.reference` and independent
+store, even when its candidate pool and hyperparameters match. This prevents
+producer deduplication from accidentally joining independent repetitions.
+
+The next request, accepted shared groups, completed increments and every
+elimination are derived deterministically from that ledger. There is no RNG or
+hidden executor cache. The CI executor obtains a previous prefix aggregate from
+the original accepted receipt and reads only newly purchased builds when using
+incremental billing.
+
+`AllocationState.from_json(state.to_json())` verifies every transition before
+continuation. An identical delivered receipt returns the same state and adds no
+charge. Conflicting duplicates, substituted requests, data after stopping,
+nonfinite values and incompatible units fail. Schema 1 requires explicit version 1;
+unknown/future versions fail. It does not infer a migration from old runner or
+coverage checkpoints. Existing artifact readers continue to work unchanged.
+
+Earlier, unmerged prototype qualification records omitted the target schedule.
+Those incomplete records are rejected by this qualification reader and cannot
+authorize elimination or checkpoint continuation. The missing measurement
+targets cannot be reconstructed from a later plan or from a score count.
+Reconstruct qualification only from original training evidence that declares the
+actual measured schedule, or freeze a new terminal-only equal-allocation run.
+Existing terminal-only version-1 artifacts and the original quantity/coverage
+readers keep their meanings; the versioned terminal-plan golden remains unchanged.
+
+JSON bytes alone are not an acknowledgement. The
+[checkpoint binding example](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/acquisition/checkpoint.py)
+uses the existing `ComponentCodec`, `LocalStateStore` and `TerminalAllocator`
+state owner. Initialize the complete ledger, read its acknowledged pending
+purchase, execute or reconcile outside the store callback, then commit that
+exact receipt against the accepted predecessor. Reopening reconstructs the same
+request or elimination. Concurrent writers and identical command retries use
+the store's existing accepted-head and retained-receipt semantics. An interrupted
+blob write leaves the previous accepted head; an orphan file never certifies
+completion. See [state recovery](state-recovery.md) for the complete host lifecycle.
+
+Delivery deduplication concerns **accepted ledger charges**. It cannot make a
+remote CI run exactly once. Persist a pending request before execution and use
+its logical purchase ID to reconcile an uncertain external effect with its
+producer. The checkpoint example has publication-only frontiers: it does not
+invent replay causal protection for arbitrary direct-owner state or authenticate
+physical resource meters.
 
 
 
