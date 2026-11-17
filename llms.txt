@@ -14963,13 +14963,17 @@ depending on a newly enabled manual-dispatch trigger.
 The probe uses actual tiny pytest cases in the runner's temporary directory,
 outside product test collection. The positive run produces two real JUnit files;
 the deliberate negative run fails its primary phase and leaves the second file
-absent. Its overall failure is expected and remains a failure. The shared reporter
-and uploader use the exact same YAML-anchored steps as the normal suite, with a
-distinct `uploader-qualification-*` upload name. Probe upload errors fail the
+absent. Its overall failure is expected and remains a failure. The reporter and
+uploader use the same reviewed local composite action as the normal suite, with
+a distinct `uploader-qualification-*` upload name. Probe upload errors fail the
 step explicitly; ordinary uploader error/cancellation policy remains unchanged.
-Normal pull-request check names, the 120-minute product job, four-worker/serial
-profile, inventory and raw coverage gate retain their original behavior. A
-probe's skipped product job has a distinct name and provides no full-suite pass.
+The probe has its own workflow, triggered only by these two exact branch names.
+The normal workflow excludes only those branch pushes while retaining every tag
+push and every pull request. Its required job remains unconditional with its
+original event-specific check name. The 120-minute product job,
+four-worker/serial profile, inventory and raw coverage gate retain their
+original behavior. A probe provides no product-suite pass or substitute required
+check.
 
 Close this acceptance evidence only after inspecting both actual GitHub runs:
 the intended pytest outcomes, both/absent JUnit files and retained SHA/checksums,

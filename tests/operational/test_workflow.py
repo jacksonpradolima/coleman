@@ -11,14 +11,21 @@ import yaml
 
 ROOT = Path(__file__).parents[2]
 UPLOADER = "codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2"
+COMPOSITE = "./.github/actions/report-junit"
 
 
 def steps(job="test"):
-    return yaml.safe_load((ROOT / ".github/workflows/codecov.yml").read_text())["jobs"][job]["steps"]
+    filename = "uploader-qualification.yml" if job == "uploader_qualification" else "codecov.yml"
+    return yaml.safe_load((ROOT / ".github/workflows" / filename).read_text())["jobs"][job]["steps"]
+
+
+def action():
+    return yaml.safe_load((ROOT / ".github/actions/report-junit/action.yml").read_text())
 
 
 def snippet(name, job="test"):
-    step = next(s for s in steps(job) if s.get("name") == name)
+    source = action()["runs"]["steps"] if name == "Report retained JUnit files" else steps(job)
+    step = next(s for s in source if s.get("name") == name)
     body = step["run"].split("python - <<'PY'\n", 1)[1]
     return body.rsplit("\nPY", 1)[0]
 
@@ -63,14 +70,23 @@ def test_real_report_snippet_preserves_partial_failed_run_and_missing_phase_repo
 
 def test_current_supported_schema_pins_and_original_inventory_resources_are_preserved():
     current = steps()
-    junit = next(s for s in current if s.get("name") == "Upload test results to Codecov")
+    shared = action()
+    junit = next(s for s in shared["runs"]["steps"] if s.get("name") == "Upload test results to Codecov")
     coverage = next(s for s in current if s.get("name") == "Upload coverage to Codecov")
-    reporting = next(s for s in current if s.get("id") == "junit_reports")
+    reporting = next(s for s in shared["runs"]["steps"] if s.get("id") == "junit_reports")
+    caller = next(s for s in current if s.get("uses") == COMPOSITE)
     assert coverage["uses"] == junit["uses"] == UPLOADER
     assert junit["with"]["report_type"] == "test_results"
     assert junit["with"]["disable_search"] is True
     assert "!cancelled()" in reporting["if"] and "!cancelled()" in junit["if"]
+    assert "!cancelled()" in caller["if"]
     assert "outputs.files != ''" in junit["if"]
+    assert reporting["shell"] == "bash" and shared["runs"]["using"] == "composite"
+    assert shared["outputs"]["files"]["value"] == "${{ steps.junit_reports.outputs.files }}"
+    assert junit["with"]["token"] == "${{ inputs.token }}"
+    assert junit["with"]["fail_ci_if_error"] == "${{ inputs.fail-ci-if-error }}"
+    assert caller["with"]["token"] == "${{ secrets.CODECOV_TOKEN }}"
+    assert caller["with"]["fail-ci-if-error"] == shared["inputs"]["fail-ci-if-error"]["default"] == "false"
     parallel = next(s["run"] for s in current if s.get("name") == "Run tests")
     assert "-n 4 --dist=loadfile" in parallel
     assert parallel.count("--ignore=") == 2
@@ -85,19 +101,24 @@ def test_current_supported_schema_pins_and_original_inventory_resources_are_pres
 
 def test_real_ci_probe_reuses_uploader_and_preserves_normal_required_check_identity():
     policy = yaml.safe_load((ROOT / ".github/workflows/codecov.yml").read_text())
-    normal, probe = policy["jobs"]["test"], policy["jobs"]["uploader_qualification"]
-    assert "github.event_name != 'push'" in normal["if"]
-    assert "format('Run {0} tests and collect coverage', github.event_name)" in normal["name"]
-    assert "product suite intentionally not executed" in normal["name"]
-    for name in ("success", "failure"):
-        reference = "refs/heads/qualification/v5-372-uploader-" + name
-        assert reference in normal["if"] and reference in probe["if"]
-    assert "github.event_name == 'push'" in probe["if"]
+    qualification = yaml.safe_load((ROOT / ".github/workflows/uploader-qualification.yml").read_text())
+    normal, probe = policy["jobs"]["test"], qualification["jobs"]["uploader_qualification"]
+    references = ["qualification/v5-372-uploader-" + name for name in ("success", "failure")]
+    assert "if" not in normal
+    assert normal["name"] == "Run ${{ github.event_name }} tests and collect coverage"
+    assert set(policy["jobs"]) == {"test"}
+    assert policy[True]["push"] == {"branches-ignore": references, "tags": ["**"]}
+    assert "pull_request" in policy[True] and policy[True]["pull_request"] is None
+    assert qualification[True] == {"push": {"branches": references}}
+    assert qualification["permissions"] == {"contents": "read"}
     assert probe["timeout-minutes"] == 5
-    assert probe["steps"][-1] is normal["steps"][-1]
-    assert probe["steps"][6] is normal["steps"][-2]
-    assert "qualification/v5-372-uploader-failure" in probe["steps"][-1]["with"]["fail_ci_if_error"]
+    assert probe["steps"][-1]["uses"] == normal["steps"][-1]["uses"] == COMPOSITE
+    assert probe["steps"][-1]["with"]["fail-ci-if-error"] == "true"
+    assert "uploader-qualification-" in probe["steps"][-1]["with"]["upload-name"]
+    assert "!cancelled()" in probe["steps"][-1]["if"]
     assert all(not step.get("continue-on-error") for step in probe["steps"])
+    checkout = next(step for step in normal["steps"] if step.get("name") == "Checkout")
+    assert "ref" not in checkout.get("with", {})
 
 
 @pytest.mark.parametrize("expectation", ("success", "failure"))
