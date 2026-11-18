@@ -1,0 +1,387 @@
+{
+  "schema_version": 1,
+  "artifact_type": "public_interoperability_source_assessment",
+  "coleman_source_revision": "6c72ca343efba345a1d540e2473227f047093b58",
+  "assessment": "entry_gate_pending_no_adapter_selected",
+  "qualification": {
+    "external_packages_installed": false,
+    "external_API_parity_executed": false,
+    "external_restart_qualified": false,
+    "physical_performance_or_cost_measurements": "not_collected",
+    "package_metadata_and_selected_source_members_verified": true,
+    "source_hash_meaning": "Content integrity of inspected public metadata/source; not publisher authentication, supported execution or security admission."
+  },
+  "packages": [
+    {
+      "package": "vowpalwabbit",
+      "version": "9.11.9",
+      "url": "https://pypi.org/pypi/vowpalwabbit/9.11.9/json",
+      "retrieved_utc": "2026-11-18T00:44:58.134115+00:00",
+      "response_sha256": "e993097c9686a42fa7a6bca02a76973f8841aed108bdc06521cd1fee6636c0f3",
+      "requires_python": ">=3.10",
+      "license_expression": null,
+      "license": "BSD 3-Clause License",
+      "requires_dist": null,
+      "artifact_evidence": [
+        {
+          "filename": "vowpalwabbit-9.11.9-cp314-cp314-macosx_11_0_arm64.whl",
+          "bytes": 2292853,
+          "sha256": "e47b9bfd846a9a8d000ae7f1ecfeddbb70d746a19251571db854f029e15ba7ce",
+          "uploaded": "2026-09-27T23:38:14.680113Z",
+          "type": "bdist_wheel"
+        },
+        {
+          "filename": "vowpalwabbit-9.11.9-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+          "bytes": 3503539,
+          "sha256": "2be21ad8709d6922b45cabd50d161f12a7187c5a402f1a844652a473e30e338e",
+          "uploaded": "2026-09-27T23:38:19.117998Z",
+          "type": "bdist_wheel"
+        },
+        {
+          "filename": "vowpalwabbit-9.11.9.tar.gz",
+          "bytes": 35868889,
+          "sha256": "ff90d52858b73b8264ecf9259e436dccf1acff651c1bebd34042fcfb8bc886ec",
+          "uploaded": "2026-09-27T23:38:23.146993Z",
+          "type": "sdist"
+        }
+      ]
+    },
+    {
+      "package": "river",
+      "version": "0.27.0",
+      "url": "https://pypi.org/pypi/river/0.27.0/json",
+      "retrieved_utc": "2026-11-18T00:44:58.051154+00:00",
+      "response_sha256": "7f1d8e808b9d8e1de4a8d0ec3181cd0f9d477bcc248769a13b50e3c91b02c1ae",
+      "requires_python": ">=3.11",
+      "license_expression": "BSD-3-Clause",
+      "license": null,
+      "requires_dist": [
+        "scipy<2,>=1.14.1",
+        "numpy<3,>=2.2.5",
+        "narwhals>=2.28.0"
+      ],
+      "artifact_evidence": [
+        {
+          "filename": "river-0.27.0-cp314-cp314-macosx_10_15_universal2.whl",
+          "bytes": 3264027,
+          "sha256": "123f6ebbf9e7b6e4b11efe391d6a68e7ce2745f291828c3a77177d38393cd711",
+          "uploaded": "2026-11-13T19:57:19.373848Z",
+          "type": "bdist_wheel"
+        },
+        {
+          "filename": "river-0.27.0-cp314-cp314-manylinux_2_28_x86_64.whl",
+          "bytes": 2824511,
+          "sha256": "0d6feb6b3751213051e2138fcd52d11046d816f6e48828228180a31673dea09f",
+          "uploaded": "2026-11-13T19:57:23.758238Z",
+          "type": "bdist_wheel"
+        },
+        {
+          "filename": "river-0.27.0.tar.gz",
+          "bytes": 5191949,
+          "sha256": "f8791b1187b30d8a84ce98e00851aed436f5e457dafe3663c33064a078763b69",
+          "uploaded": "2026-11-13T19:57:45.847266Z",
+          "type": "sdist"
+        }
+      ],
+      "release_source_evidence": {
+        "url": "https://files.pythonhosted.org/packages/6a/90/53d776530481fe9d371745630eee562b2c649acb0ae266f9ad74ae6057e7/river-0.27.0.tar.gz",
+        "sdist_sha256": "f8791b1187b30d8a84ce98e00851aed436f5e457dafe3663c33064a078763b69",
+        "members": [
+          {
+            "path": "river-0.27.0/LICENSE",
+            "sha256": "e87f2c8f1ba611702af10cba745e6ceb773d32310135ed55aa2722c55dd0d077",
+            "bytes": 1528
+          },
+          {
+            "path": "river-0.27.0/river/base/estimator.py",
+            "sha256": "8c9881aec001af59c8330cdeb7dd9fa4c039302d3a12a403c7dffc8e367fc573",
+            "bytes": 3831
+          }
+        ]
+      },
+      "requires_dist_scope": "Base direct requirements only; optional extras retained in the referenced exact metadata response."
+    },
+    {
+      "package": "optuna",
+      "version": "5.1.0",
+      "url": "https://pypi.org/pypi/optuna/5.1.0/json",
+      "retrieved_utc": "2026-11-18T00:44:57.830050+00:00",
+      "response_sha256": "4712fc91ad8e60fc41402a19dc91e86c5156f0a88e986e4470f372b9e2696829",
+      "requires_python": ">=3.10",
+      "license_expression": null,
+      "license": null,
+      "requires_dist": [
+        "alembic>=1.5.0",
+        "colorlog",
+        "numpy",
+        "packaging>=20.0",
+        "sqlalchemy>=1.4.2",
+        "tqdm",
+        "PyYAML"
+      ],
+      "artifact_evidence": [
+        {
+          "filename": "optuna-5.1.0-py3-none-any.whl",
+          "bytes": 442816,
+          "sha256": "aba6a73d32e4ccf58c00ea70a60bf5bcece6b34defb024474dddd0962dc070b1",
+          "uploaded": "2026-11-16T05:08:54.264257Z",
+          "type": "bdist_wheel"
+        },
+        {
+          "filename": "optuna-5.1.0.tar.gz",
+          "bytes": 512428,
+          "sha256": "6a4eed79680fdb4f0a70e9a9a59530ae8e9e976db1362e4660de1fdd89434e67",
+          "uploaded": "2026-11-16T05:08:55.679557Z",
+          "type": "sdist"
+        }
+      ],
+      "release_source_evidence": {
+        "url": "https://files.pythonhosted.org/packages/80/f5/f1fd6532a5453131cf441837106185188184795819424dee183f1e268abc/optuna-5.1.0.tar.gz",
+        "sdist_sha256": "6a4eed79680fdb4f0a70e9a9a59530ae8e9e976db1362e4660de1fdd89434e67",
+        "members": [
+          {
+            "path": "optuna-5.1.0/LICENSE",
+            "sha256": "c3df8e8523cf46be4b366ee7dd11578454b10ea5ec5159e57df849513aafe059",
+            "bytes": 1081
+          },
+          {
+            "path": "optuna-5.1.0/optuna/study/study.py",
+            "sha256": "f717c9471a6dd8ed8a6b5da762763f1401eab34541c24d619db5d2d8ae657030",
+            "bytes": 59553
+          }
+        ]
+      },
+      "source_license_identified": "MIT; exact release LICENSE member hash above, package license metadata null.",
+      "requires_dist_scope": "Base direct requirements only; optional extras retained in the referenced exact metadata response."
+    },
+    {
+      "package": "obp",
+      "version": "0.5.7",
+      "url": "https://pypi.org/pypi/obp/0.5.7/json",
+      "retrieved_utc": "2026-11-18T00:44:58.171706+00:00",
+      "response_sha256": "07ca9ff14dabbe1e5a5606b1720236e23d0fe22c1ce9148e98be5e9e0ea392d6",
+      "requires_python": "",
+      "license_expression": null,
+      "license": "Apache License",
+      "requires_dist": null,
+      "artifact_evidence": [
+        {
+          "filename": "obp-0.5.7.tar.gz",
+          "bytes": 1306068,
+          "sha256": "3060d67fedfcfadf1e7a6f2608987f74412b5eb74d2c567edeb147595c68f2a0",
+          "uploaded": "2023-04-14T21:06:58.073828Z",
+          "type": "sdist"
+        }
+      ],
+      "release_source_evidence": {
+        "url": "https://files.pythonhosted.org/packages/5c/c8/3b511884a171091638d00a4255f11a635f33e0600094c255ec820f7a052f/obp-0.5.7.tar.gz",
+        "sdist_sha256": "3060d67fedfcfadf1e7a6f2608987f74412b5eb74d2c567edeb147595c68f2a0",
+        "members": [
+          {
+            "path": "obp-0.5.7/setup.py",
+            "sha256": "ae86c9804ff28a45e91603fd4bd91494f51c49d0ac2dc2cc690ca1f5cc0076ce",
+            "bytes": 2029
+          },
+          {
+            "path": "obp-0.5.7/LICENSE",
+            "sha256": "6bc32ef299d465f98043edc6e487a6e72a69600f3a2144f4e69be8f1b36be9f7",
+            "bytes": 11384
+          }
+        ]
+      },
+      "released_setup_install_requires": [
+        "matplotlib>=3.4.3",
+        "mypy-extensions>=0.4.3",
+        "numpy>=1.23.5",
+        "pandas>=1.5.2",
+        "pyyaml>=6.0",
+        "seaborn>=0.10.1",
+        "scikit-learn>=1.1.3",
+        "scipy>=1.9.3",
+        "torch>=1.12",
+        "tqdm>=4.62.2",
+        "pyieoe>=0.1.1",
+        "pingouin>=0.4.0"
+      ],
+      "metadata_limit": "Missing Requires-Dist/Requires-Python metadata is not an empty dependency closure or evidence of Python3.14 support."
+    },
+    {
+      "package": "gymnasium",
+      "version": "1.4.0",
+      "url": "https://pypi.org/pypi/gymnasium/1.4.0/json",
+      "retrieved_utc": "2026-11-18T00:44:58.425557+00:00",
+      "response_sha256": "2a5102dc09bca3086e94c896f4125aeb22678b43f6ae03acc5df9355fed9a349",
+      "requires_python": ">=3.10",
+      "license_expression": null,
+      "license": "MIT License",
+      "requires_dist": [
+        "numpy>=1.22.0",
+        "cloudpickle>=1.2.0",
+        "typing-extensions>=4.12.0",
+        "farama-notifications>=0.0.1"
+      ],
+      "artifact_evidence": [
+        {
+          "filename": "gymnasium-1.4.0-py3-none-any.whl",
+          "bytes": 476306,
+          "sha256": "1cb947c59e7c72d8eabb2c2274c00cd20948e69f8452a9ef4092223be24fdf0e",
+          "uploaded": "2026-10-05T11:02:14.783508Z",
+          "type": "bdist_wheel"
+        },
+        {
+          "filename": "gymnasium-1.4.0.tar.gz",
+          "bytes": 350436,
+          "sha256": "9754f630a32abfdbb76386abe1bc1e706c982db2d62dfa119c9952eb2de7697d",
+          "uploaded": "2026-10-05T11:02:16.217288Z",
+          "type": "sdist"
+        }
+      ],
+      "requires_dist_scope": "Base direct requirements only; optional extras retained in the referenced exact metadata response."
+    },
+    {
+      "package": "osqp",
+      "version": "1.1.3",
+      "url": "https://pypi.org/pypi/osqp/1.1.3/json",
+      "retrieved_utc": "2026-11-18T00:44:58.555252+00:00",
+      "response_sha256": "23d50723aace448d7560219f205f6af7a425906569676af2986ad5ccb3c35912",
+      "requires_python": ">=3.8",
+      "license_expression": "Apache-2.0",
+      "license": null,
+      "requires_dist": [
+        "jinja2",
+        "numpy>=1.7",
+        "scipy>=0.13.2",
+        "setuptools",
+        "joblib"
+      ],
+      "artifact_evidence": [
+        {
+          "filename": "osqp-1.1.3-cp314-cp314-macosx_11_0_arm64.whl",
+          "bytes": 309534,
+          "sha256": "e730047c4cba86ad97ca73c03ea4c3cca765b22fa79c3fbefff11b3cce317742",
+          "uploaded": "2026-06-12T16:59:03.427656Z",
+          "type": "bdist_wheel"
+        },
+        {
+          "filename": "osqp-1.1.3-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+          "bytes": 354268,
+          "sha256": "4bdcbe47c2c37bf7296971a40811a883e793923699394a73a9d677ab7a9093e8",
+          "uploaded": "2026-06-12T16:59:06.014882Z",
+          "type": "bdist_wheel"
+        },
+        {
+          "filename": "osqp-1.1.3.tar.gz",
+          "bytes": 57816,
+          "sha256": "48f53ef5ec89e6ce99ffa955bc6ea0cf2eec09ea3d40905f0c9fadc939609907",
+          "uploaded": "2026-06-12T16:59:27.208761Z",
+          "type": "sdist"
+        }
+      ],
+      "requires_dist_scope": "Base direct requirements only; optional extras retained in the referenced exact metadata response."
+    }
+  ],
+  "primary_documentation": [
+    {
+      "subject": "VW contextual choice/update",
+      "url": "https://vowpalwabbit.org/docs/vowpal_wabbit/python/latest/tutorials/python_Contextual_bandits_and_Vowpal_Wabbit.html",
+      "retrieved_on_utc": "2026-11-18",
+      "scope": "Official API/research text inspected; floating latest/stable URLs may change. Exact release metadata and selected source-member identities are recorded separately."
+    },
+    {
+      "subject": "VW Python API",
+      "url": "https://vowpalwabbit.org/docs/vowpal_wabbit/python/latest/reference/vowpalwabbit.pyvw.html",
+      "retrieved_on_utc": "2026-11-18",
+      "scope": "Official API/research text inspected; floating latest/stable URLs may change. Exact release metadata and selected source-member identities are recorded separately."
+    },
+    {
+      "subject": "River online API",
+      "url": "https://riverml.xyz/latest/api/overview/",
+      "retrieved_on_utc": "2026-11-18",
+      "scope": "Official API/research text inspected; floating latest/stable URLs may change. Exact release metadata and selected source-member identities are recorded separately."
+    },
+    {
+      "subject": "Optuna ask/tell",
+      "url": "https://optuna.readthedocs.io/en/stable/tutorial/20_recipes/009_ask_and_tell.html",
+      "retrieved_on_utc": "2026-11-18",
+      "scope": "Official API/research text inspected; floating latest/stable URLs may change. Exact release metadata and selected source-member identities are recorded separately."
+    },
+    {
+      "subject": "Optuna Study API",
+      "url": "https://optuna.readthedocs.io/en/stable/reference/generated/optuna.study.Study.html",
+      "retrieved_on_utc": "2026-11-18",
+      "scope": "Official API/research text inspected; floating latest/stable URLs may change. Exact release metadata and selected source-member identities are recorded separately."
+    },
+    {
+      "subject": "Optuna persistence",
+      "url": "https://optuna.readthedocs.io/en/stable/faq.html",
+      "retrieved_on_utc": "2026-11-18",
+      "scope": "Official API/research text inspected; floating latest/stable URLs may change. Exact release metadata and selected source-member identities are recorded separately."
+    },
+    {
+      "subject": "Optuna seeded sampler restoration",
+      "url": "https://optuna.readthedocs.io/en/stable/tutorial/20_recipes/001_rdb.html",
+      "retrieved_on_utc": "2026-11-18",
+      "scope": "Official API/research text inspected; floating latest/stable URLs may change. Exact release metadata and selected source-member identities are recorded separately."
+    },
+    {
+      "subject": "Optuna heartbeat limitation",
+      "url": "https://optuna.readthedocs.io/en/stable/reference/generated/optuna.storages.RDBStorage.html",
+      "retrieved_on_utc": "2026-11-18",
+      "scope": "Official API/research text inspected; floating latest/stable URLs may change. Exact release metadata and selected source-member identities are recorded separately."
+    },
+    {
+      "subject": "OBP estimator assumptions",
+      "url": "https://zr-obp.readthedocs.io/en/latest/estimators.html",
+      "retrieved_on_utc": "2026-11-18",
+      "scope": "Official API/research text inspected; floating latest/stable URLs may change. Exact release metadata and selected source-member identities are recorded separately."
+    },
+    {
+      "subject": "OBP project API",
+      "url": "https://zr-obp.readthedocs.io/en/latest/",
+      "retrieved_on_utc": "2026-11-18",
+      "scope": "Official API/research text inspected; floating latest/stable URLs may change. Exact release metadata and selected source-member identities are recorded separately."
+    },
+    {
+      "subject": "Gymnasium environment API",
+      "url": "https://gymnasium.farama.org/api/env/",
+      "retrieved_on_utc": "2026-11-18",
+      "scope": "Official API/research text inspected; floating latest/stable URLs may change. Exact release metadata and selected source-member identities are recorded separately."
+    },
+    {
+      "subject": "OSQP Python API",
+      "url": "https://osqp.org/docs/interfaces/python.html",
+      "retrieved_on_utc": "2026-11-18",
+      "scope": "Official API/research text inspected; floating latest/stable URLs may change. Exact release metadata and selected source-member identities are recorded separately."
+    },
+    {
+      "subject": "OSQP termination statuses",
+      "url": "https://osqp.org/docs/interfaces/status_values.html",
+      "retrieved_on_utc": "2026-11-18",
+      "scope": "Official API/research text inspected; floating latest/stable URLs may change. Exact release metadata and selected source-member identities are recorded separately."
+    },
+    {
+      "subject": "OpenTuner PACT2014",
+      "url": "https://commit.csail.mit.edu/papers/2014/ansel-pact14-opentuner.pdf",
+      "retrieved_on_utc": "2026-11-18",
+      "scope": "Official API/research text inspected; floating latest/stable URLs may change. Exact release metadata and selected source-member identities are recorded separately."
+    },
+    {
+      "subject": "HPOBench NeurIPS2021",
+      "url": "https://arxiv.org/abs/2109.06716v3",
+      "retrieved_on_utc": "2026-11-18",
+      "scope": "Official API/research text inspected; floating latest/stable URLs may change. Exact release metadata and selected source-member identities are recorded separately."
+    },
+    {
+      "subject": "Constrained contextual bandits JMLR2024",
+      "url": "https://jmlr.org/papers/v25/24-1220.html",
+      "retrieved_on_utc": "2026-11-18",
+      "scope": "Official API/research text inspected; floating latest/stable URLs may change. Exact release metadata and selected source-member identities are recorded separately."
+    },
+    {
+      "subject": "OSQP MPC2020",
+      "url": "https://web.stanford.edu/~boyd/papers/osqp.html",
+      "retrieved_on_utc": "2026-11-18",
+      "scope": "Official API/research text inspected; floating latest/stable URLs may change. Exact release metadata and selected source-member identities are recorded separately."
+    }
+  ]
+}
