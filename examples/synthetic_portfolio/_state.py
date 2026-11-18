@@ -6,13 +6,9 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated
-
-from pydantic import Field
 
 from coleman.artifacts import ArtifactWriter
-from coleman.core.base import CoreImmutable
-from coleman.core.primitives import Fingerprint, canonical_json, fingerprint
+from coleman.core.primitives import canonical_json, fingerprint
 from coleman.objectives.bindings import DefinitionBinding
 from coleman.state.components import (
     ComponentBinding,
@@ -25,7 +21,6 @@ from coleman.state.contracts import StateBinding
 from coleman.state.local import LocalStateStore
 from coleman.state.storage_contracts import (
     CollectionDefinition,
-    CollectionManifest,
     CommitIntent,
     CommitReceipt,
     CommitRequest,
@@ -34,9 +29,10 @@ from coleman.state.storage_contracts import (
 from coleman.tasks.contracts import OwnedCommitProof, TaskFrontier
 from coleman.tasks.protocols import CommittedProgress, CoordinateContext
 
+from ._state_records import _AcknowledgedState, _CheckpointIdentity, _OpenedState
 from .experiment import Experiment, ExperimentStateV2
+from .recipe import COORDINATE_RESULT, frontier_definition, reference
 from .recipe import STATE_V2 as STATE
-from .recipe import frontier_definition, reference
 from .task_contracts import PortfolioCheckpointV2 as PortfolioCheckpoint
 from .task_contracts import PortfolioConfiguration, PortfolioTrajectory
 from .task_results import PortfolioCoordinateResultV2, PortfolioSnapshotReference, _terminal_outcomes_checked
@@ -132,40 +128,6 @@ class PortfolioOwner:
 def _forbidden(_stage: StagedCollection) -> None:
     """Refuse any body execution during an exact retained-command lookup."""
     raise AssertionError("Retained task reconciliation must execute zero transition callbacks")
-
-
-@dataclass(frozen=True)
-class _AcknowledgedState:
-    """Keep one operation's fully read checkpoint, manifest and actual receipt."""
-
-    checkpoint: PortfolioCheckpoint
-    manifest: CollectionManifest
-    progress: CommittedProgress[OwnedCommitProof]
-
-
-@dataclass(frozen=True)
-class _OpenedState:
-    """Keep one actual open operation's store and completely selected snapshot."""
-
-    store: LocalStateStore | None
-    checkpoint: PortfolioCheckpoint | None
-    manifest: CollectionManifest | None
-    prepared: PreparedCollection | None = None
-
-
-class _CheckpointIdentity(CoreImmutable):
-    """Validate all fixed checkpoint metadata without constructing a state view.
-
-    This private identity is neither a snapshot nor a validation witness. It
-    contains no experiment state and grants no execution or acknowledgement.
-    """
-
-    schema_version: Annotated[int, Field(strict=True, ge=2, le=2)]
-    binding: StateBinding
-    plan_fingerprint: Fingerprint
-    coordinate_fingerprint: Fingerprint
-    source: DefinitionBinding
-    rows: tuple[tuple[int, int], ...]
 
 
 @dataclass(frozen=True)
@@ -397,6 +359,50 @@ class Layout:
         if selected.to_json() != actual.to_json():
             raise ValueError("Portfolio result differs from its complete actual terminal state artifacts")
         return store, checkpoint
+
+    def publish_and_read(self, value: PortfolioCoordinateResultV2) -> PortfolioCoordinateResultV2:
+        """Publish and read actual immutable bytes within one full acquisition.
+
+        Parameters
+        ----------
+        value : PortfolioCoordinateResultV2
+            Complete terminal metadata, source, summaries and real original ACK.
+            The actual selected state is fully read and verified in this call.
+
+        Returns
+        -------
+        PortfolioCoordinateResultV2
+            Actual bounded, selected-codec readback from the fixed owned artifact,
+            equal to the written bytes and joined to a fresh matching ACK.
+
+        Raises
+        ------
+        ValueError, OSError
+            Corrupt/incompatible/incomplete state, different existing immutable
+            bytes, altered readback or a changed head/manifest/state artifact.
+
+        Notes
+        -----
+        Reuses only this call's actual complete selected acquisition through the
+        immutable write and actual file readback. The final public head reader
+        verifies current manifest and referenced blob integrity again. A race
+        refuses; no caller snapshot, cached result or validation flag is used.
+        Separate publication and resolution calls remain completely fresh.
+
+        Publication and the final head check are not atomic together. A later
+        refusal can leave the immutable artifact present without outer task
+        completion. Retry/reconcile actual evidence; file presence alone does
+        not prove completion or exactly-once external effects.
+        """
+        selected = COORDINATE_RESULT.validate(value)
+        store, _checkpoint = self.open_resolved(selected)
+        content = COORDINATE_RESULT.encode(selected)
+        path = self.context.artifact_directory / "coordinate-result.json"
+        ArtifactWriter(self.context.artifact_directory).write_immutable(path, content)
+        actual = COORDINATE_RESULT.decode(read_text(path, COORDINATE_RESULT.maximum_bytes))
+        if COORDINATE_RESULT.encode(actual) != content or store.read_head() != selected.proof.observed_head:
+            raise ValueError("Portfolio publication readback requires exact bytes and a fresh current matching ACK")
+        return actual
 
     def _open_acquisition(self, *, create: bool) -> _OpenedState:
         """Perform the original open and full selected read once, without caching."""

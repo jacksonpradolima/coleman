@@ -8,6 +8,7 @@ from functools import partial
 from hashlib import sha256
 
 from coleman.artifacts import ArtifactWriter
+from coleman.core.identity import Reference
 from coleman.objectives.bindings import DefinitionBinding
 from coleman.tasks.contracts import OwnedCommitProof
 from coleman.tasks.protocols import AttemptContext, CommittedProgress, CoordinateContext, PreparationContext
@@ -81,6 +82,29 @@ class PreparedPortfolio:
     def progress_verifier(self) -> PreparedPortfolio:
         """Expose actual storage recovery, distinct from the pure proof codec."""
         return self
+
+    @property
+    def publication_readback(self) -> PreparedPortfolio:
+        """Expose the optional real publication/readback operation.
+
+        Returns
+        -------
+        PreparedPortfolio
+            This immutable handler, without capturing state or performing I/O.
+        """
+        return self
+
+    @property
+    def profile(self) -> Reference:
+        """Declare the common publication/readback contract, without discovery.
+
+        Returns
+        -------
+        Reference
+            ``coleman-coordinate-publication-readback@1``. This semantic profile
+            is not implementation approval or evidence of task completion.
+        """
+        return Reference(id="coleman-coordinate-publication-readback", version="1")
 
     @property
     def state_codec(self) -> ModelCodec:
@@ -286,6 +310,44 @@ class PreparedPortfolio:
             context.artifact_directory / "coordinate-result.json",
             COORDINATE_RESULT.encode(current),
         )
+
+    def publish_and_read(
+        self,
+        coordinate: PortfolioTrajectory,
+        value: PortfolioCoordinateResultV2,
+        context: CoordinateContext,
+        /,
+    ) -> PortfolioCoordinateResultV2:
+        """Publish and read the exact coordinate through one current acquisition.
+
+        Parameters
+        ----------
+        coordinate : PortfolioTrajectory
+            Exact original source coordinate admitted by this preparation.
+        value : PortfolioCoordinateResultV2
+            Complete actual terminal metadata and source-bound ACK evidence.
+        context : CoordinateContext
+            Exact plan/runtime/source and trusted fixed artifact directory.
+
+        Returns
+        -------
+        PortfolioCoordinateResultV2
+            Actual selected-codec file readback with exact byte equality and a
+            fresh matching head, manifest and referenced-state integrity check.
+
+        Raises
+        ------
+        ValueError, OSError
+            Wrong context/source, stale or corrupt state, immutable conflict or
+            changed evidence after publication. No outer completion is claimed.
+
+        Notes
+        -----
+        Implements only the named v1 optional common capability. Both standalone
+        methods above remain fresh. Later failures may leave immutable bytes;
+        actual task completion still belongs to the shared execution driver.
+        """
+        return self._layout(coordinate, context).publish_and_read(COORDINATE_RESULT.validate(value))
 
 
 @dataclass(frozen=True)

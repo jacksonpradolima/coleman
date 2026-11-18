@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from coleman.application.execution_program import CoordinateWork, ExecutionProgram
 from coleman.application.executor_capture import load_approved_executor
@@ -22,6 +22,7 @@ from coleman.tasks.protocols import (
     PreparationContext,
     PreparedExecutor,
     ProgressVerifier,
+    PublicationReadbackV1,
     StageBoundary,
     ValueCodec,
     decode_value,
@@ -177,9 +178,16 @@ class _Prepared:
 
     def publish_coordinate(self, coordinate: Any, value: Any, context: CoordinateContext, /) -> None:
         """Publish through the owner, then verify its complete concrete readback."""
+        publication = _publication_readback(self.selected)
         encoded = encode_value(self.result_codec, value)
-        self.selected.publish_coordinate(coordinate, decode_value(self.result_codec, encoded), context)
-        retained = self.read_completed(coordinate, context)
+        if publication is None:
+            self.selected.publish_coordinate(coordinate, decode_value(self.result_codec, encoded), context)
+            retained = self.read_completed(coordinate, context)
+        else:
+            actual = publication.publish_and_read(coordinate, decode_value(self.result_codec, encoded), context)
+            retained = (
+                None if actual is None else decode_value(self.result_codec, encode_value(self.result_codec, actual))
+            )
         if retained is None or encode_value(self.result_codec, retained) != encoded:
             raise ValueError("Task coordinate publication differs from its concrete complete result")
 
@@ -301,3 +309,41 @@ def _require_prepared(value: object, plan: TaskPlan) -> None:
         raise ValueError("A local-state task requires actual progress verification and reconciliation")
     if verifier is not None and not all(callable(getattr(verifier, name, None)) for name in ("validate", "reconcile")):
         raise TypeError("Task progress capability requires actual validation and reconciliation")
+    _publication_readback(value)
+
+
+def _publication_readback(value: object) -> PublicationReadbackV1[Any, Any] | None:
+    """Validate optional trusted capability metadata before physical publication.
+
+    Parameters
+    ----------
+    value : object
+        Actual prepared provider from the independently captured implementation.
+
+    Returns
+    -------
+    PublicationReadbackV1 or None
+        Supported complete operation, or the unchanged legacy publication path.
+
+    Raises
+    ------
+    ValueError, TypeError
+        Malformed or unknown profile, or a missing concrete operation. Unknown
+        future versions never silently select the legacy path.
+
+    Notes
+    -----
+    Runs during preparation before reservation and again before publication.
+    Reads only the provider's capability declaration, never a request flag,
+    artifact-selected executable, cached snapshot or storage acknowledgement.
+    The declared profile is not evidence that its callbacks performed I/O.
+    """
+    capability = getattr(value, "publication_readback", None)
+    if capability is None:
+        return None
+    profile = Reference.model_validate(getattr(capability, "profile", None))
+    if profile != Reference(id="coleman-coordinate-publication-readback", version="1"):
+        raise ValueError("Unsupported task coordinate publication/readback profile")
+    if not callable(getattr(capability, "publish_and_read", None)):
+        raise TypeError("Task publication/readback capability requires its concrete operation")
+    return cast(PublicationReadbackV1[Any, Any], capability)

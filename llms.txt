@@ -21874,6 +21874,13 @@ operation. The manifest, source, execution bindings and fresh head must agree;
 concurrent advancement follows the existing reload/refusal rules. These are
 explicit combined reads, with no cache or caller-provided validation token.
 Separate `open`, `checkpoint` and `reconcile` calls still perform fresh reads.
+The task adapter declares the optional
+`coleman-coordinate-publication-readback@1` capability. One full current-state
+acquisition covers immutable coordinate publication and actual bounded codec
+readback; a final fresh ACK/manifest/blob integrity check must still match.
+Independent publication and read methods retain their complete fresh reads.
+A refusal after publication can leave the immutable file present without a
+completed task, so artifact presence alone is never completion evidence.
 The task adapter uses `open_reconciled()` when one operation needs both opening
 and retained progress, and `open_resolved(result)` when it needs opening and full
 terminal evidence. Each reuses only that operation's actual complete selected
@@ -21933,7 +21940,10 @@ flowchart LR
     State --> Commit[Existing state store and ACK / state codec v2]
     Commit --> Full[Complete schema2 state artifact]
     Commit --> Coordinate[Compact schema2 coordinate and 14 outcomes]
-    Coordinate --> Report[Compact schema2 final report]
+    Coordinate --> Publish[Optional v1 immutable publication and actual codec readback]
+    Full -->|Full selected acquisition| Publish
+    Publish --> Fresh[Fresh ACK, manifest and blob integrity]
+    Fresh --> Report[Compact schema2 final report]
     Report --> Edge[Bounded CLI or MCP reply]
     Report --> Resolve[Trusted local evidence resolver]
     Full --> Resolve

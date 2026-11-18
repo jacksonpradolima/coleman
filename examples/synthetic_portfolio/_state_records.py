@@ -1,0 +1,54 @@
+"""Private complete records for one funded-portfolio storage operation."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Annotated
+
+from pydantic import Field
+
+from coleman.core.base import CoreImmutable
+from coleman.core.primitives import Fingerprint
+from coleman.objectives.bindings import DefinitionBinding
+from coleman.state.components import PreparedCollection
+from coleman.state.contracts import StateBinding
+from coleman.state.local import LocalStateStore
+from coleman.state.storage_contracts import CollectionManifest
+from coleman.tasks.contracts import OwnedCommitProof
+from coleman.tasks.protocols import CommittedProgress
+
+from .task_contracts import PortfolioCheckpointV2 as PortfolioCheckpoint
+
+
+@dataclass(frozen=True)
+class _AcknowledgedState:
+    """Keep one operation's fully read checkpoint, manifest and actual receipt."""
+
+    checkpoint: PortfolioCheckpoint
+    manifest: CollectionManifest
+    progress: CommittedProgress[OwnedCommitProof]
+
+
+@dataclass(frozen=True)
+class _OpenedState:
+    """Keep one actual open operation's store and completely selected snapshot."""
+
+    store: LocalStateStore | None
+    checkpoint: PortfolioCheckpoint | None
+    manifest: CollectionManifest | None
+    prepared: PreparedCollection | None = None
+
+
+class _CheckpointIdentity(CoreImmutable):
+    """Validate all fixed checkpoint metadata without constructing a state view.
+
+    This private identity is neither a snapshot nor a validation witness. It
+    contains no experiment state and grants no execution or acknowledgement.
+    """
+
+    schema_version: Annotated[int, Field(strict=True, ge=2, le=2)]
+    binding: StateBinding
+    plan_fingerprint: Fingerprint
+    coordinate_fingerprint: Fingerprint
+    source: DefinitionBinding
+    rows: tuple[tuple[int, int], ...]

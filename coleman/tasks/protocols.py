@@ -331,6 +331,75 @@ class OwnedContinuation[S, P](ProgressVerifier[P], Protocol):
         ...
 
 
+class PublicationReadbackV1[W, R](Protocol):
+    """Optionally publish and reread one coordinate in a single owned operation.
+
+    Notes
+    -----
+    Trusted prepared providers may expose this capability through an optional
+    ``publication_readback`` attribute. Absence or None retains the separate
+    ``publish_coordinate`` and ``read_completed`` operations. The only supported
+    profile is ``coleman-coordinate-publication-readback`` version ``1``; its
+    identity is a contract declaration, not proof of storage or authentication.
+
+    A provider must perform the actual immutable publication and bounded typed
+    readback, including its original source, integrity and current-ACK checks.
+    Only complete evidence acquired within that operation may be reused. No
+    caller supplies a snapshot, validation token or cross-call cached authority.
+    The common host still validates input and output through the selected result
+    codec and requires identical complete canonical bytes. Existing standalone
+    readers and publishers remain independently usable and fresh.
+    """
+
+    @property
+    def profile(self) -> Reference:
+        """Declare the exact supported publication/readback semantic profile.
+
+        Returns
+        -------
+        Reference
+            ``coleman-coordinate-publication-readback`` at version ``1``.
+            No state, storage receipt or execution authority is returned.
+        """
+        ...
+
+    def publish_and_read(self, coordinate: W, value: R, context: CoordinateContext, /) -> R:
+        """Write and actually reread the complete coordinate result.
+
+        Parameters
+        ----------
+        coordinate : W
+            Exact decoded coordinate under the independently captured provider.
+        value : R
+            Complete result revalidated with the selected concrete result codec.
+            Its units, missingness and original producer retain their meanings.
+        context : CoordinateContext
+            Actual trusted artifact directory, source, runtime and coordinate
+            bindings; no request-selected path or receipt substitute.
+
+        Returns
+        -------
+        R
+            Actual bounded typed readback, retaining every declared result field
+            and its canonical bytes. None does not represent completion.
+
+        Raises
+        ------
+        ValueError, TypeError, OSError
+            Incompatible input, changed evidence or source, failed publication,
+            missing readback or mismatched current acknowledgement.
+
+        Notes
+        -----
+        May write the fixed immutable coordinate artifact and inspect its actual
+        current storage. Publication and readback are not an atomic transaction:
+        an error may leave a valid artifact or an earlier mathematical ACK.
+        Reconcile actual retained evidence after an uncertain response. This
+        grants no job-completion or exactly-once external-effect guarantee.
+        """
+        ...
+
+
 class PreparedExecutor[W, R, O, P](Protocol):
     """Provide bounded coordinate operations; the shared driver owns all loops."""
 
