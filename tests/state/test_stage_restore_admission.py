@@ -7,7 +7,7 @@ from dataclasses import replace
 from decimal import Decimal
 from functools import partial
 from types import MethodType, SimpleNamespace
-from typing import ClassVar, Self
+from typing import Any, ClassVar, Self, cast
 
 import pytest
 from pydantic import Field, StrictInt
@@ -116,7 +116,7 @@ def captured_stages(monkeypatch, *, subclass=None, instance_hook=None):
     def construct(entries):
         stage = (subclass or StagedCollection)(entries)
         if instance_hook is not None:
-            stage._export = MethodType(instance_hook, stage)
+            cast(Any, stage)._export = MethodType(instance_hook, stage)
         stages.append(stage)
         return stage
 

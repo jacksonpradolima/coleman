@@ -3,11 +3,12 @@
 import itertools
 import json
 import random
+from typing import cast
 
 import pytest
 
 from coleman.core._wire import BoundedContract
-from coleman.core.reading import _depth, bounded_json_bytes
+from coleman.core.reading import ReaderLabel, _depth, bounded_json_bytes
 
 
 def historical_depth_refuses(text):
@@ -162,9 +163,9 @@ def test_input_subclass_callbacks_are_never_used_by_the_public_boundary():
 
     for value in (HostileString("{}"), HostileBytes(b"{}"), bytearray(b"{}"), None, True):
         with pytest.raises(TypeError, match="built-in str or bytes"):
-            bounded_json_bytes(value, 16)
+            bounded_json_bytes(cast(str | bytes, value), 16)
     with pytest.raises(ValueError, match="diagnostic label"):
-        bounded_json_bytes("{}", 2, label=HostileString("State"))
+        bounded_json_bytes("{}", 2, label=cast(ReaderLabel, HostileString("State")))
 
 
 @pytest.mark.parametrize("text", ["[", "{]", '"unterminated', '"trailing\\', "not JSON"])

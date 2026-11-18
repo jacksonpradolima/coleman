@@ -63,6 +63,7 @@ def boundaries():
         status="observed",
     )
     result = BookSession(book).deliver(prices, target, fees, request=asset)
+    assert result.net_value is not None
     assert result.net_value.fraction.numerator == 10000
     assert result.net_value.fraction.denominator == 101
     assert not any(
@@ -158,6 +159,7 @@ def durable(root):
     )
     layout = Layout(decode_value(CONFIGURATION, plan.configuration), source, context)
     store = layout.open(create=True)
+    assert store is not None
     layout.initialize(store)
     halfway = layout.advance(store, lambda: None)
     assert halfway.frontier.position == 8
@@ -192,6 +194,7 @@ def durable(root):
 
     binding = layout.binding
     head = reopened.read_head()
+    assert head is not None
     request = CommitRequest(
         schema_version=1,
         expected=head,
@@ -417,6 +420,7 @@ async def mcp(root):
     from coleman_synthetic_portfolio.sample import planning_request
     from mcp.client import Client
     from mcp.client.stdio import StdioServerParameters
+    from mcp.types import TextContent
 
     from coleman.application.tasks import TaskService
     from coleman.artifacts import ArtifactWriter
@@ -444,6 +448,7 @@ async def mcp(root):
 
     def payload(reply):
         assert not reply.is_error
+        assert isinstance(reply.content[0], TextContent)
         value = json.loads(reply.content[0].text)
         assert value.get("artifact_type") != "failure", value
         return value
@@ -468,6 +473,7 @@ async def mcp(root):
         before = payload(await client.call_tool("task_status", {"command_json": command}))
         reply = await client.call_tool("task_report", {"command_json": command})
         reported = payload(reply)
+        assert isinstance(reply.content[0], TextContent)
         assert reply.content[0].text == completion.to_json()
         assert TaskCompletion.model_validate(reported).fingerprint == before["job"]["result_digest"]
         after = payload(await client.call_tool("task_status", {"command_json": command}))

@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from fractions import Fraction
 from pathlib import Path
+from typing import Literal, cast
 
 import pytest
 
@@ -84,6 +85,7 @@ def target(values=("1/2", "1/2")):
 def test_independent_post_charge_target_arithmetic_and_drift():
     first = execute(book(), prices(), target(), fees(), request=ref("initial"))
     assert first.status == "executed"
+    assert first.net_value is not None and first.proportional_paid is not None
     assert first.net_value.fraction == Fraction(10000, 101)
     assert first.proportional_paid.fraction == Fraction(100, 101)
     assert tuple(position.units.fraction for position in first.after.positions) == (
@@ -92,12 +94,21 @@ def test_independent_post_charge_target_arithmetic_and_drift():
     )
     second_prices = prices((12, 18), day=1)
     valuation = mark(first.after, second_prices)
+    assert valuation.value is not None
     assert valuation.value.fraction == Fraction(10500, 101)
-    assert tuple(weight.fraction for weight in valuation.drifted_weights) == (Fraction(4, 7), Fraction(3, 7))
+    assert all(weight is not None for weight in valuation.drifted_weights)
+    assert tuple(cast(Exact, weight).fraction for weight in valuation.drifted_weights) == (
+        Fraction(4, 7),
+        Fraction(3, 7),
+    )
     hold = execute(first.after, second_prices, None, fees(period="next"), request=ref("hold"))
+    assert hold.turnover is not None and hold.proportional_paid is not None and hold.net_value is not None
     assert hold.turnover.fraction == hold.proportional_paid.fraction == 0
     assert hold.net_value.fraction == Fraction(10500, 101)
     rebalance = execute(first.after, second_prices, target(), fees(period="next"), request=ref("rebalance"))
+    assert (
+        rebalance.turnover is not None and rebalance.proportional_paid is not None and rebalance.net_value is not None
+    )
     assert rebalance.turnover.fraction == Fraction(1500, 101)
     assert rebalance.proportional_paid.fraction == Fraction(15, 101)
     assert rebalance.net_value.fraction == Fraction(10485, 101)
@@ -124,6 +135,7 @@ def test_opposing_recipe_target_changes_net_before_executed_book_charges():
     # trade. Modeling each virtual recipe's charges is a separate calculation.
     funded = execute(book(), prices(), target(), fees(rate=0), request=ref("initial-net"))
     deployed = execute(funded.after, prices(day=1), target(), fees(period="net"), request=ref("netted"))
+    assert deployed.turnover is not None and deployed.proportional_paid is not None and deployed.net_value is not None
     assert deployed.turnover.fraction == deployed.proportional_paid.fraction == 0
     assert deployed.net_value.fraction == 100
     virtual_turnover = Fraction()
@@ -135,6 +147,7 @@ def test_opposing_recipe_target_changes_net_before_executed_book_charges():
         )
         # Sell100 and buy9900/101, pay200/101. These are virtual costs, not
         # additional executed charges on the independently funded mixture.
+        assert changed.turnover is not None and changed.proportional_paid is not None
         assert changed.turnover.fraction == Fraction(20000, 101)
         assert changed.proportional_paid.fraction == Fraction(200, 101)
         virtual_turnover += changed.turnover.fraction / 2
@@ -161,6 +174,8 @@ def test_inconsistent_book_frontier_rejects():
 
 def test_recurring_fee_is_separate_and_does_not_invent_a_trade():
     result = execute(book(), prices(), None, fees(recurring=2), request=ref("hold"))
+    assert result.net_value is not None and result.recurring_paid is not None
+    assert result.turnover is not None and result.proportional_paid is not None
     assert result.net_value.fraction == 98
     assert result.recurring_paid.fraction == 2
     assert result.turnover.fraction == result.proportional_paid.fraction == 0
@@ -242,9 +257,16 @@ def test_negative_signed_trade_valid_but_negative_cash_weights_or_future_version
     with pytest.raises(ValueError):
         Book.from_json(book().to_json().replace('"schema_version":1', '"schema_version":2'))
     with pytest.raises(ValueError):
-        PriceQuote(asset=ASSETS[0], value=Exact.of(10), status="observed", event_at=NOW, available_at=NOW, unit="USD")
+        PriceQuote(
+            asset=ASSETS[0],
+            value=Exact.of(10),
+            status="observed",
+            event_at=NOW,
+            available_at=NOW,
+            unit=cast(Literal["synthetic-credit/asset-unit"], "USD"),
+        )
     with pytest.raises(TypeError):
-        Exact.of(0.1)
+        Exact.of(cast(Fraction | int | str, 0.1))
 
 
 def test_deterministic_identity_and_round_trip():
@@ -289,6 +311,8 @@ def test_scaling_capital_preserves_weights_and_scales_paid_costs():
         small = execute(book(), quote, chosen, fees(rate=str(Fraction(index, 100))), request=ref("small"))
         large_book = Book.model_validate(book().model_dump() | {"cash": Exact.of(700)})
         large = execute(large_book, quote, chosen, fees(rate=str(Fraction(index, 100))), request=ref("large"))
+        assert large.net_value is not None and small.net_value is not None
+        assert large.proportional_paid is not None and small.proportional_paid is not None
         assert large.net_value.fraction == 7 * small.net_value.fraction
         assert large.proportional_paid.fraction == 7 * small.proportional_paid.fraction
         for larger, smaller in zip(large.after.positions, small.after.positions, strict=True):

@@ -102,6 +102,7 @@ def advance_one(layout, root, position):
     independent = LocalStateStore.open(root)
     selected = layout.binding
     head = independent.read_head()
+    assert head is not None
     request = CommitRequest(
         schema_version=1,
         expected=head,

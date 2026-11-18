@@ -14,8 +14,14 @@ from coleman.objectives.volatility import (
     fit_rolling_scale,
     select_scale,
 )
-from coleman.problems.portfolio import Fees, execute, mark
+from coleman.problems.portfolio import Exact, Fees, execute, mark
 from examples.synthetic_portfolio import model
+
+
+def _observed_fraction(value: Exact | None) -> Fraction:
+    """Require each original complete mark without filtering missing records."""
+    assert value is not None
+    return value.fraction
 
 
 def test_authored_no_skill_zero_scale_retains_fixed_baseline_without_fake_loss():
@@ -35,17 +41,19 @@ def test_authored_no_skill_zero_scale_retains_fixed_baseline_without_fake_loss()
             free,
             request=model.ref("zero-open-" + str(index)),
         )
-        opening = receipt.net_value.fraction
+        opening = _observed_fraction(receipt.net_value)
         raw = tuple(
             Scalar(
                 spec=model.RAW.spec,
                 status="observed",
-                value=float(mark(receipt.after, model.price_panel(day, (100, 100))).value.fraction / opening - 1),
+                value=float(
+                    _observed_fraction(mark(receipt.after, model.price_panel(day, (100, 100))).value) / opening - 1
+                ),
             )
             for day in (1, 2)
         )
         assert tuple(row.value for row in raw) == (0.0, 0.0)
-        terminal.append(mark(receipt.after, model.price_panel(3, (100, 100))).value.fraction)
+        terminal.append(_observed_fraction(mark(receipt.after, model.price_panel(3, (100, 100))).value))
         raw_paths.append(raw)
     learner = ControlledHedge(model.controlled_config("penalized"), owner=model.ref("zero-scale-owner"))
     before = learner.export_state().to_json()

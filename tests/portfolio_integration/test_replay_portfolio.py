@@ -5,6 +5,7 @@ from datetime import timedelta
 
 import pytest
 
+from coleman.core.actions import VectorAction
 from coleman.replay.codec import read_continuation
 from examples.synthetic_portfolio import model
 from examples.synthetic_portfolio.experiment import Experiment, ExperimentState
@@ -47,6 +48,7 @@ def test_real_causal_replay_matches_direct_at_original_feedback_ready_checkpoint
             # Save after actual eligible label application and before the new
             # decision. This is the phase a generic replay consumer must own.
             snapshot = read_continuation(replay.export_continuation().to_json(), state_type=PortfolioReplayState)
+            assert snapshot.host_state.experiment.ready_observation is not None
             assert snapshot.host_state.experiment.ready_observation.index == 8
             host = PortfolioReplayHost(source_fingerprint=direct.source_fingerprint)
             replay = host.resume(snapshot)
@@ -59,9 +61,12 @@ def test_real_causal_replay_matches_direct_at_original_feedback_ready_checkpoint
         direct.step(index)
         assert _all_validated_fields(host.experiment) == _all_validated_fields(direct)
         component = next(row for row in direct.periods[-1].candidates if row.name == "composed-online")
+        assert isinstance(record.executed.action, VectorAction)
+        assert component.solver is not None and component.solver.executed is not None
         assert tuple(value.value for value in record.executed.action.values) == component.solver.executed
         # The core vector represents the real pre-funding mathematical point;
         # the exact funded asset fractions live in the separate Target record.
+        assert component.proposed_target is not None
         assert component.proposed_target.weights[0].value.fraction != component.solver.executed[0]
     assert host.experiment.ridge.export_state().payload.sample_count == 15
     assert host.experiment.export_state().to_json() == direct.export_state().to_json()

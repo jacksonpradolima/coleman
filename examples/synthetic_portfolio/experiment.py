@@ -208,6 +208,9 @@ class Experiment:  # pylint: disable=too-many-instance-attributes
             raise ValueError("Synthetic ridge refused its eligible original label")
         controls: tuple[ControlReceipt, ...] = ()
         if all(application.output.status == "observed" for application in applications):
+            # Keep this adapter's causal losses/provenance explicit; the similar
+            # operational example instead constructs its own authored loss law.
+            # pylint: disable=duplicate-code
             panel = FullPanel(
                 rows=tuple(
                     FeedbackRow(
@@ -225,6 +228,7 @@ class Experiment:  # pylint: disable=too-many-instance-attributes
                     for member, application in zip(model.RECIPES, applications, strict=True)
                 )
             )
+            # pylint: enable=duplicate-code
             for learner in self.references.values():
                 if learner.observe(panel).status != "accepted":
                     raise ValueError("Synthetic reference update refused")

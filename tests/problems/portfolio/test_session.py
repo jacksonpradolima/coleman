@@ -156,6 +156,7 @@ def test_complete_byte_budget_refuses_before_acceptance_within_the_numeric_and_c
             decoded = BookSnapshot.from_json(accepted)
             assert decoded.book == owner.book
             next_receipt = execute(before.book, panel, proposed, schedule, request=request)
+            assert next_receipt.net_value is not None
             assert next_receipt.status == "executed" and next_receipt.net_value.fraction == 1
             oversized = before.model_dump(mode="json")
             oversized["receipts"].append(next_receipt.model_dump(mode="json"))
@@ -168,6 +169,7 @@ def test_complete_byte_budget_refuses_before_acceptance_within_the_numeric_and_c
             assert owner.export_state() is before
             assert wire(owner.export_state().model_dump(mode="json")) == accepted
             return
+        assert receipt.net_value is not None
         assert receipt.status == "executed" and receipt.net_value.fraction == 1
     raise AssertionError("The complete real history must reach its byte ceiling before128receipts")
 

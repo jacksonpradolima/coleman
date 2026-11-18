@@ -46,12 +46,15 @@ class _CheckpointIdentity(CoreImmutable):
     contains no experiment state and grants no execution or acknowledgement.
     """
 
+    # Repeat the public checkpoint identity without importing its full state view.
+    # pylint: disable=duplicate-code
     schema_version: Annotated[int, Field(strict=True, ge=2, le=2)]
     binding: StateBinding
     plan_fingerprint: Fingerprint
     coordinate_fingerprint: Fingerprint
     source: DefinitionBinding
     rows: tuple[tuple[int, int], ...]
+    # pylint: enable=duplicate-code
 
 
 def _require_matching_progress(

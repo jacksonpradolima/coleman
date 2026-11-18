@@ -337,4 +337,5 @@ def test_normalized_capture_cannot_drop_live_timestamp_fold_hidden_by_json_equal
     with pytest.raises(ValueError):
         owner.export_normalized_state()
     assert owner.observations[0].prices.at.fold == 1
+    assert owner.periods[1].observation is not None
     assert owner.periods[1].observation.prices.at.fold == 0

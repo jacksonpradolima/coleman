@@ -55,6 +55,7 @@ def test_foreign_complete_definition_with_identical_bindings_refuses_before_stag
     store = LocalStateStore.create(tmp_path / "foreign-store", foreign, layout.context.preparation.compatibility)
     layout.initialize(store)
     original = store.read_head()
+    assert original is not None
     assert original.definition_fingerprint != layout.definition.fingerprint
     observed = ObservedStore(store)
     calls = []

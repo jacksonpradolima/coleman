@@ -90,6 +90,7 @@ def test_numerical_failure_view_survives_held_feedback_and_later_successful_reco
     learner.observe(panel(config, (0.0, 1.0, 1.0)), eligible_at=START, apply_at=START)
     release = _interval(0)
     outcome = learner.release(release, calendar=calendar, apply_at=release.release_at)
+    assert outcome.failure is not None
     assert outcome.disposition == "numerical_failure" and outcome.failure.code == "positive_underflow"
     failed = _assert_audited(learner)
     failed_wire = failed.to_json()
@@ -108,6 +109,7 @@ def test_numerical_failure_view_survives_held_feedback_and_later_successful_reco
 def test_period_and_restored_views_keep_usage_and_the_complete_original_frontier(measure):
     config = configuration(cadence=2, movement=(0.2,) * 3, scope="per_interval", measure=measure)
     learner = ControlledHedge(config, owner=ref("period-view-owner"))
+    assert config.period_clock is not None
     period = MovementPeriod(
         schema_version=1,
         calendar=config.period_clock,
