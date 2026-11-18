@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,7 +12,7 @@ from pydantic import Field
 
 from coleman.artifacts import ArtifactWriter
 from coleman.core.base import CoreImmutable
-from coleman.core.primitives import Fingerprint, fingerprint
+from coleman.core.primitives import Fingerprint, canonical_json, fingerprint
 from coleman.objectives.bindings import DefinitionBinding
 from coleman.state.components import (
     ComponentBinding,
@@ -38,7 +39,7 @@ from .recipe import STATE_V2 as STATE
 from .recipe import frontier_definition, reference
 from .task_contracts import PortfolioCheckpointV2 as PortfolioCheckpoint
 from .task_contracts import PortfolioConfiguration, PortfolioTrajectory
-from .task_results import PortfolioCoordinateResultV2, PortfolioSnapshotReference, terminal_outcomes
+from .task_results import PortfolioCoordinateResultV2, PortfolioSnapshotReference, _terminal_outcomes_checked
 
 
 def read_text(path: Path, maximum_bytes: int) -> str:
@@ -848,9 +849,12 @@ class Layout:
                 manifest_fingerprint=manifest.fingerprint,
                 manifest_byte_count=len(manifest.to_json().encode("utf-8")),
             ),
-            experiment_fingerprint=current.experiment.fingerprint,
+            # The selected reader and outer checkpoint have fully audited this
+            # exact object in this operation. Preserve the public fingerprint's
+            # canonical JSON semantics without repeating its full input reader.
+            experiment_fingerprint=fingerprint(json.loads(canonical_json(current.experiment.model_dump(mode="json")))),
             proof=progress.proof,
-            outcomes=terminal_outcomes(current.experiment),
+            outcomes=_terminal_outcomes_checked(current.experiment),
         )
         return result, current
 

@@ -88,6 +88,19 @@ def terminal_outcomes(state: ExperimentState | ExperimentStateV2) -> tuple[Portf
         current = ExperimentStateV2.model_validate(state)
     else:
         raise TypeError("Terminal summaries require an exact selected experiment state")
+    return _terminal_outcomes_checked(current)
+
+
+def _terminal_outcomes_checked(
+    current: ExperimentState | ExperimentStateV2,
+) -> tuple[PortfolioTerminalOutcome, ...]:
+    """Project only same-operation, completely audited original evidence.
+
+    The public entry point above still performs complete admission. The owned
+    storage boundary may use this private arithmetic after its actual selected
+    reader and outer checkpoint validation, without repeating that full audit.
+    No caller-supplied flag, snapshot certificate or cached result is accepted.
+    """
     if current.next_index != 16 or any(
         row.settlement.status != "executed" for period in current.periods for row in period.candidates
     ):

@@ -14,6 +14,7 @@ from coleman.artifacts import ArtifactWriter
 from coleman.state.local import LocalStateStore
 from coleman.state.storage_contracts import CommitIntent, CommitRequest
 from examples.synthetic_portfolio import model
+from examples.synthetic_portfolio.experiment import Experiment
 from examples.synthetic_portfolio.readback import _read_coordinate_artifact
 from examples.synthetic_portfolio.recipe import (
     COORDINATE_RESULT,
@@ -31,6 +32,7 @@ from examples.synthetic_portfolio.task_results import (
     PortfolioReportItemV2,
     PortfolioReportV2,
     PortfolioTerminalOutcome,
+    terminal_outcomes,
 )
 from tests.portfolio_integration.test_task_state_portfolio import ObservedStore, make_layout
 
@@ -83,6 +85,10 @@ def report_item(result):
 def test_compact_summaries_retain_independently_summed_credit_charges_and_every_actual_book(complete_evidence):
     layout, store, result, checkpoint = complete_evidence
     assert recipe().reference.version == "3"
+    assert result.experiment_fingerprint == checkpoint.experiment.fingerprint
+    assert tuple(row.to_json() for row in result.outcomes) == tuple(
+        row.to_json() for row in terminal_outcomes(checkpoint.experiment)
+    )
     assert tuple(row.name for row in result.outcomes) == model.MODES
     for index, summary in enumerate(result.outcomes):
         receipts = tuple(period.candidates[index].settlement for period in checkpoint.experiment.periods)
@@ -108,6 +114,23 @@ def test_compact_summaries_retain_independently_summed_credit_charges_and_every_
     assert len(raw) == result.snapshot.component.byte_count
     assert "sha256:" + sha256(raw).hexdigest() == result.snapshot.component.fingerprint
     assert STATE.decode(raw.decode()).to_json() == checkpoint.to_json()
+
+
+@pytest.mark.parametrize("profile", ["legacy", "normalized"])
+@pytest.mark.parametrize("change", ["partial", "future", "missing_period", "nonfinite_strength"])
+def test_public_terminal_projection_keeps_complete_admission_for_every_state_profile(profile, change):
+    experiment = Experiment()
+    state = experiment.export_state() if profile == "legacy" else experiment.export_normalized_state()
+    if change == "future":
+        state = state.model_copy(update={"schema_version": 99})
+    elif change == "missing_period":
+        state = state.model_copy(update={"next_index": 16})
+    elif change == "nonfinite_strength":
+        state = state.model_copy(update={"strength": float("nan")})
+    before = experiment.export_state().to_json()
+    with pytest.raises((TypeError, ValueError)):
+        terminal_outcomes(state)
+    assert experiment.export_state().to_json() == before
 
 
 def test_complete_compact_result_roundtrip_and_exact_artifact_reference(complete_evidence):

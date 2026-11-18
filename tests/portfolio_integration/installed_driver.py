@@ -477,7 +477,8 @@ async def mcp(root):
     state = read_full_task_result(service, completed.job.job_id)[0].experiment
     assert result.results[0].coordinate.experiment_fingerprint == state.fingerprint
     return {
-        "state": state.fingerprint,
+        "state": state.to_legacy().fingerprint,
+        "stored_state": state.fingerprint,
         "periods": 16,
         "transport": "actual-stdio",
         "report_transfer": "complete-compact-v2",
