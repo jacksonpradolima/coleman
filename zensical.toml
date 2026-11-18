@@ -142,6 +142,7 @@ nav = [
     { "v5 development" = [
       { "Architecture and composition" = "v5-architecture.md" },
       { "External ecosystem assessment" = "ecosystem-interoperability.md" },
+      { "When to add an expert method" = "adaptive-expert-feasibility.md" },
       { "Install the components you need" = "core-installation.md" },
       { "Describe a decision" = "decision-contracts.md" },
       { "Outcomes, objectives and tradeoffs" = "objectives.md" },
