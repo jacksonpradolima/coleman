@@ -317,19 +317,18 @@ def loss_panel(losses: Vector) -> FullPanel:
     FullPanel
         Explicit observed synthetic values in the original member order.
     """
-    return FullPanel(
-        rows=tuple(
-            FeedbackRow(
-                member=member,
-                values=(
-                    OutcomeValue(
-                        spec=LOSS, value=value, status="observed", origin="synthetic", transform=TRANSFORM.reference
-                    ),
+    rows = tuple(
+        FeedbackRow(
+            member=member,
+            values=(
+                OutcomeValue(
+                    spec=LOSS, value=value, status="observed", origin="synthetic", transform=TRANSFORM.reference
                 ),
-            )
-            for member, value in zip(MEMBERS, losses, strict=True)
+            ),
         )
+        for member, value in zip(MEMBERS, losses, strict=True)
     )
+    return FullPanel(rows=rows)
 
 
 def metric(name: str, value: Fraction | float | None, *, unit: str = "1") -> Measurement:
