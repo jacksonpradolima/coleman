@@ -243,6 +243,31 @@ consumer. `apply_feedback` applies the original previous producer's later mark;
 its feedback-ready phase can be checkpointed before `step` emits another action.
 The direct fixed-tape convenience route uses these same operations.
 
+### Choose the state representation explicitly
+
+The original `ExperimentState`, `export_state()` and `restore_state()` retain
+schema1. A separate `ExperimentStateV2`, `export_normalized_state()` and
+`restore_normalized_state()` provide a normalized schema2 representation.
+
+| Representation | Where observations live | Reading and continuation |
+| --- | --- | --- |
+| `ExperimentState`, schema1 | Complete period records and a matching top-level `observations` array | Original strict reader and direct APIs remain available |
+| `ExperimentStateV2`, schema2 | Complete `Period.observation` records plus the feedback-ready record, each stored once | A derived, nonserialized `observations` property supplies the same chronological view; missing records reject |
+| `PortfolioCheckpointV2`, schema2 | Complete normalized state plus the original task/source/owner bindings | Current task recipe selects the distinct `STATE_V2` codec, reference version2 |
+
+Normalization retains all predictor statistics, forecasts, frozen scales,
+accepted labels, controller pending blocks and movement usage, independent books,
+price prefixes and outputs. The live owner's observation tuple must match those
+authoritative records before export. A decoder validates the complete normalized
+view directly; it does not reconstruct a duplicated v1 snapshot on every read.
+
+`ExperimentStateV2.from_legacy(state)` and `state.to_legacy()` are explicit,
+fully checked read conversions. The versions have different bytes and digests;
+conversion preserves original source and implementation bindings and grants no
+new execution compatibility. V1 readers reject v2, and unknown versions reject.
+The [API example](api/synthetic-portfolio.md#complete-state-stored-once) shows a
+complete normalized serialization, restore and subsequent decision cycle.
+
 ## Let the existing replay own delivery and eligibility
 
 ```python
@@ -431,10 +456,11 @@ intent rather than rewriting their meaning.
 
 ### Receive a compact result and inspect its full evidence
 
-The selected `synthetic-funded-portfolio@2` recipe publishes **schema2**
-coordinate results and final reports. The full schema1 checkpoint stays in its
-original acknowledged state artifact. A compact result contains all fourteen
-terminal book summaries and exact references to that complete evidence:
+The selected `synthetic-funded-portfolio@3` recipe publishes **schema2**
+coordinate results and final reports, referencing a complete **schema2**
+normalized checkpoint under the distinct version2 state codec. A compact result
+contains all fourteen terminal book summaries and exact references to that
+complete evidence:
 
 | Result field | Meaning |
 | --- | --- |
@@ -452,8 +478,10 @@ from an unacknowledged file.
 
 ```mermaid
 flowchart LR
-    Plan[Same frozen 16-period plan] --> Commit[Existing state store and ACK]
-    Commit --> Full[Complete schema1 state artifact]
+    Plan[Same frozen 16-period plan] --> Owner[All real component and book state]
+    Owner --> State[Schema2: period observations plus ready label]
+    State --> Commit[Existing state store and ACK / state codec v2]
+    Commit --> Full[Complete schema2 state artifact]
     Commit --> Coordinate[Compact schema2 coordinate and 14 outcomes]
     Coordinate --> Report[Compact schema2 final report]
     Report --> Edge[Bounded CLI or MCP reply]
@@ -493,16 +521,21 @@ download; neither tool JSON nor a content hash grants filesystem/import authorit
 The explicit `LEGACY_COORDINATE_RESULT` and `LEGACY_FINAL_RESULT` codecs continue
 to read the earlier schema1 inline artifacts. Schema1 and schema2 publication
 readers reject one another's wire rather than guessing or silently converting
-it. The checkpoint schema and exact accounting remain unchanged. Reading an old
-artifact does **not** resume an old task under a new provider image: automatic
-operational migration is unsupported. Keep the old approved installation to
-continue its old lineage, or create a fresh plan under the new approved recipe.
+it. The original `PortfolioCheckpoint` reader and `STATE` codec retain schema1;
+the current task explicitly selects `PortfolioCheckpointV2` and `STATE_V2`.
+Accounting units and formulas are unchanged. Earlier compact-result artifacts
+retain their recorded state-codec and image bindings; a schema2 result alone
+does not authorize substituting the current checkpoint reader. Reading or
+converting old evidence does **not** resume an old task under a new provider
+image: automatic operational migration is unsupported. Keep the old approved
+installation to continue its old lineage, or create a fresh plan under the new
+approved recipe.
 
 ## Respect the support boundary
 
 | Mechanism | Qualified profile |
 | --- | --- |
-| Task results | Complete compact schema2 report; full schema1 state via exact ACK artifact and trusted local resolver; original interactive/output caps retained |
+| Task results | Complete compact schema2 report; full normalized schema2 state via exact ACK artifact and trusted local resolver; original interactive/output caps retained |
 | Holdings, cash, net and gross | Funded divisible long-only assets, nonnegative cash, no contributions or withdrawals |
 | Leverage and shorting | Unsupported; signed generic solver coordinates do not supply financing |
 | Borrow, collateral, margin, funding interest | Unsupported |
@@ -513,7 +546,7 @@ continue its old lineage, or create a fresh plan under the new approved recipe.
 | Fee availability | The declared schedule must be available by the execution cutoff; retrospective future rates cannot authorize trading |
 | Prices | Strictly positive rational synthetic-credit/unit; zero/negative instrument-price conventions require a different profile |
 | Arithmetic | Reduced exact rationals, at most 4096 bits per numerator/denominator; capacity errors stay explicit |
-| State | Strict schema 1, at most 16 MiB/depth 64; exact profile/tape/law required for continuation |
+| State | Explicit schema1 legacy or schema2 normalized reader; at most 16 MiB/depth 64; exact selected codec/profile/tape/law required for continuation |
 | Legacy artifacts | Existing TCPCI readers and meanings unchanged; no implicit conversion or checkpoint migration |
 | Unknown versions | Reject; retain original bytes and select a compatible reader or explicit reviewed migration |
 

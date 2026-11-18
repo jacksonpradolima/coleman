@@ -19,13 +19,17 @@ from .recipe import (
     FINAL_RESULT,
     INPUTS,
     PROGRESS_PROOF,
-    STATE,
     ModelCodec,
     frontier_definition,
 )
+from .recipe import (
+    STATE_V2 as STATE,
+)
 from .recipe import recipe as declare_recipe
 from .task_contracts import (
-    PortfolioCheckpoint,
+    PortfolioCheckpointV2 as PortfolioCheckpoint,
+)
+from .task_contracts import (
     PortfolioConfiguration,
     PortfolioInputs,
     PortfolioTrajectory,
@@ -197,7 +201,7 @@ class PreparedPortfolio:
         Returns
         -------
         PortfolioCheckpoint
-            Complete existing schema1 state, including every original receipt
+            Complete normalized schema2 state, including every original receipt
             and pending label. Content references grant no path/import authority.
 
         Raises

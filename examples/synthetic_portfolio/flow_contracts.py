@@ -22,7 +22,8 @@ from coleman.optimization.continuous_contracts import ContinuousSolution
 from coleman.prediction import RidgePayload
 from coleman.problems.portfolio import Book, Execution, PricePanel, Target, mark
 from coleman.problems.portfolio.contracts import PortfolioContract
-from coleman.state.contracts import AlgorithmState
+from coleman.state.components import ComponentCodec
+from coleman.state.contracts import AlgorithmState, StateBinding
 
 from . import model
 from .diagnostics import ControlObjective, _control_objective
@@ -176,7 +177,7 @@ class ExperimentState(PortfolioContract):
         self._coefficient_paths()
         return self
 
-    def _counts(self) -> None:
+    def _counts(self: ExperimentState | ExperimentStateV2) -> None:
         """Bind contiguous accepted periods and the actual predictor frontier."""
         expected = max(0, self.next_index - 1) + int(self.ready_observation is not None)
         if self.next_index != len(self.periods) or len(self.observations) != expected:
@@ -219,7 +220,7 @@ class ExperimentState(PortfolioContract):
         if tuple(row.index for row in self.observations) != tuple(range(1, len(self.observations) + 1)):
             raise ValueError("Synthetic observations must retain their original contiguous calendar")
 
-    def _books(self) -> None:
+    def _books(self: ExperimentState | ExperimentStateV2) -> None:
         """Keep every separately funded candidate and virtual path at one frontier."""
         names = tuple(item.name for item in self.books)
         if names != tuple(sorted((*model.MODES, *("virtual-" + str(index) for index in range(3))))):
@@ -237,7 +238,7 @@ class ExperimentState(PortfolioContract):
         if any(item.state != previous[item.name] for item in self.books):
             raise ValueError("Synthetic continuation book differs from its actual final settlement")
 
-    def _observation_origins(self) -> None:
+    def _observation_origins(self: ExperimentState | ExperimentStateV2) -> None:
         """Reconcile only retained original producer/mark joins, without refitting."""
         books = {item.name: item.state for item in self.books}
         for observation in self.observations:
@@ -248,7 +249,7 @@ class ExperimentState(PortfolioContract):
                 marked = tuple(mark(books["virtual-" + str(index)], observation.prices).value for index in range(3))
             _original_observation(observation, producer, marked, self.observed_prices[observation.index - 1])
 
-    def _components(self) -> None:
+    def _components(self: ExperimentState | ExperimentStateV2) -> None:
         """Keep exactly one actual owner for every configured reference/control."""
         if tuple(item.name for item in self.references) != ("fixed-share", "hedge"):
             raise ValueError("Synthetic checkpoint requires each reference exactly once")
@@ -261,7 +262,7 @@ class ExperimentState(PortfolioContract):
         if self.periods:
             self._emitted_coefficients()
 
-    def _laws(self) -> None:
+    def _laws(self: ExperimentState | ExperimentStateV2) -> None:
         """Bind the complete declared profile, selected strength and logical owner.
 
         These pure configuration comparisons perform no learner construction or
@@ -300,7 +301,7 @@ class ExperimentState(PortfolioContract):
             ) != (expected, expected, owner):
                 raise ValueError("Synthetic component differs from its declared original mathematical law or owner")
 
-    def _emitted_coefficients(self) -> None:
+    def _emitted_coefficients(self: ExperimentState | ExperimentStateV2) -> None:
         """Join the next committed math origin to the actual last emitted trace."""
         emitted = {row.name: row.coefficients for row in self.periods[-1].candidates}
         # A feedback-ready checkpoint has advanced the actual learners but has
@@ -312,7 +313,7 @@ class ExperimentState(PortfolioContract):
         if any(item.state.payload.origin.weights != emitted[item.name] for item in self.controlled):
             raise ValueError("Controlled continuation differs from its actual last emitted coefficients")
 
-    def _sources(self) -> None:
+    def _sources(self: ExperimentState | ExperimentStateV2) -> None:
         """Bind only the observed prefix, including the feedback-ready input."""
         for index, price in enumerate(self.observed_prices):
             if price.at != model.START + timedelta(days=index):
@@ -325,7 +326,7 @@ class ExperimentState(PortfolioContract):
             if price != expected:
                 raise ValueError("Synthetic source prefix differs from its retained original application")
 
-    def _coefficient_paths(self) -> None:
+    def _coefficient_paths(self: ExperimentState | ExperimentStateV2) -> None:
         """Recompute the declared binary64 full-L1 diagnostic along each actual path."""
         previous = None
         for period in self.periods:
@@ -343,3 +344,232 @@ class ExperimentState(PortfolioContract):
                 if candidate.coefficient_movement != expected:
                     raise ValueError("Reported coefficient movement differs from its actual original vectors")
             previous = period
+
+
+class _ExperimentInvariantView:  # pylint: disable=too-few-public-methods
+    """Reuse the exact legacy invariant functions on a complete typed view.
+
+    This mixin owns no fields, reader, validation decision or cache. Each sibling
+    DTO validates its own declared children before these same checks execute.
+    """
+
+    # These are the two sibling DTOs' own shared checks, not foreign owner state.
+    # pylint: disable=protected-access
+    _counts = ExperimentState._counts
+    _originals = ExperimentState._originals
+    _books = ExperimentState._books
+    _observation_origins = ExperimentState._observation_origins
+    _components = ExperimentState._components
+    _laws = ExperimentState._laws
+    _emitted_coefficients = ExperimentState._emitted_coefficients
+    _sources = ExperimentState._sources
+    _coefficient_paths = ExperimentState._coefficient_paths
+    # pylint: enable=protected-access
+
+
+class ExperimentStateV2(_ExperimentInvariantView, PortfolioContract):
+    """Store each original observation once under its original period.
+
+    Attributes
+    ----------
+    schema_version : int
+        Required version2; legacy and unknown versions are not inferred.
+    strength : float
+        Fixed L1 strength in coefficient units, within[0,100]; not a paid fee.
+    implementation : DefinitionBinding
+        Exact selected host-source identity, not source authentication.
+    tape_fingerprint : str
+        Content identity of the complete frozen16-row exogenous source. A digest
+        exposes no future prices to a decision or grants execution authority.
+    next_index : int
+        Accepted decision count in[0,16], also the next original period index.
+    books : tuple of NamedBook
+        Current independently funded candidate and virtual-recipe books. Cash
+        is in synthetic credits; positions are exact divisible asset units.
+    references : tuple of NamedReference
+        Complete actual Hedge/FixedShare configurations, weights and counters.
+    controlled : tuple of NamedControlled
+        Complete control owners, emitted origins, pending cadence blocks and
+        exact per-period coefficient-movement usage.
+    ridge : AlgorithmState
+        Complete causal predictor configuration and sufficient statistics.
+    pending : Pending or None
+        Most recent decision's original forecast, frozen scales and opening
+        values. Retained lineage also accompanies an already-applied label.
+    ready_observation : Observation or None
+        Original accepted feedback awaiting the next decision, if present.
+    observed_prices : tuple of PricePanel
+        Exactly the eligible source prefix, with prices in synthetic credits
+        per asset unit and explicit original clocks.
+    periods : tuple of Period
+        Every accepted decision, original observation and complete funded
+        receipt in contiguous order; at most16 periods.
+    observations : tuple of Observation
+        Derived read-only chronological view, never a serialized field or cache.
+
+    Notes
+    -----
+    All complete legacy state remains represented. ``observations`` is a derived
+    chronological view of original period records plus the feedback-ready record;
+    it is not a serialized field or a validation cache. The version and digest
+    differ from v1. Reading/converting old evidence is not permission to resume
+    another executable image or state codec.
+    """
+
+    schema_version: Annotated[int, Field(strict=True, ge=2, le=2)]
+    strength: Annotated[Binary64, Field(ge=0, le=100)]
+    implementation: DefinitionBinding
+    tape_fingerprint: Fingerprint
+    next_index: Annotated[int, Field(strict=True, ge=0, le=16)]
+    books: tuple[NamedBook, ...]
+    references: tuple[NamedReference, ...]
+    controlled: tuple[NamedControlled, ...]
+    ridge: AlgorithmState[RidgePayload]
+    pending: Pending | None
+    ready_observation: Observation | None
+    observed_prices: Annotated[tuple[PricePanel, ...], Field(max_length=16)]
+    periods: Annotated[tuple[Period, ...], Field(max_length=16)]
+
+    @property
+    def observations(self) -> tuple[Observation, ...]:
+        """Return every original accepted label without filtering missing rows.
+
+        Returns
+        -------
+        tuple of Observation
+            Complete ordered labels, including an applied feedback-ready label.
+
+        Raises
+        ------
+        ValueError
+            An emitted later period lacks its original complete observation.
+        """
+        records: list[Observation] = []
+        for period in self.periods[1:]:
+            if period.observation is None:
+                raise ValueError("Normalized state lost an original period observation")
+            records.append(period.observation)
+        if self.ready_observation is not None:
+            records.append(self.ready_observation)
+        return tuple(records)
+
+    def _originals(self) -> None:
+        """Bind original producers and calendar without comparing a view to itself."""
+        if self.pending is not None and _validated_wire(self.pending) != _validated_wire(self.periods[-1].pending):
+            raise ValueError("Synthetic pending forecast differs from its retained original producer")
+        records = self.observations
+        if self.periods and self.periods[0].observation is not None:
+            raise ValueError("Initial synthetic decision cannot contain a future label")
+        if tuple(row.index for row in records) != tuple(range(1, len(records) + 1)):
+            raise ValueError("Synthetic observations must retain their original contiguous calendar")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _no_duplicate_observations(cls, value):
+        """Refuse extra duplicate evidence even on copied/constructed ingress."""
+        supplied = value if isinstance(value, dict) else getattr(value, "__dict__", {})
+        if "observations" in supplied:
+            raise ValueError("Normalized v2 has no serialized observations field")
+        return value
+
+    @classmethod
+    def model_construct(cls, _fields_set=None, **values):
+        """Keep unchecked construction from silently discarding duplicate input.
+
+        Parameters
+        ----------
+        _fields_set : set of str or None, optional
+            Standard Pydantic unchecked field-set metadata.
+        **values : object
+            Declared normalized fields. Their later reader still validates all.
+
+        Returns
+        -------
+        ExperimentStateV2
+            Unchecked assembly requiring the ordinary full reader before use.
+
+        Raises
+        ------
+        ValueError
+            The removed duplicate observation field is supplied.
+        """
+        if "observations" in values:
+            raise ValueError("Normalized v2 has no serialized observations field")
+        return super().model_construct(_fields_set=_fields_set, **values)
+
+    @model_validator(mode="after")
+    def _complete_view(self) -> Self:
+        """Apply every unchanged legacy invariant to the authoritative view."""
+        self._counts()
+        self._originals()
+        self._books()
+        self._observation_origins()
+        self._components()
+        self._sources()
+        self._coefficient_paths()
+        return self
+
+    @classmethod
+    def from_legacy(cls, state: ExperimentState) -> Self:
+        """Explicitly convert complete readable v1 evidence without resuming it.
+
+        Parameters
+        ----------
+        state : ExperimentState
+            Exact complete v1 state. Full legacy validation precedes conversion.
+
+        Returns
+        -------
+        ExperimentStateV2
+            New separately versioned representation of every original value.
+
+        Raises
+        ------
+        ValueError, TypeError
+            Invalid, incompatible or non-losslessly portable legacy evidence.
+
+        Notes
+        -----
+        This pure read conversion grants no image, collection or execution
+        compatibility. It is never called by the normalized decoder.
+        """
+        if type(state) is not ExperimentState:  # pylint: disable=unidiomatic-typecheck
+            raise TypeError("Legacy conversion requires the exact v1 state type")
+        checked = ExperimentState.model_validate(state)
+        _portable_conversion(checked)
+        fields = checked.model_dump(mode="python", exclude={"observations", "schema_version"})
+        return cls(schema_version=2, **fields)
+
+    def to_legacy(self) -> ExperimentState:
+        """Expand the complete v1 read view explicitly, without migration.
+
+        Returns
+        -------
+        ExperimentState
+            Fully validated legacy representation, with all observations kept.
+
+        Raises
+        ------
+        ValueError, TypeError
+            Invalid state or values not preserved by the original wire reader.
+
+        Notes
+        -----
+        The normalized reader never performs this expansion. No store, owner,
+        execution acknowledgement or old-image continuation is created.
+        """
+        checked = type(self).model_validate(self)
+        _portable_conversion(checked)
+        fields = checked.model_dump(mode="python", exclude={"schema_version"})
+        return ExperimentState(schema_version=1, observations=checked.observations, **fields)
+
+
+def _portable_conversion(state: ExperimentState | ExperimentStateV2) -> None:
+    """Use the public exact codec to refuse lossy typed read conversions."""
+    binding = StateBinding(
+        owner=model.ref("read-only-state-conversion"),
+        implementation=state.implementation,
+        state_codec=model.ref("read-only-state-schema-" + str(state.schema_version)),
+        configuration_fingerprint=state.tape_fingerprint,
+    )
+    ComponentCodec(binding, type(state)).encode(state)

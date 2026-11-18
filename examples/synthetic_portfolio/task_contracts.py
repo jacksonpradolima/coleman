@@ -13,7 +13,7 @@ from coleman.state.contracts import StateBinding
 from coleman.tasks.contracts import OwnedCommitProof
 
 from . import model
-from .experiment import ExperimentState, _implementation
+from .experiment import ExperimentState, ExperimentStateV2, _implementation
 
 
 class PortfolioConfiguration(PortfolioContract):
@@ -99,6 +99,55 @@ class PortfolioCheckpoint(PortfolioContract):
     @model_validator(mode="after")
     def _source(self) -> Self:
         """Reject a state silently continued on changed exogenous prices."""
+        if self.experiment.tape_fingerprint != fingerprint([list(row) for row in self.rows]):
+            raise ValueError("Portfolio checkpoint tape and complete state disagree")
+        return self
+
+
+class PortfolioCheckpointV2(PortfolioContract):
+    """Bind normalized complete state to one explicit schema2 task codec.
+
+    Attributes
+    ----------
+    schema_version : int
+        Required version2; the separate legacy checkpoint reader retains v1.
+    binding : StateBinding
+        Exact owner, implementation, selected state codec and configuration.
+        Content bindings establish consistency, not source authentication.
+    plan_fingerprint : str
+        Original frozen task-plan content identity.
+    coordinate_fingerprint : str
+        Original owned coordinate identity within that plan.
+    source : DefinitionBinding
+        Declared public synthetic-source identity, preserved across continuation.
+    rows : tuple of tuple of int
+        Complete authored two-asset source: positive prices in synthetic credits
+        per asset unit. Consumers receive only each eligible current prefix.
+    experiment : ExperimentStateV2
+        Complete normalized learner, predictor, pending-feedback and funded-book
+        state; every original observation remains in its period or ready record.
+
+    Notes
+    -----
+    All original observations remain in their complete period/ready records.
+    The legacy checkpoint reader is separate. No old collection/image is
+    automatically rebound or resumed by constructing this new envelope.
+    Construction and reading perform validation without file publication or an
+    acknowledgement. Invalid versions and inconsistent source/state identities
+    raise ValueError; runtime compatibility is checked separately before restore.
+    """
+
+    schema_version: Annotated[int, Field(strict=True, ge=2, le=2)]
+    binding: StateBinding
+    plan_fingerprint: Fingerprint
+    coordinate_fingerprint: Fingerprint
+    source: DefinitionBinding
+    rows: tuple[tuple[int, int], ...]
+    experiment: ExperimentStateV2
+
+    @model_validator(mode="after")
+    def _source(self) -> Self:
+        """Retain the same complete exogenous-source/state identity check."""
         if self.experiment.tape_fingerprint != fingerprint([list(row) for row in self.rows]):
             raise ValueError("Portfolio checkpoint tape and complete state disagree")
         return self

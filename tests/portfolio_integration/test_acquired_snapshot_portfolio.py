@@ -82,9 +82,9 @@ def test_open_pair_returns_one_actual_checked_acquisition_and_every_full_field(r
     expected = Experiment()
     for index in range(position):
         expected.step(index)
-    assert checkpoint.experiment.to_json() == expected.export_state().to_json()
+    assert checkpoint.experiment.to_legacy().to_json() == expected.export_state().to_json()
     assert layout.configuration.periods_per_commit == 8
-    assert recipe().reference.version == "2"
+    assert recipe().reference.version == "3"
 
 
 @pytest.mark.parametrize("position", [0, 1])

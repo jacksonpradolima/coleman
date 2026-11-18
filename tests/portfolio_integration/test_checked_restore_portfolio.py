@@ -9,15 +9,15 @@ from coleman.objectives.bindings import DefinitionBinding
 from coleman.state.contracts import StateBinding
 from examples.synthetic_portfolio import model
 from examples.synthetic_portfolio._state import PortfolioOwner
-from examples.synthetic_portfolio.experiment import Experiment, ExperimentState
-from examples.synthetic_portfolio.task_contracts import PortfolioCheckpoint
+from examples.synthetic_portfolio.experiment import Experiment, ExperimentState, ExperimentStateV2
+from examples.synthetic_portfolio.task_contracts import PortfolioCheckpointV2 as PortfolioCheckpoint
 
 
 @pytest.fixture(scope="module")
 def actual_prefix():
-    virgin = Experiment().export_state()
+    virgin = Experiment().export_normalized_state()
     initial = PortfolioCheckpoint(
-        schema_version=1,
+        schema_version=2,
         binding=StateBinding(
             owner=model.ref("checked-restore-test-owner"),
             implementation=virgin.implementation,
@@ -52,10 +52,15 @@ def restored_continuation(initial, saved):
 def test_outer_checked_restore_matches_public_restore_and_independent_thread_contexts(actual_prefix):
     initial, saved = actual_prefix
     direct = Experiment()
-    direct.restore_state(ExperimentState.from_json(saved.experiment.to_json()))
+    direct.restore_normalized_state(ExperimentStateV2.from_json(saved.experiment.to_json()))
     expected_books = tuple((name, book.export_state().to_json()) for name, book in sorted(direct.books.items()))
-    assert direct.export_state().to_json() == saved.experiment.to_json()
+    assert direct.export_normalized_state().to_json() == saved.experiment.to_json()
+    legacy = Experiment()
+    legacy.restore_state(ExperimentState.from_json(saved.experiment.to_legacy().to_json()))
+    assert legacy.export_state().to_json() == direct.export_state().to_json()
+    legacy.step(4)
     direct.step(4)
+    assert legacy.export_state().to_json() == direct.export_state().to_json()
     expected = saved.to_json(), expected_books, direct.export_state().to_json()
     assert restored_continuation(initial, saved) == expected
     with ThreadPoolExecutor(max_workers=2) as executor:
@@ -83,9 +88,9 @@ def test_forged_outer_child_is_rejected_before_private_restore_and_without_live_
     changed = saved.model_dump(mode="python")
     inner = changed["experiment"]
     if change == "outer_version":
-        changed["schema_version"] = 2
+        changed["schema_version"] = 3
     elif change == "inner_version":
-        inner["schema_version"] = 2
+        inner["schema_version"] = 3
     elif change == "nested_version":
         inner["controlled"][0]["state"]["payload"]["schema_version"] = 2
     elif change == "producer":
@@ -97,7 +102,7 @@ def test_forged_outer_child_is_rejected_before_private_restore_and_without_live_
     else:
         inner["tape_fingerprint"] = "sha256:" + "0" * 64
     unchecked = PortfolioCheckpoint.model_construct(
-        **(changed | {"experiment": ExperimentState.model_construct(**inner)})
+        **(changed | {"experiment": ExperimentStateV2.model_construct(**inner)})
     )
     with pytest.raises(ValueError):
         owner.restore_state(unchecked)
@@ -110,7 +115,9 @@ def test_public_inner_restore_still_revalidates_unchecked_state_atomically(actua
     _, saved = actual_prefix
     direct = Experiment()
     before = direct.export_state().to_json()
-    changed = saved.experiment.model_dump(mode="python")
+    # Keep the original legacy public-reader regression as well as the new
+    # normalized outer-route cases above; expansion is explicit read conversion.
+    changed = saved.experiment.to_legacy().model_dump(mode="python")
     if change == "version":
         changed["schema_version"] = 2
     elif change == "producer":
@@ -131,9 +138,9 @@ def test_fully_typed_but_incompatible_inner_law_refuses_before_atomic_adoption(a
         another = Experiment(strength=0.1)
         for index in range(4):
             another.step(index)
-        incompatible = another.export_state()
+        incompatible = another.export_normalized_state()
     else:
-        incompatible = ExperimentState.model_validate(
+        incompatible = ExperimentStateV2.model_validate(
             saved.experiment.model_copy(
                 update={
                     "implementation": DefinitionBinding(
@@ -154,5 +161,8 @@ def test_public_restore_retains_exact_tape_compatibility(actual_prefix):
     different = Experiment(rows=model.PRICE_ROWS[:-1] + ((106, 104),))
     before = different.export_state().to_json()
     with pytest.raises(ValueError, match="another tape or selected law"):
-        different.restore_state(saved.experiment)
+        different.restore_state(saved.experiment.to_legacy())
+    assert different.export_state().to_json() == before
+    with pytest.raises(ValueError, match="another tape or selected law"):
+        different.restore_normalized_state(saved.experiment)
     assert different.export_state().to_json() == before

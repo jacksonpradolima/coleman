@@ -237,11 +237,12 @@ def test_task_outer_snapshot_fully_validates_complete_private_capture():
     from coleman.objectives.bindings import DefinitionBinding
     from coleman.state.contracts import StateBinding
     from examples.synthetic_portfolio._state import PortfolioOwner
-    from examples.synthetic_portfolio.task_contracts import PortfolioCheckpoint
+    from examples.synthetic_portfolio.flow_contracts import ExperimentStateV2
+    from examples.synthetic_portfolio.task_contracts import PortfolioCheckpoint, PortfolioCheckpointV2
 
-    original = Experiment().export_state()
-    initial = PortfolioCheckpoint(
-        schema_version=1,
+    original = Experiment().export_normalized_state()
+    initial = PortfolioCheckpointV2(
+        schema_version=2,
         binding=StateBinding(
             owner=model.ref("outer-validation-owner"),
             implementation=original.implementation,
@@ -256,31 +257,44 @@ def test_task_outer_snapshot_fully_validates_complete_private_capture():
     )
     owner = PortfolioOwner(initial)
     owner.experiment.step(0)
-    expected = PortfolioCheckpoint(
-        **initial.model_dump(exclude={"experiment"}), experiment=owner.experiment.export_state()
+    expected = PortfolioCheckpointV2(
+        **initial.model_dump(exclude={"experiment"}), experiment=owner.experiment.export_normalized_state()
     )
-    captured = owner.experiment._capture_state()
     actual = owner.export_state()
-    assert ExperimentState.model_config["revalidate_instances"] == "always"
-    assert PortfolioCheckpoint.model_config["revalidate_instances"] == "always"
     assert actual.to_json() == expected.to_json()
-    audited = PortfolioCheckpoint(**initial.model_dump(exclude={"experiment"}), experiment=captured)
-    assert audited.experiment is not captured
-    assert audited.to_json() == actual.to_json()
-    for field in ("version", "nested_version", "accounting"):
-        invalid = captured.model_dump(mode="python")
-        if field == "version":
-            invalid["schema_version"] = 2
-        elif field == "nested_version":
-            invalid["controlled"][0]["state"]["payload"]["schema_version"] = 2
-        else:
-            invalid["periods"][0]["candidates"][0]["settlement"]["net_value"]["numerator"] += 1
-        untrusted = ExperimentState.model_construct(**invalid)
-        with pytest.raises(ValueError):
-            PortfolioCheckpoint(**initial.model_dump(exclude={"experiment"}), experiment=untrusted)
-        with pytest.raises(ValueError):
-            PortfolioCheckpoint.model_validate(actual.model_copy(update={"experiment": untrusted}))
-        assert owner.export_state().to_json() == expected.to_json()
+    # Keep the legacy capture/reader regression as an explicit read envelope,
+    # alongside the current task owner. Neither envelope below claims an ACK.
+    legacy = PortfolioCheckpoint(
+        **initial.model_dump(exclude={"experiment", "schema_version", "binding"}),
+        schema_version=1,
+        binding=initial.binding.model_copy(update={"state_codec": model.ref("complete-legacy-task-checkpoint")}),
+        experiment=owner.experiment.export_state(),
+    )
+    profiles = (
+        (PortfolioCheckpoint, ExperimentState, legacy, owner.experiment._capture_state(), 2),
+        (PortfolioCheckpointV2, ExperimentStateV2, actual, owner.experiment._capture_normalized_state(), 3),
+    )
+    for checkpoint_type, state_type, envelope, captured, future_version in profiles:
+        assert state_type.model_config["revalidate_instances"] == "always"
+        assert checkpoint_type.model_config["revalidate_instances"] == "always"
+        header = envelope.model_dump(exclude={"experiment"})
+        audited = checkpoint_type(**(header | {"experiment": captured}))
+        assert audited.experiment is not captured
+        assert audited.to_json() == envelope.to_json()
+        for field in ("version", "nested_version", "accounting"):
+            invalid = captured.model_dump(mode="python")
+            if field == "version":
+                invalid["schema_version"] = future_version
+            elif field == "nested_version":
+                invalid["controlled"][0]["state"]["payload"]["schema_version"] = 2
+            else:
+                invalid["periods"][0]["candidates"][0]["settlement"]["net_value"]["numerator"] += 1
+            untrusted = state_type.model_construct(**invalid)
+            with pytest.raises(ValueError):
+                checkpoint_type(**(header | {"experiment": untrusted}))
+            with pytest.raises(ValueError):
+                checkpoint_type.model_validate(envelope.model_copy(update={"experiment": untrusted}))
+            assert owner.export_state().to_json() == expected.to_json()
 
 
 def test_checkpoint_rejects_substituted_pending_original_features():
@@ -290,6 +304,7 @@ def test_checkpoint_rejects_substituted_pending_original_features():
     experiment.step(0)
     state = experiment.export_state()
     changed = state.model_dump()
+    assert state.pending is not None
     changed["pending"]["prediction"]["input"] = RidgeInput(
         schema_version=1, config=state.pending.prediction.input.config, values=(1.0, 1.0)
     )

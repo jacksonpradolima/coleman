@@ -20,10 +20,12 @@ from examples.synthetic_portfolio.recipe import (
     FINAL_RESULT,
     LEGACY_COORDINATE_RESULT,
     LEGACY_FINAL_RESULT,
-    STATE,
     recipe,
 )
-from examples.synthetic_portfolio.task_contracts import PortfolioCoordinateResult, PortfolioReport
+from examples.synthetic_portfolio.recipe import (
+    STATE_V2 as STATE,
+)
+from examples.synthetic_portfolio.task_contracts import PortfolioCheckpoint, PortfolioCoordinateResult, PortfolioReport
 from examples.synthetic_portfolio.task_results import (
     PortfolioCoordinateResultV2,
     PortfolioReportItemV2,
@@ -80,7 +82,7 @@ def report_item(result):
 
 def test_compact_summaries_retain_independently_summed_credit_charges_and_every_actual_book(complete_evidence):
     layout, store, result, checkpoint = complete_evidence
-    assert recipe().reference.version == "2"
+    assert recipe().reference.version == "3"
     assert tuple(row.name for row in result.outcomes) == model.MODES
     for index, summary in enumerate(result.outcomes):
         receipts = tuple(period.candidates[index].settlement for period in checkpoint.experiment.periods)
@@ -249,11 +251,18 @@ def test_real_fixed_artifact_reader_and_public_state_resolver_preserve_every_che
 
 def test_v1_readers_remain_explicit_and_neither_generation_silently_reinterprets_the_other(complete_evidence):
     _, _, result, checkpoint = complete_evidence
-    legacy = PortfolioCoordinateResult(schema_version=1, checkpoint=checkpoint, proof=result.proof)
+    # An explicit expanded read view is never advertised as the actual schema2
+    # ACK blob or permission to resume an older image/codec.
+    expanded = PortfolioCheckpoint(
+        **checkpoint.model_dump(exclude={"experiment", "schema_version"}),
+        schema_version=1,
+        experiment=checkpoint.experiment.to_legacy(),
+    )
+    legacy = PortfolioCoordinateResult(schema_version=1, checkpoint=expanded, proof=result.proof)
     old = PortfolioReport(schema_version=1, interpretation="constructed_mechanism_only", results=(legacy,))
     wire = LEGACY_FINAL_RESULT.encode(old)
     assert LEGACY_FINAL_RESULT.decode(wire).to_json() == wire
-    assert LEGACY_COORDINATE_RESULT.decode(legacy.to_json()).checkpoint.to_json() == checkpoint.to_json()
+    assert LEGACY_COORDINATE_RESULT.decode(legacy.to_json()).checkpoint.to_json() == expanded.to_json()
     with pytest.raises(ValueError):
         COORDINATE_RESULT.decode(legacy.to_json())
     with pytest.raises(ValueError):

@@ -22,6 +22,7 @@ from coleman.tasks.identity import (
 
 from .task_contracts import (
     PortfolioCheckpoint,
+    PortfolioCheckpointV2,
     PortfolioConfiguration,
     PortfolioCoordinateResult,
     PortfolioInputs,
@@ -89,19 +90,24 @@ class ModelCodec[T: CoreContract]:
         Exact complete concrete model, selected by trusted fixture source.
     maximum_bytes : int
         UTF-8 body capacity, also applied before decoding/revalidation.
+    reference_version : str, optional
+        Explicit codec reference version; legacy codecs remain version1.
     """
 
     model: type[T]
     maximum_bytes: int
+    reference_version: str = "1"
 
     @property
     def declaration(self) -> CodecDeclaration:
         """Return the exact selected schema, codec law and byte capacity."""
         schema = fingerprint(self.model.model_json_schema())
         return CodecDeclaration(
-            binding=binding(
-                "synthetic-portfolio-" + self.model.__name__,
-                {"schema": schema, "canonical": "core-json-v1", "graph_items": 2_000_000},
+            binding=DefinitionBinding(
+                reference=Reference(id="synthetic-portfolio-" + self.model.__name__, version=self.reference_version),
+                definition_fingerprint=fingerprint(
+                    {"schema": schema, "canonical": "core-json-v1", "graph_items": 2_000_000}
+                ),
             ),
             schema_fingerprint=schema,
             maximum_bytes=self.maximum_bytes,
@@ -175,6 +181,7 @@ CONFIGURATION = ModelCodec(PortfolioConfiguration, 64 * 1024)
 INPUTS = ModelCodec(PortfolioInputs, 2 * 1024**2)
 COORDINATE = ModelCodec(PortfolioTrajectory, 16 * 1024**2)
 STATE = ModelCodec(PortfolioCheckpoint, 16 * 1024**2)
+STATE_V2 = ModelCodec(PortfolioCheckpointV2, 16 * 1024**2, reference_version="2")
 # The original concrete readers remain explicit, read-only compatibility tools.
 # New plans select compact schema2; no old store is rebound to a new image.
 LEGACY_COORDINATE_RESULT = ModelCodec(PortfolioCoordinateResult, 16 * 1024**2)
@@ -199,14 +206,14 @@ def recipe() -> ExecutorRecipe:
         ("coordinate", COORDINATE),
         ("coordinate_result", COORDINATE_RESULT),
         ("final_result", FINAL_RESULT),
-        ("state", STATE),
+        ("state", STATE_V2),
         ("progress_proof", PROGRESS_PROOF),
     )
     return ExecutorRecipe(
         contract="coleman-tasks-v1",
         schema_version=1,
         artifact_type="executor_recipe",
-        reference=Reference(id="synthetic-funded-portfolio", version="2"),
+        reference=Reference(id="synthetic-funded-portfolio", version="3"),
         lineage=DefinitionLineage(source=None, source_fingerprint=None, declared_at=None, supersedes=None),
         entry_point=EntryPointSelection(
             distribution="coleman-synthetic-portfolio-reference",

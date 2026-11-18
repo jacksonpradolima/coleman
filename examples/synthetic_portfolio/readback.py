@@ -9,7 +9,7 @@ from coleman.tasks.protocols import CoordinateContext, PreparationContext, decod
 from ._state import read_text
 from .executor import PortfolioExecutor
 from .recipe import CONFIGURATION, COORDINATE, COORDINATE_RESULT, FINAL_RESULT, INPUTS
-from .task_contracts import PortfolioCheckpoint
+from .task_contracts import PortfolioCheckpointV2 as PortfolioCheckpoint
 from .task_results import PortfolioCoordinateResultV2, PortfolioReportItemV2
 
 
@@ -45,7 +45,7 @@ def read_full_task_result(service: TaskService, job_id: str) -> tuple[PortfolioC
     Returns
     -------
     tuple of PortfolioCheckpoint
-        Complete schema1 checkpoints in original coordinate order, retaining
+        Complete normalized schema2 checkpoints in original coordinate order, retaining
         every book receipt, predictor statistic, control state and pending label.
 
     Raises

@@ -99,7 +99,7 @@ def test_new_and_real_retained_receipts_share_one_full_post_ack_acquisition(real
     expected = Experiment()
     for index in range(8):
         expected.step(index)
-    assert checkpoint.experiment.to_json() == expected.export_state().to_json()
+    assert checkpoint.experiment.to_legacy().to_json() == expected.export_state().to_json()
     wire = checkpoint.to_json()
     object.__setattr__(checkpoint, "plan_fingerprint", fingerprint("unpassed-caller-mutation"))
     with _acquisitions() as (fresh, _snapshots):

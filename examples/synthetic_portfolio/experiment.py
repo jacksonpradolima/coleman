@@ -34,12 +34,15 @@ from coleman.optimization.continuous_contracts import ContinuousSolution
 from coleman.prediction import AppendOnlyRidge, RidgeInput, RidgeSample
 from coleman.problems.portfolio import Book, PricePanel, Target, mark
 from coleman.problems.portfolio.session import BookSession, BookSnapshot
+from coleman.state.components import ComponentCodec
+from coleman.state.contracts import StateBinding
 
 from . import model
 from .feedback import ControlReceipt
 from .flow_contracts import (
     CandidateStep,
     ExperimentState,
+    ExperimentStateV2,
     NamedBook,
     NamedControlled,
     NamedReference,
@@ -650,6 +653,114 @@ class Experiment:  # pylint: disable=too-many-instance-attributes
             periods=self.periods,
         )
 
+    def _capture_normalized_state(self) -> ExperimentStateV2:
+        """Assemble a complete unchecked value for one immediate outer validation.
+
+        This private projection performs no artifact I/O or publication. It reads
+        local implementation source bytes solely for the code binding. Distinct
+        observation joins use capture-local lossless serialization; all owned
+        values remain represented. It is never a validated snapshot or
+        cache entry until the caller's complete normalized state or enclosing
+        task checkpoint validator accepts it. Public export always takes
+        that full path; caller-supplied values receive no reuse authority.
+        """
+        captured = ExperimentStateV2.model_construct(
+            schema_version=2,
+            strength=self.strength,
+            implementation=_implementation(),
+            tape_fingerprint=self.source_fingerprint,
+            next_index=len(self.periods),
+            books=tuple(
+                NamedBook(schema_version=1, name=name, state=self.books[name].book) for name in sorted(self.books)
+            ),
+            references=tuple(
+                NamedReference(schema_version=1, name=name, state=learner.export_state())
+                for name, learner in sorted(self.references.items())
+            ),
+            controlled=tuple(
+                NamedControlled(schema_version=1, name=name, state=learner.export_state())
+                for name, learner in sorted(self.controlled.items())
+            ),
+            ridge=self.ridge.export_state(),
+            pending=self.pending,
+            ready_observation=self.ready_observation,
+            observed_prices=self.observed_prices,
+            periods=self.periods,
+        )
+
+        # Live rolling fits still own this tuple. Validate it before comparing
+        # with its single authoritative record view; do not silently drop a
+        # divergent or unchecked live label during normalized export.
+        originals = captured.observations
+        if len(self.observations) != len(originals):
+            raise ValueError("Normalized capture lost an actual owned observation")
+        # Exact typed admission matters here: JSON equality alone can conceal a
+        # differing datetime fold/zone or another representation-only value.
+        # This capture-local public codec preserves every declared field and
+        # refuses lossy serialization; it grants no store or execution authority.
+        codec = ComponentCodec(
+            StateBinding(
+                owner=model.ref("live-observation-capture"),
+                implementation=captured.implementation,
+                state_codec=model.ref("lossless-observation-read"),
+                configuration_fingerprint=self.source_fingerprint,
+            ),
+            Observation,
+        )
+        for actual, original in zip(self.observations, originals, strict=True):
+            if actual is original:
+                # Identity proves only this join, never validation. The complete
+                # containing v2 reader still audits this authoritative record.
+                continue
+            if codec.encode(actual).content != codec.encode(original).content:
+                raise ValueError("Normalized capture lost or changed an actual owned observation")
+        return captured
+
+    def export_normalized_state(self) -> ExperimentStateV2:
+        """Export complete schema2 state with each original label stored once.
+
+        Returns
+        -------
+        ExperimentStateV2
+            Fully audited normalized state; every owned statistic, original
+            label, producer, book path and pending phase remains represented.
+
+        Raises
+        ------
+        ValueError, TypeError
+            Invalid or divergent live original observations or continuation.
+
+        Notes
+        -----
+        Performs no state mutation or publication. Legacy ``export_state`` is
+        unchanged. Different representation versions have different digests.
+        """
+        return ExperimentStateV2.model_validate(self._capture_normalized_state())
+
+    def restore_normalized_state(self, state: ExperimentStateV2, /) -> None:
+        """Audit and atomically restore complete current-image schema2 state.
+
+        Parameters
+        ----------
+        state : ExperimentStateV2
+            Complete normalized state for this exact source, law and image.
+
+        Raises
+        ------
+        ValueError, TypeError
+            Invalid version, original evidence, codec, law or implementation.
+            The live experiment remains unchanged on refusal.
+
+        Notes
+        -----
+        Reading or converting v1 evidence does not grant compatibility with a
+        new executable image. No automatic migration or acknowledgement occurs.
+        """
+        if type(state) is not ExperimentStateV2:  # pylint: disable=unidiomatic-typecheck
+            raise TypeError("Normalized restore requires the exact schema2 state")
+        checked = ExperimentStateV2.model_validate(state)
+        self._restore_checked(checked)
+
     def restore_state(self, state: ExperimentState, /) -> None:
         """Restore complete compatible components before replacing any live owner.
 
@@ -678,14 +789,14 @@ class Experiment:  # pylint: disable=too-many-instance-attributes
         checked = ExperimentState.model_validate(state)
         self._restore_checked(checked)
 
-    def _restore_checked(self, checked: ExperimentState, /) -> None:
+    def _restore_checked(self, checked: ExperimentState | ExperimentStateV2, /) -> None:
         """Stage every owned component after one immediate complete state audit.
 
         Parameters
         ----------
-        checked : ExperimentState
-            Complete state just validated by public ``restore_state`` or the
-            task owner's enclosing ``PortfolioCheckpoint`` reader. No raw JSON,
+        checked : ExperimentState or ExperimentStateV2
+            Complete state just validated by a public restore or the task
+            owner's enclosing versioned checkpoint reader. No raw JSON,
             copied or unchecked caller state gains this private authority.
 
         Raises

@@ -13,7 +13,7 @@ from coleman.state.storage_contracts import StateBlobRef
 from coleman.tasks.contracts import OwnedCommitProof
 
 from . import model
-from .experiment import ExperimentState
+from .experiment import ExperimentState, ExperimentStateV2
 
 
 class PortfolioTerminalOutcome(PortfolioContract):
@@ -63,12 +63,12 @@ class PortfolioTerminalOutcome(PortfolioContract):
         return self
 
 
-def terminal_outcomes(state: ExperimentState) -> tuple[PortfolioTerminalOutcome, ...]:
+def terminal_outcomes(state: ExperimentState | ExperimentStateV2) -> tuple[PortfolioTerminalOutcome, ...]:
     """Project every candidate from a fully validated complete original path.
 
     Parameters
     ----------
-    state : ExperimentState
+    state : ExperimentState or ExperimentStateV2
         Complete16-period typed state. Every settlement must be executed.
 
     Returns
@@ -82,7 +82,12 @@ def terminal_outcomes(state: ExperimentState) -> tuple[PortfolioTerminalOutcome,
     ValueError
         Partial trajectory or unavailable/refused settlement.
     """
-    current = ExperimentState.model_validate(state)
+    if type(state) is ExperimentState:  # pylint: disable=unidiomatic-typecheck
+        current = ExperimentState.model_validate(state)
+    elif type(state) is ExperimentStateV2:  # pylint: disable=unidiomatic-typecheck
+        current = ExperimentStateV2.model_validate(state)
+    else:
+        raise TypeError("Terminal summaries require an exact selected experiment state")
     if current.next_index != 16 or any(
         row.settlement.status != "executed" for period in current.periods for row in period.candidates
     ):
@@ -150,9 +155,11 @@ class PortfolioCoordinateResultV2(PortfolioContract):
     source : DefinitionBinding
         Original independently admitted synthetic source and interpretation.
     snapshot : PortfolioSnapshotReference
-        Actual complete schema1 checkpoint/manifest identities and byte counts.
+        Actual selected checkpoint/manifest identities and byte counts; the state codec
+        explicitly distinguishes legacy1 and normalized2.
     experiment_fingerprint : str
-        Complete mathematical/domain state digest, distinct from the checkpoint
+        Digest of the exact selected state version, distinct from another version
+        or its explicit expanded read view, and from the checkpoint
         envelope's encoded-content digest and from producer authentication.
     proof : OwnedCommitProof
         Actual terminal current receipt with original execution/work bindings.

@@ -29,9 +29,11 @@ from coleman.state.storage_contracts import (
 from coleman.tasks.contracts import OwnedCommitProof, TaskFrontier
 from coleman.tasks.protocols import CommittedProgress, CoordinateContext
 
-from .experiment import Experiment
-from .recipe import STATE, frontier_definition, reference
-from .task_contracts import PortfolioCheckpoint, PortfolioConfiguration, PortfolioTrajectory
+from .experiment import Experiment, ExperimentStateV2
+from .recipe import STATE_V2 as STATE
+from .recipe import frontier_definition, reference
+from .task_contracts import PortfolioCheckpointV2 as PortfolioCheckpoint
+from .task_contracts import PortfolioConfiguration, PortfolioTrajectory
 from .task_results import PortfolioCoordinateResultV2, PortfolioSnapshotReference, terminal_outcomes
 
 
@@ -96,7 +98,7 @@ class PortfolioOwner:
             # The normal outer constructor traverses every ExperimentState
             # field, including unchecked nested input. Retain complete audited
             # mathematical exports, without validating the full archive twice.
-            experiment=self.experiment._capture_state(),  # pylint: disable=protected-access
+            experiment=self.experiment._capture_normalized_state(),  # pylint: disable=protected-access
         )
 
     def restore_state(self, snapshot: PortfolioCheckpoint) -> None:
@@ -182,13 +184,13 @@ class Layout:
             ),
         )
         return PortfolioCheckpoint(
-            schema_version=1,
+            schema_version=2,
             binding=selected,
             plan_fingerprint=context.preparation.plan_fingerprint,
             coordinate_fingerprint=context.coordinate_fingerprint,
             source=context.preparation.source,
             rows=self.trajectory.rows,
-            experiment=self.trajectory.initial_state,
+            experiment=ExperimentStateV2.from_legacy(self.trajectory.initial_state),
         )
 
     @property

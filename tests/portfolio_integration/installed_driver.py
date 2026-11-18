@@ -233,7 +233,7 @@ def durable(root):
     completed, retained, final_checkpoint = layout.advance_with_checkpoint(reopened, lambda: None)
     assert retained.proof.receipt.status == "retained"
     assert completed.frontier.position == retained.frontier.position == 16
-    final = final_checkpoint.experiment
+    final = final_checkpoint.experiment.to_legacy()
     from coleman_synthetic_portfolio.experiment import Experiment
 
     expected = Experiment()
@@ -333,7 +333,8 @@ def task(root):
     state = read_full_task_result(service, completed.job.job_id)[0].experiment
     assert result.results[0].coordinate.experiment_fingerprint == state.fingerprint
     return {
-        "state": state.fingerprint,
+        "state": state.to_legacy().fingerprint,
+        "stored_state": state.fingerprint,
         "job": completed.job.job_id,
         "periods": state.next_index,
         "report": result.fingerprint,
@@ -398,7 +399,8 @@ def cli(root):
     state = read_full_task_result(service, completed.job.job_id)[0].experiment
     assert result.results[0].coordinate.experiment_fingerprint == state.fingerprint
     return {
-        "state": state.fingerprint,
+        "state": state.to_legacy().fingerprint,
+        "stored_state": state.fingerprint,
         "periods": 16,
         "transport": "actual-cli",
         "report_transfer": "complete-compact-v2",
