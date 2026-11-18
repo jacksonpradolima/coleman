@@ -778,11 +778,16 @@ Start with the qualified [Hedge and Fixed Share methods](expert-mixtures.md).
 An additional method earns a place only when it answers a separate question
 under a declared comparison budget. A more adaptive name is insufficient.
 
-This report freezes one public-scope research question and its complete authored
-input table. **The formal experiment has not run, no additional learner is selected,
-and the existing baseline remains the supported choice.** The artifact is an
-entry protocol for further research, not a performance result or a v5.0
-release requirement.
+**The finite study retained the existing baselines.** All 17 declared settings
+completed the same 48 authored paths in three physical repetitions. The
+development-only choice was excluding-origin Fixed Share with `eta=2` and
+`alpha=1/64`; none of the four primary rate shapes crossed the predeclared
+practical-gap threshold. No additional learner is admitted by this result.
+
+This page connects the question, complete input table, actual experiment cycle
+and [versioned result snapshot](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/research/expert-rate-entry-result-v1.json).
+It is a finite constructed diagnostic, with **zero independent empirical
+units**, rather than evidence that one method is generally best for CI.
 
 ## The question: when does the update clock hide useful information?
 
@@ -872,7 +877,7 @@ meanings and public APIs remain unchanged by this protocol.
 ## Input: one finite catalogue, two declared roles
 
 The protocol materializes every rational loss as a string such as `"33/64"`.
-The future adapter parses it with `Fraction`, verifies `[0,1]`, then converts
+The driver parses it with `Fraction`, verifies `[0,1]`, then converts
 once to the declared binary64 profile. There is no learned transform, missing
 value imputation, random seed or imported dataset.
 
@@ -940,7 +945,7 @@ not automatically confer those capabilities on an unimplemented method.
 | Constant Hedge | `eta = 0, 1/8, 1/2, 2` | Actual shipped reference. Zero is a useful endpoint, outside positive-rate divided-by-eta theorems. |
 | Cumulative-current-rate anytime Hedge | `c = 1/2, 1, 2, 4` | Actual shipped reference, without reset/doubling substitution. |
 | Excluding-origin Fixed Share | Cartesian product `eta = 1/2, 2`; `alpha = 1/64, 1/8` | Actual shipped tracking reference. |
-| Periodically refit empirical-best baseline | Trailing windows `8,16,32,64`; refit every eight received rows | Proposed simple host baseline, not a shipped new learner. Start uniform; assign equal mass to exactly tied trailing minimum-loss experts; hold between refits. |
+| Periodically refit empirical-best baseline | Trailing windows `8,16,32,64`; refit every eight received rows | Implemented research host control, not an additional core learner. Start uniform; assign equal mass to exactly tied trailing minimum-loss experts; hold between refits. |
 | Fixed uniform | `(1/3,1/3,1/3)` | One untuned deployable baseline; do not invent duplicate trials. |
 
 Periodic trailing sums and actual-score oracles consume the same once-converted
@@ -1117,16 +1122,89 @@ its three physical repetitions gives at most 19 total process attempts,
 81,648 panel calls and 3,240 seconds plus the original oracle allowance;
 baseline settings, inputs and allowances are preserved.
 
-Before the formal attempt, the current disposition is:
+## Observed input, cycle and output
 
-```json
-{"evaluation_status":"not_run","implementation":"deferred","selected_additional_method":null,"baseline_disposition":"retain","evidence_basis":"constructed_mechanism","independent_empirical_units":0}
-```
+The single formal invocation completed all fifteen family processes and its
+one independently budgeted oracle. It made **77,112 actual observation calls**,
+with no unknown work, numerical refusals, automatic retries or parameter
+changes. The full mathematical traces and checkpoints were identical across
+the three physical repetitions in the recorded runtime.
 
-This supplies the previously missing concrete question, input catalogue,
-matched budgets and formulation decision rule. Execution and any advanced
-method's independent mathematics/state/recovery package remain future work in
-the existing research issue; they are not marked delivered by a protocol.
+| Input | Actual cycle | Observed output |
+| --- | --- | --- |
+| Three CI recipes, dimensionless complete losses in `[0,1]`; 24 development and 24 exposed evaluation paths | All 17 settings start a fresh owner for each path; emit weights before admitting the next row | Fixed Share setting 2 (`eta=2`, `alpha=1/64`) selected using development only; every original family remains in the comparison |
+| Full initial, midpoint and final state; every accepted-state digest | Restore the midpoint into a fresh matching owner; the separate oracle restores all 7,344 retained checkpoints without an observation call | Complete state/coefficients agree at each retained position; all 77,112 trace steps pass independent arithmetic checks |
+| One practical threshold, `1/64` mean loss, on four distinct primary rate shapes | Compare the frozen deployable choice with the already-budgeted retrospective reference grid, averaging rotations within shape | **0 of 4** shapes exceed the threshold; retain the qualified baseline and defer another rate method |
+| Original process, memory, work and output ceilings | Count all validation, serialization and parent overhead; assess inside the single oracle process | Baseline `398.866 s`, oracle `62.636 s`; final retained output `38,059,756 B`, maximum recorded family-worker high-water `98.641 MiB` |
+
+The maximum coefficient discrepancy from the independent Decimal80 trace was
+`1.943e-15`; the maximum cumulative-score discrepancy was `1.287e-15`. Both
+are within the declared finite numerical envelopes. They are arithmetic
+residuals, not uncertainty intervals or evidence of calibrated prediction.
+
+| Primary rate shape | Mean-loss excess over the best already-budgeted reference setting | Above `0.015625`? |
+| --- | ---: | --- |
+| Stationary gap | `0.007388006117221677` | No |
+| Small stationary gap | `0.0009391983660897806` | No |
+| Neutral prefix | `0.0036940030586108384` | No |
+| Contrast pulses | `0.007102770329556156` | No |
+
+These are descriptive outcomes of these authored paths and this setting grid.
+They do not show that an adaptive-rate method is useless elsewhere. They show
+that this experiment does not establish a practically material residual need
+under its declared admission rule. No AdaHedge, new tracking variant or
+specialist implementation is selected. Implementation-specific transition,
+activity, delay/batching and recovery requirements for such an unselected
+extension therefore remain inapplicable; the existing reference meanings are
+preserved.
+
+## What the experiment actually cost
+
+The following ranges cover the three physical repetitions on CPython 3.14.6,
+Darwin/arm64, using the recorded SDK 530-member wheel. Wall and CPU values
+include each complete family child, including imports, construction,
+validation and serialization. Worker RSS is its lifetime high-water observed
+before final publication, not an allocation per learner.
+
+| Family | Settings | Calls per repetition | Full child wall, s | Full child CPU, s | Maximum observed worker RSS, MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Constant Hedge | 4 | 6,048 | 28.395–33.504 | 28.318–33.435 | 98.141 |
+| Anytime Hedge | 4 | 6,048 | 29.271–34.446 | 29.197–34.361 | 98.641 |
+| Excluding-origin Fixed Share | 4 | 6,048 | 30.080–33.725 | 29.974–33.588 | 98.391 |
+| Periodic empirical best | 4 | 6,048 | 27.328–30.187 | 27.233–30.072 | 97.781 |
+| Fixed uniform | 1 | 1,512 | 4.514–4.962 | 4.445–4.936 | 88.891 |
+
+Fixed uniform spends one configuration rather than four; its smaller total is
+not a like-for-like throughput superiority claim. Family order rotates, but
+three executions are not a fully balanced hardware experiment or independent
+scientific units. Setup used existing interpreter, dependency and OS caches;
+those caches were not cold or fully controlled. Coefficient L1, computation
+and any consumer's paid charges remain different quantities.
+The oracle's wall time is recorded; its separate numeric CPU and RSS samples
+were not retained by this driver and remain explicitly unavailable. A memory
+guard or a family's RSS observation cannot supply those missing values.
+
+The [compact snapshot](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/research/expert-rate-entry-result-v1.json)
+retains all fifteen process records, the frozen choice, oracle errors, full
+units/runtime/source identities and resource projections. Its original
+complete-report SHA-256 is
+`9a76d3d3bbb9c0f8f30e259970da335af67474709107935c6d396a8976083fb9`.
+Full coefficient/checkpoint family reports and logs are retained for local
+audit; the 38 MB raw-output directory is **not distributed by the compact
+snapshot**. Relative raw artifact paths are not download links. All authored
+observations and the producing code are provided for reproduction; do not
+claim public access to an unavailable raw archive.
+
+The exact executed driver source is archived at
+[`fc76dff49102845593da55f374297084f793f946`](https://github.com/jacksonpradolima/coleman/tree/fc76dff49102845593da55f374297084f793f946),
+with reference baseline `6c72ca343efba345a1d540e2473227f047093b58` and wheel SHA-256
+`c4900cc7e95742cd05cfd6867dd76ac31418df9267c282505cc56694ab2dfd68`.
+Later SDK changes do not turn these timings into measurements of that later
+revision. The formal profile used an isolated source copy and noneditable SDK
+**inside the worktree's ignored cache**, not literally outside the checkout.
+The separate installed-package acceptance test executed outside the repository
+root. The location clarification preserves the original bootstrap, launch and
+trial records; it introduces no rerun or amended scientific outcome.
 
 ## Execute and inspect the finite baseline study
 
