@@ -149,6 +149,7 @@ class _OpenedState:
     store: LocalStateStore | None
     checkpoint: PortfolioCheckpoint | None
     manifest: CollectionManifest | None
+    prepared: PreparedCollection | None = None
 
 
 class _CheckpointIdentity(CoreImmutable):
@@ -322,6 +323,80 @@ class Layout:
                 raise ValueError("Portfolio open snapshot requires its actual current matching head")
         return opened.store, opened.checkpoint
 
+    def open_reconciled(
+        self,
+    ) -> tuple[LocalStateStore | None, CommittedProgress[OwnedCommitProof] | None, PortfolioCheckpoint | None]:
+        """Open and recover real retained progress from one complete acquisition.
+
+        Returns
+        -------
+        tuple
+            Actual store, retained progress and complete selected checkpoint.
+            Absence returns three nulls; a virgin store has null progress/state.
+
+        Raises
+        ------
+        ValueError, OSError
+            Changed source/definition/state, incompatible image, expired receipt
+            or concurrently changed head. No substitute proof is produced.
+
+        Notes
+        -----
+        Follows the original open/marker rules, including immutable marker I/O.
+        The real retained SQL operation and final fresh-head checks still run.
+        A newer head reloads/refuses; no owner or transition body runs. Reuse is
+        confined to this call and never accepted from a caller or later call.
+        """
+        store, acquired = self._open_reconciliation()
+        if acquired is None:
+            return store, None, None
+        return store, acquired.progress, acquired.checkpoint
+
+    def _open_reconciliation(self) -> tuple[LocalStateStore | None, _AcknowledgedState | None]:
+        """Reuse only this operation's actual full selected open acquisition."""
+        opened = self._open_acquisition(create=False)
+        if opened.store is None or opened.prepared is None:
+            if opened.store is not None and opened.store.read_head() is not None:
+                raise ValueError("Portfolio open snapshot requires its actual current matching head")
+            return opened.store, None
+        return opened.store, self._reconcile_selected(opened.store, self.binding, opened.prepared)
+
+    def open_resolved(self, value: PortfolioCoordinateResultV2) -> tuple[LocalStateStore, PortfolioCheckpoint]:
+        """Open and resolve exact terminal artifacts within one full acquisition.
+
+        Parameters
+        ----------
+        value : PortfolioCoordinateResultV2
+            Complete declared source, byte references, outcomes and actual proof.
+            No path or previously validated snapshot is accepted.
+
+        Returns
+        -------
+        tuple
+            Actual opened store and its complete current selected checkpoint.
+
+        Raises
+        ------
+        ValueError, OSError
+            Missing/incomplete/corrupt state, changed source/metadata/summary,
+            incompatible image, expired receipt or stale/advanced current head.
+
+        Notes
+        -----
+        Performs actual retained SQL and all terminal manifest, digest, source,
+        summary and fresh-head checks. Reading grants no execution or migration
+        authority and repeats no mathematical work. Standalone readers remain
+        fresh. No state survives this operation as a validation cache.
+        """
+        selected = PortfolioCoordinateResultV2.model_validate(value)
+        store, acquired = self._open_reconciliation()
+        if store is None or acquired is None:
+            raise ValueError("Portfolio result requires the complete actual current state store")
+        actual, checkpoint = self._completed_from_acknowledged(store, acquired)
+        if selected.to_json() != actual.to_json():
+            raise ValueError("Portfolio result differs from its complete actual terminal state artifacts")
+        return store, checkpoint
+
     def _open_acquisition(self, *, create: bool) -> _OpenedState:
         """Perform the original open and full selected read once, without caching."""
         directory = self.context.artifact_directory
@@ -338,13 +413,13 @@ class Layout:
             store = LocalStateStore.create(path, self.definition, self.context.preparation.compatibility)
         else:
             store = LocalStateStore.open(path)
-        checkpoint = manifest = None
+        checkpoint = manifest = prepared = None
         if store.read_head() is not None:
             prepared = store.load((self.binding,), compatibility=self.context.preparation.compatibility)
             checkpoint = self._checkpoint_from_prepared(prepared)
             manifest = prepared.manifest
         ArtifactWriter(directory).write_immutable(marker, expected)
-        return _OpenedState(store, checkpoint, manifest)
+        return _OpenedState(store, checkpoint, manifest, prepared)
 
     def checkpoint(self, store: LocalStateStore) -> PortfolioCheckpoint:
         """Read every acknowledged field without creating/restoring a learner.
@@ -487,6 +562,15 @@ class Layout:
         """Retain a complete selected load only within this one current call."""
         selected = self.binding
         prepared = store.load((selected,), compatibility=self.context.preparation.compatibility)
+        return self._reconcile_selected(store, selected, prepared)
+
+    def _reconcile_selected(
+        self,
+        store: LocalStateStore,
+        selected: ComponentBinding[PortfolioCheckpoint, PortfolioOwner],
+        prepared: PreparedCollection,
+    ) -> _AcknowledgedState:
+        """Join one actual selected load to the unchanged real retained path."""
         current = self._checkpoint_from_prepared(prepared)
         request = CommitRequest(
             schema_version=1,
@@ -740,6 +824,12 @@ class Layout:
     def _completed_evidence(self, store: LocalStateStore) -> tuple[PortfolioCoordinateResultV2, PortfolioCheckpoint]:
         """Join one terminal retained receipt to complete current selected bytes."""
         acknowledged = self._acknowledged_state(store)
+        return self._completed_from_acknowledged(store, acknowledged)
+
+    def _completed_from_acknowledged(
+        self, store: LocalStateStore, acknowledged: _AcknowledgedState
+    ) -> tuple[PortfolioCoordinateResultV2, PortfolioCheckpoint]:
+        """Retain all original terminal checks on same-operation full evidence."""
         current, progress, manifest = acknowledged.checkpoint, acknowledged.progress, acknowledged.manifest
         head = progress.proof.observed_head
         if (

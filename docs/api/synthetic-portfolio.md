@@ -32,7 +32,9 @@ checkpoint in the acknowledged artifact. Use
 verify and recover that full evidence from trusted local storage. This performs
 no mathematical update or remote file download. Explicit legacy result readers
 remain in the provider's `recipe` module; reading them grants no execution
-compatibility or automatic operational migration.
+compatibility or automatic operational migration. The task adapter composes
+opening with actual retained reconciliation or full result resolution within
+one operation; each later library call reads and verifies the evidence again.
 
 ## Complete state, stored once
 

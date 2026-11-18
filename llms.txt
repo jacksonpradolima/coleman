@@ -1907,7 +1907,9 @@ checkpoint in the acknowledged artifact. Use
 verify and recover that full evidence from trusted local storage. This performs
 no mathematical update or remote file download. Explicit legacy result readers
 remain in the provider's `recipe` module; reading them grants no execution
-compatibility or automatic operational migration.
+compatibility or automatic operational migration. The task adapter composes
+opening with actual retained reconciliation or full result resolution within
+one operation; each later library call reads and verifies the evidence again.
 
 ## Complete state, stored once
 
@@ -21872,6 +21874,12 @@ operation. The manifest, source, execution bindings and fresh head must agree;
 concurrent advancement follows the existing reload/refusal rules. These are
 explicit combined reads, with no cache or caller-provided validation token.
 Separate `open`, `checkpoint` and `reconcile` calls still perform fresh reads.
+The task adapter uses `open_reconciled()` when one operation needs both opening
+and retained progress, and `open_resolved(result)` when it needs opening and full
+terminal evidence. Each reuses only that operation's actual complete selected
+read; real retained SQL, source/manifest/summary checks and a fresh matching head
+remain required. Concurrent advancement reloads or refuses. A caller cannot
+supply a prior snapshot or validation flag to bypass those checks.
 `advance_with_checkpoint(store, guard)` explicitly combines an actual transition,
 its complete post-ACK selected acquisition, and a real retained SQL retry of the
 same original command. It returns both progress records and the full checked

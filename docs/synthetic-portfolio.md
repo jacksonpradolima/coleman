@@ -433,6 +433,12 @@ operation. The manifest, source, execution bindings and fresh head must agree;
 concurrent advancement follows the existing reload/refusal rules. These are
 explicit combined reads, with no cache or caller-provided validation token.
 Separate `open`, `checkpoint` and `reconcile` calls still perform fresh reads.
+The task adapter uses `open_reconciled()` when one operation needs both opening
+and retained progress, and `open_resolved(result)` when it needs opening and full
+terminal evidence. Each reuses only that operation's actual complete selected
+read; real retained SQL, source/manifest/summary checks and a fresh matching head
+remain required. Concurrent advancement reloads or refuses. A caller cannot
+supply a prior snapshot or validation flag to bypass those checks.
 `advance_with_checkpoint(store, guard)` explicitly combines an actual transition,
 its complete post-ACK selected acquisition, and a real retained SQL retry of the
 same original command. It returns both progress records and the full checked

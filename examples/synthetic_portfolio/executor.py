@@ -118,8 +118,8 @@ class PreparedPortfolio:
             artifacts or failed exact original-command receipt reconciliation.
         """
         layout = self._context_layout(context)
-        store = layout.open()
-        return None if store is None or store.read_head() is None else layout.reconcile(store)
+        _store, progress, _checkpoint = layout.open_reconciled()
+        return progress
 
     def validate(self, progress: CommittedProgress[OwnedCommitProof], context: CoordinateContext, /) -> None:
         """Check proof against actual current storage before outer metadata.
@@ -183,10 +183,8 @@ class PreparedPortfolio:
 
     def _require_result(self, layout: Layout, result: PortfolioCoordinateResultV2) -> PortfolioCheckpoint:
         """Resolve all current state, summaries and exact original ACK bindings."""
-        store = layout.open()
-        if store is None:
-            raise ValueError("Portfolio result requires the complete actual current state store")
-        return layout.resolve_result(store, result)
+        _store, checkpoint = layout.open_resolved(result)
+        return checkpoint
 
     def resolve_result(self, result: PortfolioCoordinateResultV2, context: CoordinateContext, /) -> PortfolioCheckpoint:
         """Read full original evidence behind a compact result without updating it.
