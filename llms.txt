@@ -777,8 +777,8 @@ Start with the qualified [Hedge and Fixed Share methods](expert-mixtures.md).
 An additional method earns a place only when it answers a separate question
 under a declared comparison budget. A more adaptive name is insufficient.
 
-This report freezes one public research question and its complete authored
-input table. **The experiment has not run, no additional learner is selected,
+This report freezes one public-scope research question and its complete authored
+input table. **The formal experiment has not run, no additional learner is selected,
 and the existing baseline remains the supported choice.** The artifact is an
 entry protocol for further research, not a performance result or a v5.0
 release requirement.
@@ -804,7 +804,7 @@ The experiment includes tracking stress cases and unsupported-activity probes
 to prevent either from being mistaken for evidence supporting a rate method.
 The inputs are not measured CI durations or native NAPFD/APFDc values.
 
-The [public protocol and all loss panels](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/research/expert-rate-entry-protocol.json)
+The [retained original protocol and all loss panels](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/research/expert-rate-entry-protocol.json)
 have logical identity `coleman-public-expert-rate-entry-v1`. Its `content_digest`
 hashes the complete canonical JSON after removing only that digest field.
 Each case and the complete case catalogue also have independent content
@@ -812,6 +812,39 @@ fingerprints. These establish integrity, not source authentication, unseen
 outcomes or experimental independence.
 An amendment after outcome inspection requires a new protocol version and
 retains the earlier trials and source exposure; it cannot replace this freeze.
+
+## A transparent amendment before running
+
+These are locally frozen authored protocols with exact content hashes and an
+independent review before formal execution. They are **not authenticated public
+preregistration**, source authentication or protected/unseen evidence. They become
+public through the reviewed repository change. The original file is retained
+byte-for-byte, including its prospective publication wording; that wording does
+not establish that an earlier public registration happened.
+
+The original sequencing requirements conflict: selection across all five
+families must precede evaluation execution, but each of the five sequential
+family processes must execute its complete development/evaluation table, with
+exactly fifteen launches across three repetitions. Splitting or replaying
+development would spend additional process attempts or mathematical work.
+
+The [explicit version2 amendment](https://github.com/jacksonpradolima/coleman/blob/release/v5/examples/research/expert-rate-entry-protocol-v2.json)
+changes that ordering for this **already exposed constructed diagnostic only**.
+Each fixed configuration executes with its own fresh owner. Workers emit a typed
+development-only projection containing every original development treatment and
+no evaluation values or status fields. After the first physical pass, the parent
+freezes all family winners and the deployable choice from those five projections,
+before opening any full evaluation result. Evaluation failures cannot drop or
+retune a family. Missing development evidence makes the choice unavailable.
+
+All 48 rational input arrays, 17 settings, tie rules, three physical repetitions,
+77,112 calls, fifteen family launches plus one oracle, and every wall, memory and
+byte limit remain unchanged. The retained version1 raw SHA-256 is
+`b826488634a5fba7302b2575ed1bc4166982cde4785984eabc80b3fb567b1639`.
+Version2 has raw SHA-256
+`7f7a0c739b8275b093ef10227a7cca832508f5cca7650d9fe7c1ed078826c0bb`.
+A genuinely protected source must still freeze selection **before evaluation
+execution**. This amendment does not change COLEMAN's protected-evaluation API.
 
 ## What is already available
 
@@ -864,8 +897,9 @@ with the same uniform prior and `D=U=0`. Development state is not carried into
 evaluation, and cases do not pool learning. Global work and attempt budgets
 still include every case and repetition; initialization does not reset them.
 
-Every generator and outcome is public. The evaluation role enforces separation
-of selection from subsequent execution, but cannot establish an unseen
+Every generator is exposed, and the authored inputs are fixed. The evaluation
+role separates development-only selection from subsequent outcome inspection,
+but cannot establish an unseen
 holdout. Record `known_exposed` and `constructed_mechanism`; do not report
 confirmatory inference, a p-value, a confidence interval or empirical efficacy.
 Future empirical work needs its own source admission and prospective freeze.
@@ -874,9 +908,10 @@ Future empirical work needs its own source admission and prospective freeze.
 
 ```mermaid
 flowchart LR
-    P[Freeze public panels and complete candidate family] --> D[Run every declared development configuration]
+    P[Freeze authored panels and complete candidate family] --> X[Run isolated fixed development and exposed evaluation paths]
+    X --> D[Read complete development-only typed projections]
     D --> S[Freeze development-only selection and all trial records]
-    S --> E[Run exposed evaluation roles on identical clocks]
+    S --> E[Inspect exposed evaluation outcomes on identical clocks]
     E --> A[Independent arithmetic and complete-state checks]
     A --> R[Descriptive loss, harm, movement and physical work]
     R --> G{Residual rate gate supported?}
@@ -917,7 +952,8 @@ input catalogue. Minimize equal-case mean `mixture_loss / actual_horizon` on
 development, with declared setting order resolving ties. Select the deployable
 baseline among family winners using the same development score and family
 tie order: fixed uniform, constant Hedge, anytime Hedge, Fixed Share, then
-periodic refit. Persist that complete selection before evaluation-role execution.
+periodic refit. Persist that complete selection before inspecting evaluation-role
+outcomes, under the explicit version2 amendment above.
 The zero-rate Hedge and literal fixed-uniform routes intentionally provide a
 conformance/cost pair with the same coefficients; they are not two independent
 pieces of evidence or distinct adaptive capabilities.
@@ -948,7 +984,7 @@ retained experiment output; no case exceeds 64 panels or three experts. Keep
 complete initial, midpoint and final checkpoints and every emitted-state
 digest, without requiring an unbounded archive of equivalent state copies.
 These are
-proposed experiment caps, not a change to any existing repository test, boot,
+experiment caps, not a change to any existing repository test, boot,
 memory, work or CI fence. The runner must stop at the first applicable cap.
 
 Measure the full driver, construction, actual typed validation and serialization
@@ -968,7 +1004,7 @@ Excluding-origin share with `alpha=1/4` then gives
 These are ideal rational values; the actual logarithm, exponential and emitted
 coefficients use the existing finite profile and its explicit error envelope.
 
-The future runner must compare actual shipped methods with a separate
+The runner compares actual shipped methods with a separate
 80-digit Decimal exponential calculation and an explicit three-by-three
 transition matrix. Use Fraction sums for raw dot products, periodic-baseline
 selection and an exhaustive zero/one-switch path oracle. Production private
@@ -1078,7 +1114,7 @@ its three physical repetitions gives at most 19 total process attempts,
 81,648 panel calls and 3,240 seconds plus the original oracle allowance;
 baseline settings, inputs and allowances are preserved.
 
-The current result is therefore:
+Before the formal attempt, the current disposition is:
 
 ```json
 {"evaluation_status":"not_run","implementation":"deferred","selected_additional_method":null,"baseline_disposition":"retain","evidence_basis":"constructed_mechanism","independent_empirical_units":0}
@@ -1088,6 +1124,74 @@ This supplies the previously missing concrete question, input catalogue,
 matched budgets and formulation decision rule. Execution and any advanced
 method's independent mathematics/state/recovery package remain future work in
 the existing research issue; they are not marked delivered by a protocol.
+
+## Execute and inspect the finite baseline study
+
+Use Python 3.14 or newer and install this source checkout with the optional
+command dependency. No advanced algorithm or external corpus is installed by
+this example:
+
+```bash
+python -m pip install '.[cli]'
+python -m examples.research.expert_rate_entry --help
+python -m examples.research.expert_rate_entry --output /tmp/coleman-expert-entry
+```
+
+The destination must not exist. Atomic namespace acquisition rejects a repeated
+or concurrent invocation before launching a trial. There are no tuning, rate,
+workload or timeout override flags. Mechanical correctness tests are separate
+from the one formal study attempt and do not become extra scientific trials.
+
+The input contract checks the original typed object against all locally frozen
+panel/configuration bytes through the actual lossless component codec. An
+unchanged hash label on a modified DTO does not grant admission. Current
+execution selects version2 explicitly; the original version1 stays readable
+but does not silently resume under the amended sequencing.
+
+Each case retains before/after coefficients, every complete-state digest, and
+full initial/midpoint/final checkpoint bytes. The actual owner is restored into
+a fresh matching owner at the midpoint in every physical repetition, then
+continues on the remaining original rows. No extra observation is introduced.
+Immutable case-prefix files survive interruption; after a complete family is
+atomically retained, only exact byte-identical duplicate prefix files are
+consolidated. The actual temporary duplicate peak still counts against 64 MiB.
+
+The parent records each process's complete wall/CPU time separately from the
+worker's inner measurement and lifetime peak RSS. A killed child's physical
+observe count is unavailable, and its full reserved work remains spent. It
+does not become zero work or a reusable allowance. Unexpected software errors
+propagate and publish no completed or ordinary limited aggregate.
+The aggregate `known_attempted_calls` is the lower bound from returned complete
+family reports; killed children can retain further readable case prefixes.
+Those prefixes do not turn an unknown total into an exact count.
+
+Only all fifteen completed slots plus the separately limited independent oracle
+can publish `complete.json`. Known caps publish `limited.json` with the original
+slot inventory, explicit reasons and unavailable scientific choice when needed.
+If the retained-output cap itself leaves no room for that aggregate, only the
+already retained partial evidence remains; the driver never exceeds the cap to
+manufacture a summary.
+Neither filename is a storage acknowledgement or an exactly-once external effect.
+
+```python3
+from pathlib import Path
+from examples.research.expert_rate_records import StudyReport
+
+root = Path('/tmp/coleman-expert-entry')
+path = root / 'complete.json'
+if not path.exists():
+    path = root / 'limited.json'
+report = StudyReport.from_json(path.read_bytes())
+print(report.status, report.reason)
+print(report.reserved_calls, report.known_attempted_calls, report.unknown_attempts)
+if report.gate is not None:
+    print(report.gate.selected_family, report.gate.decision)
+```
+
+Reading preserves status, units and every original attempted slot; it is not
+source authentication or permission to rerun a timed-out attempt. The helper
+modules and both input files belong to the source example, while COLEMAN itself
+can be installed noneditably and used outside the checkout.
 
 ## Regenerate the authored panels
 
