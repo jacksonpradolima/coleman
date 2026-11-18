@@ -8,13 +8,14 @@ owns that candidate's executed charges; virtual charges are never debited again.
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Annotated, Self
+from inspect import getattr_static
+from typing import Annotated, Literal, Self
 
 from pydantic import Field, model_validator
 
 from coleman.core.actions import Weight
 from coleman.core.numeric import Binary64
-from coleman.core.primitives import Fingerprint, canonical_json
+from coleman.core.primitives import Fingerprint, canonical_json, fingerprint
 from coleman.learning.contracts import ReferencePayload
 from coleman.learning.control_contracts import ControlledPayload, ControlOutcome
 from coleman.objectives.bindings import DefinitionBinding
@@ -535,8 +536,13 @@ class ExperimentStateV2(_ExperimentInvariantView, PortfolioContract):
         """
         if type(state) is not ExperimentState:  # pylint: disable=unidiomatic-typecheck
             raise TypeError("Legacy conversion requires the exact v1 state type")
-        checked = ExperimentState.model_validate(state)
-        _portable_conversion(checked)
+        if cls is ExperimentStateV2 and _stock_conversion_pair(state, ExperimentState):
+            _admit_original_conversion(state, 1)
+            checked = state
+        else:
+            # Preserve the original sequence for explicit subclass/custom hooks.
+            checked = ExperimentState.model_validate(state)
+            _portable_conversion(checked)
         fields = checked.model_dump(mode="python", exclude={"observations", "schema_version"})
         return cls(schema_version=2, **fields)
 
@@ -558,8 +564,12 @@ class ExperimentStateV2(_ExperimentInvariantView, PortfolioContract):
         The normalized reader never performs this expansion. No store, owner,
         execution acknowledgement or old-image continuation is created.
         """
-        checked = type(self).model_validate(self)
-        _portable_conversion(checked)
+        if _stock_conversion_pair(self, ExperimentStateV2):
+            _admit_original_conversion(self, 2)
+            checked = self
+        else:
+            checked = type(self).model_validate(self)
+            _portable_conversion(checked)
         fields = checked.model_dump(mode="python", exclude={"schema_version"})
         return ExperimentState(schema_version=1, observations=checked.observations, **fields)
 
@@ -571,5 +581,43 @@ def _portable_conversion(state: ExperimentState | ExperimentStateV2) -> None:
         implementation=state.implementation,
         state_codec=model.ref("read-only-state-schema-" + str(state.schema_version)),
         configuration_fingerprint=state.tape_fingerprint,
+    )
+    ComponentCodec(binding, type(state)).encode(state)
+
+
+# Immutable implementation references, never input values or validation results.
+_CONVERSION_METHODS = ("__getattribute__", "__init__", "model_validate", "from_json", "to_json", "model_dump")
+_CONVERSION_IMPLEMENTATIONS = tuple(
+    (model_type, tuple((name, getattr_static(model_type, name)) for name in _CONVERSION_METHODS))
+    for model_type in (ExperimentState, ExperimentStateV2)
+)
+
+
+def _stock_conversion_pair(state: ExperimentState | ExperimentStateV2, expected: type) -> bool:
+    """Select original-input admission only for unchanged concrete sibling APIs."""
+    # Subclasses/custom APIs intentionally keep the original conversion sequence.
+    return type(state) is expected and all(  # pylint: disable=unidiomatic-typecheck
+        getattr_static(model_type, name) is original
+        for model_type, methods in _CONVERSION_IMPLEMENTATIONS
+        for name, original in methods
+    )
+
+
+def _admit_original_conversion(state: ExperimentState | ExperimentStateV2, version: Literal[1, 2]) -> None:
+    """Fully admit original typed input before projection, without raw lookups.
+
+    Only the two source-selected literal versions reach this private helper.
+    No field, missing attribute or unchecked version is inspected/stringified
+    before public lossless admission. Its fixed metadata conveys no execution,
+    source authentication, acknowledgement or validation witness.
+    """
+    identity = fingerprint({"read-only-conversion": "exact-portable-state-v1", "selected_schema": version})
+    binding = StateBinding(
+        owner=model.ref("read-only-state-conversion"),
+        implementation=DefinitionBinding(
+            reference=model.ref("lossless-read-conversion"), definition_fingerprint=identity
+        ),
+        state_codec=model.ref("read-only-state-schema-" + str(version)),
+        configuration_fingerprint=identity,
     )
     ComponentCodec(binding, type(state)).encode(state)

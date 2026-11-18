@@ -5,9 +5,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Annotated
+
+from pydantic import Field
 
 from coleman.artifacts import ArtifactWriter
-from coleman.core.primitives import fingerprint
+from coleman.core.base import CoreImmutable
+from coleman.core.primitives import Fingerprint, fingerprint
 from coleman.objectives.bindings import DefinitionBinding
 from coleman.state.components import (
     ComponentBinding,
@@ -147,6 +151,21 @@ class _OpenedState:
     manifest: CollectionManifest | None
 
 
+class _CheckpointIdentity(CoreImmutable):
+    """Validate all fixed checkpoint metadata without constructing a state view.
+
+    This private identity is neither a snapshot nor a validation witness. It
+    contains no experiment state and grants no execution or acknowledgement.
+    """
+
+    schema_version: Annotated[int, Field(strict=True, ge=2, le=2)]
+    binding: StateBinding
+    plan_fingerprint: Fingerprint
+    coordinate_fingerprint: Fingerprint
+    source: DefinitionBinding
+    rows: tuple[tuple[int, int], ...]
+
+
 @dataclass(frozen=True)
 class Layout:
     """Keep pure bindings and original data separately from actual live owners.
@@ -166,8 +185,13 @@ class Layout:
     context: CoordinateContext
 
     @property
-    def initial(self) -> PortfolioCheckpoint:
-        """Construct only an immutable envelope, never a real owner."""
+    def _identity(self) -> _CheckpointIdentity:
+        """Validate fixed metadata without converting an unused virgin state.
+
+        All configuration and trajectory fingerprints still use their complete
+        public validators. This fresh value is never cached or used in place of
+        a selected state reader, owner construction or mathematical restore.
+        """
         context = self.context
         selected = StateBinding(
             owner=self.trajectory.reference,
@@ -183,13 +207,24 @@ class Layout:
                 }
             ),
         )
-        return PortfolioCheckpoint(
+        return _CheckpointIdentity(
             schema_version=2,
             binding=selected,
             plan_fingerprint=context.preparation.plan_fingerprint,
             coordinate_fingerprint=context.coordinate_fingerprint,
             source=context.preparation.source,
             rows=self.trajectory.rows,
+        )
+
+    @property
+    def initial(self) -> PortfolioCheckpoint:
+        """Construct a complete validated virgin snapshot, never a real owner.
+
+        The explicit v1-to-v2 conversion remains lossless and fully validated.
+        Metadata-only operations do not request this unused state projection.
+        """
+        return PortfolioCheckpoint(
+            **self._identity.model_dump(mode="python"),
             experiment=ExperimentStateV2.from_legacy(self.trajectory.initial_state),
         )
 
@@ -204,7 +239,7 @@ class Layout:
             children=(),
             components=(
                 ComponentSpec(
-                    binding=self.initial.binding,
+                    binding=self._identity.binding,
                     child=None,
                     roles=(
                         "algorithm",
@@ -224,10 +259,9 @@ class Layout:
     @property
     def binding(self) -> ComponentBinding[PortfolioCheckpoint, PortfolioOwner]:
         """Supply a fresh actual owner factory without invoking it."""
-        initial = self.initial
         return ComponentBinding(
-            codec=ComponentCodec(initial.binding, PortfolioCheckpoint),
-            new_owner=lambda: PortfolioOwner(initial),
+            codec=ComponentCodec(self._identity.binding, PortfolioCheckpoint),
+            new_owner=lambda: PortfolioOwner(self.initial),
             frontier=lambda _: None,
         )
 
@@ -359,7 +393,7 @@ class Layout:
             raise ValueError("Synthetic Portfolio store has a different complete collection definition")
         current = prepared.component(self.binding.codec)
         if (
-            current.model_dump(exclude={"experiment"}) != self.initial.model_dump(exclude={"experiment"})
+            current.model_dump(exclude={"experiment"}) != self._identity.model_dump(mode="python")
             or current.experiment.strength != self.configuration.strength
             or current.experiment.tape_fingerprint != self.trajectory.initial_state.tape_fingerprint
         ):
@@ -378,6 +412,7 @@ class Layout:
         """
         if store.read_head() is not None:
             return
+        initial = self.initial
         selected = self.binding
         request = CommitRequest(
             schema_version=1,
@@ -386,12 +421,12 @@ class Layout:
                 schema_version=1,
                 generation=0,
                 kind="initialize",
-                content_fingerprint=self.initial.fingerprint,
+                content_fingerprint=initial.fingerprint,
             ),
         )
         store.initialize(
             request,
-            (ComponentValue(selected.codec, self.initial),),
+            (ComponentValue(selected.codec, initial),),
             (selected,),
             compatibility=self.context.preparation.compatibility,
         )
