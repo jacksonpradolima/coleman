@@ -7,7 +7,7 @@ from typing import Literal
 
 MAXIMUM_DEPTH = 64
 ReaderLabel = Literal["Replay", "State"]
-_STRUCTURAL = re.compile(r'["\\{}\[\]]')
+_STRUCTURAL = re.compile(r'"(?:[^"\\]++|\\[\s\S])*+(?:"|\\?\Z)|[{}\[\]]')
 
 
 def bounded_json_bytes(payload: str | bytes, maximum_bytes: int, *, label: ReaderLabel = "State") -> bytes:
@@ -58,29 +58,20 @@ def bounded_json_bytes(payload: str | bytes, maximum_bytes: int, *, label: Reade
 def _depth(text: str, label: ReaderLabel) -> None:
     """Check lexical containers iteratively, leaving grammar to the JSON reader."""
     depth = 0
-    quoted = escaped = False
     changes = {"[": 1, "{": 1, "]": -1, "}": -1}
-    previous = -1
-    # A fixed character class skips only neutral text and materializes no match
-    # list. Any intervening ordinary character consumes an outstanding escape
-    # before the next structural token, including Unicode or a literal newline.
+    # Disjoint ordinary runs and two-character escapes consume a whole quoted
+    # span. Possessive quantifiers prevent repartition/backtracking; the closing
+    # quote or optional dangling backslash at EOF makes every opening quote
+    # match through its actual end. Work stays linear, with no match list.
+    # Python supports these possessive quantifiers since 3.11:
+    # https://docs.python.org/3.14/library/re.html#regular-expression-syntax
+    # This is lexical depth only: the actual JSON reader still rejects grammar,
+    # including invalid escapes, literal newlines and unterminated strings.
     for token in _STRUCTURAL.finditer(text):
-        position = token.start()
-        if escaped and position > previous + 1:
-            escaped = False
-        previous = position
-        character = token.group()
-        if quoted:
-            if escaped:
-                escaped = False
-            elif character == "\\":
-                escaped = True
-            elif character == '"':
-                quoted = False
-            continue
+        # Inspect the source directly instead of copying a whole quoted span.
+        character = text[token.start()]
         if character == '"':
-            quoted = True
             continue
-        depth += changes.get(character, 0)
+        depth += changes[character]
         if not 0 <= depth <= MAXIMUM_DEPTH:
             raise ValueError(f"{label} JSON container depth is invalid or exceeds 64")
