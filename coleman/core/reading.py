@@ -7,7 +7,7 @@ from typing import Literal
 
 MAXIMUM_DEPTH = 64
 ReaderLabel = Literal["Replay", "State"]
-_STRUCTURAL = re.compile(r'"(?:[^"\\]++|\\[\s\S])*+(?:"|(?:\\?\Z))|[{}\[\]]')
+_STRUCTURAL = re.compile(r'(?:"(?:[^"\\]++|\\[\s\S])*+(?:"|(?:\\?\Z))|[^"{}\[\]]++)*+(?:([{}\[\]])|(?:\Z))')
 
 
 def bounded_json_bytes(payload: str | bytes, maximum_bytes: int, *, label: ReaderLabel = "State") -> bytes:
@@ -59,19 +59,20 @@ def _depth(text: str, label: ReaderLabel) -> None:
     """Check lexical containers iteratively, leaving grammar to the JSON reader."""
     depth = 0
     changes = {"[": 1, "{": 1, "]": -1, "}": -1}
-    # Disjoint ordinary runs and two-character escapes consume a whole quoted
-    # span. Possessive quantifiers prevent repartition/backtracking; the closing
-    # quote or optional dangling backslash at EOF makes every opening quote
-    # match through its actual end. Work stays linear, with no match list.
+    # Disjoint quoted spans and ordinary runs consume the irrelevant prefix in
+    # the regex engine. Possessive quantifiers prevent repartition/backtracking;
+    # each match emits one outside bracket, or None at EOF, without a list/copy.
+    # The quoted branch consumes unfinished tails, including a final backslash.
+    # The final EOF alternative makes every prefix match succeed, preventing
+    # finditer from retrying inside an unfinished quoted tail. Work stays linear.
     # Python supports these possessive quantifiers since 3.11:
     # https://docs.python.org/3.14/library/re.html#regular-expression-syntax
     # This is lexical depth only: the actual JSON reader still rejects grammar,
     # including invalid escapes, literal newlines and unterminated strings.
     for token in _STRUCTURAL.finditer(text):
-        # Inspect the source directly instead of copying a whole quoted span.
-        character = text[token.start()]
-        if character == '"':
-            continue
+        character = token[1]
+        if character is None:
+            break
         depth += changes[character]
         if not 0 <= depth <= MAXIMUM_DEPTH:
             raise ValueError(f"{label} JSON container depth is invalid or exceeds 64")
