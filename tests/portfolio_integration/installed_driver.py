@@ -10,6 +10,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 
 def boundaries():
@@ -75,7 +76,10 @@ def boundaries():
 
 def direct():
     """Resume actual installed composition with its full original pending state."""
-    from coleman_synthetic_portfolio.experiment import Experiment, ExperimentState
+    if TYPE_CHECKING:
+        from examples.synthetic_portfolio.experiment import Experiment, ExperimentState
+    else:
+        from coleman_synthetic_portfolio.experiment import Experiment, ExperimentState
 
     experiment = Experiment()
     for index in range(8):
@@ -97,7 +101,10 @@ def direct():
 
 def approval():
     """Approve the actual installed public image explicitly in this trusted test."""
-    from coleman_synthetic_portfolio.recipe import recipe
+    if TYPE_CHECKING:
+        from examples.synthetic_portfolio.recipe import recipe
+    else:
+        from coleman_synthetic_portfolio.recipe import recipe
 
     from coleman.application.executor_capture import capture_executor_identity
     from coleman.core.identity import Reference
@@ -130,9 +137,14 @@ def _state_attempt(open_store, commit):
 
 def durable(root):
     """Interrupt real staged math, then recover from an actual store ACK."""
-    from coleman_synthetic_portfolio._state import Layout
-    from coleman_synthetic_portfolio.recipe import CONFIGURATION, COORDINATE
-    from coleman_synthetic_portfolio.sample import planning_request
+    if TYPE_CHECKING:
+        from examples.synthetic_portfolio._state import Layout
+        from examples.synthetic_portfolio.recipe import CONFIGURATION, COORDINATE
+        from examples.synthetic_portfolio.sample import planning_request
+    else:
+        from coleman_synthetic_portfolio._state import Layout
+        from coleman_synthetic_portfolio.recipe import CONFIGURATION, COORDINATE
+        from coleman_synthetic_portfolio.sample import planning_request
 
     from coleman.application.tasks import TaskService
     from coleman.state.storage_contracts import ExecutionCompatibility
@@ -237,14 +249,18 @@ def durable(root):
     assert retained.proof.receipt.status == "retained"
     assert completed.frontier.position == retained.frontier.position == 16
     final = final_checkpoint.experiment.to_legacy()
-    from coleman_synthetic_portfolio.experiment import Experiment
+    if TYPE_CHECKING:
+        from examples.synthetic_portfolio.experiment import Experiment
+    else:
+        from coleman_synthetic_portfolio.experiment import Experiment
 
     expected = Experiment()
     for index in range(16):
         expected.step(index)
-    assert final.to_json() == expected.export_state().to_json()
+    full_wire = final.to_json()
+    assert full_wire == expected.export_state().to_json()
     return {
-        "state": final.fingerprint,
+        "state": fingerprint(json.loads(full_wire)),
         "acknowledged_before_interruption": 8,
         "unacknowledged_period_reapplied": True,
         "retained_frontier": 16,
@@ -257,14 +273,24 @@ def replayed():
     """Use the actual installed causal bridge and source-free consumer."""
     from datetime import timedelta
 
-    from coleman_synthetic_portfolio import model
-    from coleman_synthetic_portfolio.replay import (
-        PortfolioReplayHost,
-        PortfolioReplayState,
-        feedback,
-        opportunity,
-        start,
-    )
+    if TYPE_CHECKING:
+        from examples.synthetic_portfolio import model
+        from examples.synthetic_portfolio.replay import (
+            PortfolioReplayHost,
+            PortfolioReplayState,
+            feedback,
+            opportunity,
+            start,
+        )
+    else:
+        from coleman_synthetic_portfolio import model
+        from coleman_synthetic_portfolio.replay import (
+            PortfolioReplayHost,
+            PortfolioReplayState,
+            feedback,
+            opportunity,
+            start,
+        )
 
     from coleman.replay.codec import read_continuation
 
@@ -318,9 +344,14 @@ def _wait(service, identity):
 
 def task(root):
     """Execute the same concrete portfolio task through the real shared facade."""
-    from coleman_synthetic_portfolio.readback import read_full_task_result
-    from coleman_synthetic_portfolio.recipe import FINAL_RESULT
-    from coleman_synthetic_portfolio.sample import planning_request
+    if TYPE_CHECKING:
+        from examples.synthetic_portfolio.readback import read_full_task_result
+        from examples.synthetic_portfolio.recipe import FINAL_RESULT
+        from examples.synthetic_portfolio.sample import planning_request
+    else:
+        from coleman_synthetic_portfolio.readback import read_full_task_result
+        from coleman_synthetic_portfolio.recipe import FINAL_RESULT
+        from coleman_synthetic_portfolio.sample import planning_request
 
     from coleman.application.tasks import TaskService
     from coleman.tasks.protocols import decode_value
@@ -334,10 +365,11 @@ def task(root):
     completed = _wait(service, started.job.job_id)
     result = decode_value(FINAL_RESULT, service.report(completed.job.job_id).result)
     state = read_full_task_result(service, completed.job.job_id)[0].experiment
-    assert result.results[0].coordinate.experiment_fingerprint == state.fingerprint
+    stored_fingerprint = state.fingerprint
+    assert result.results[0].coordinate.experiment_fingerprint == stored_fingerprint
     return {
         "state": state.to_legacy().fingerprint,
-        "stored_state": state.fingerprint,
+        "stored_state": stored_fingerprint,
         "job": completed.job.job_id,
         "periods": state.next_index,
         "report": result.fingerprint,
@@ -346,9 +378,14 @@ def task(root):
 
 def cli(root):
     """Use actual installed console JSON planning/execution for the same source."""
-    from coleman_synthetic_portfolio.readback import read_full_task_result
-    from coleman_synthetic_portfolio.recipe import FINAL_RESULT
-    from coleman_synthetic_portfolio.sample import planning_request
+    if TYPE_CHECKING:
+        from examples.synthetic_portfolio.readback import read_full_task_result
+        from examples.synthetic_portfolio.recipe import FINAL_RESULT
+        from examples.synthetic_portfolio.sample import planning_request
+    else:
+        from coleman_synthetic_portfolio.readback import read_full_task_result
+        from coleman_synthetic_portfolio.recipe import FINAL_RESULT
+        from coleman_synthetic_portfolio.sample import planning_request
 
     from coleman.application.tasks import TaskService
     from coleman.artifacts import ArtifactWriter
@@ -400,10 +437,11 @@ def cli(root):
     assert not before["worker_active"] and not after["worker_active"]
     result = decode_value(FINAL_RESULT, completion.result)
     state = read_full_task_result(service, completed.job.job_id)[0].experiment
-    assert result.results[0].coordinate.experiment_fingerprint == state.fingerprint
+    stored_fingerprint = state.fingerprint
+    assert result.results[0].coordinate.experiment_fingerprint == stored_fingerprint
     return {
         "state": state.to_legacy().fingerprint,
-        "stored_state": state.fingerprint,
+        "stored_state": stored_fingerprint,
         "periods": 16,
         "transport": "actual-cli",
         "report_transfer": "complete-compact-v2",
@@ -415,9 +453,14 @@ def cli(root):
 
 async def mcp(root):
     """Run the same approved task through the actual optional stdio transport."""
-    from coleman_synthetic_portfolio.readback import read_full_task_result
-    from coleman_synthetic_portfolio.recipe import FINAL_RESULT
-    from coleman_synthetic_portfolio.sample import planning_request
+    if TYPE_CHECKING:
+        from examples.synthetic_portfolio.readback import read_full_task_result
+        from examples.synthetic_portfolio.recipe import FINAL_RESULT
+        from examples.synthetic_portfolio.sample import planning_request
+    else:
+        from coleman_synthetic_portfolio.readback import read_full_task_result
+        from coleman_synthetic_portfolio.recipe import FINAL_RESULT
+        from coleman_synthetic_portfolio.sample import planning_request
     from mcp.client import Client
     from mcp.client.stdio import StdioServerParameters
     from mcp.types import TextContent
@@ -481,10 +524,11 @@ async def mcp(root):
         assert not before["worker_active"] and not after["worker_active"]
     result = decode_value(FINAL_RESULT, completion.result)
     state = read_full_task_result(service, completed.job.job_id)[0].experiment
-    assert result.results[0].coordinate.experiment_fingerprint == state.fingerprint
+    stored_fingerprint = state.fingerprint
+    assert result.results[0].coordinate.experiment_fingerprint == stored_fingerprint
     return {
         "state": state.to_legacy().fingerprint,
-        "stored_state": state.fingerprint,
+        "stored_state": stored_fingerprint,
         "periods": 16,
         "transport": "actual-stdio",
         "report_transfer": "complete-compact-v2",
