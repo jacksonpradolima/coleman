@@ -39,6 +39,7 @@ Vector = tuple[Binary64, Binary64, Binary64]
 Count = Annotated[int, Field(strict=True, ge=0, le=77112)]
 Slot = Annotated[int, Field(strict=True, ge=0, le=3)]
 
+
 METRICS = (
     "mixture_loss",
     "mean_mixture_loss",
@@ -444,14 +445,44 @@ class CaseRun(Record):
             raise ValueError("Incomplete work cannot advertise full-horizon observed terminal scores")
 
 
-class FamilyRun(Record):
-    """One actual process's full family grid and measured work, never new units."""
+class FamilyHeader(Record):
+    """Bind one original family/process coordinate and its explicit disposition.
+
+    Notes
+    -----
+    Shared only by the complete family artifact and its development-blind
+    process summary. Inheritance retains the same required field types/order
+    and canonical JSON; this header is neither completion proof nor authority.
+    """
 
     protocol_content: Fingerprint
     family: Family
     repetition: Annotated[int, Field(strict=True, ge=0, le=2)]
     status: Literal["completed", "numerical_failure", "resource_limited"]
     reason: str | None
+
+
+class FamilyRun(FamilyHeader):
+    """Retain one full family grid and its observed work, never new empirical units.
+
+    Attributes
+    ----------
+    protocol_input_bytes, typed_input_bytes : int
+        Original raw UTF-8 file bytes and the complete converted DTO bytes.
+        These are logical input sizes, not network traffic or allocated storage.
+    logical_checkpoint_bytes, logical_case_bytes : int
+        Sum of retained checkpoint content and standalone case-artifact bytes.
+        Consolidation preserves those bodies inside the family file; these
+        logical sums are not its final on-disk allocation or output reservation.
+    attempted : int
+        Known actual observe calls across every original treatment, including
+        numerical refusals. Accepted U is retained separately in each case.
+    resources : tuple of Measurement
+        Worker inner wall/process CPU in seconds and own lifetime high-water
+        in MiB observed before final publication. Attempt records retain the
+        complete child wall/CPU; the two measurement windows are distinct.
+    """
+
     runtime: InstalledRuntime
     driver_runtime: SelectedInstalledRuntime
     source_files: tuple[tuple[str, str], ...]
@@ -514,54 +545,6 @@ class Artifact(CoreImmutable):
     size_bytes: Annotated[int, Field(strict=True, ge=1, le=16 * 1024**2)]
 
 
-class Attempt(CoreImmutable):
-    """One declared child slot; unknown physical work never releases reserved work."""
-
-    family: Family
-    repetition: Annotated[int, Field(strict=True, ge=0, le=2)]
-    status: Literal["completed", "numerical_failure", "resource_limited", "not_started"]
-    reason: str | None
-    reserved_calls: Count
-    attempted_calls: Count | None
-    wall_seconds: Binary64 | None
-    cpu_seconds: Binary64 | None
-    artifact: Artifact | None
-
-    @model_validator(mode="after")
-    def _work(self) -> Self:
-        if self.attempted_calls is not None and self.attempted_calls > self.reserved_calls:
-            raise ValueError("Known attempts cannot exceed the original reserved family workload")
-        if any(v is not None and v < 0 for v in (self.wall_seconds, self.cpu_seconds)):
-            raise ValueError("Physical elapsed work cannot be negative")
-        return self
-
-    @model_validator(mode="after")
-    def _status(self) -> Self:
-        """Keep unstarted/unknown physical work separate from completed evidence."""
-        if self.status == "not_started":
-            if self.reserved_calls or any(
-                v is not None for v in (self.attempted_calls, self.wall_seconds, self.cpu_seconds, self.artifact)
-            ):
-                raise ValueError("Unstarted child has no acquired physical observations or reservation")
-        elif self.wall_seconds is None:
-            raise ValueError("Every launched child requires actual complete process wall time")
-        if self.status == "completed" and (self.artifact is None or self.attempted_calls != self.reserved_calls):
-            raise ValueError("Completion requires the entire reserved work and its checked family artifact")
-        if (self.reason is None) != (self.status == "completed"):
-            raise ValueError("Every noncompleted attempt requires its actual disposition")
-        return self
-
-
-class OracleResult(Record):
-    """Independent fixed-envelope arithmetic and exact three-repetition identity checks."""
-
-    protocol_content: Fingerprint
-    checked_steps: Annotated[int, Field(strict=True, ge=0, le=77112)]
-    maximum_coefficient_error: Annotated[Binary64, Field(ge=0)]
-    maximum_score_error: Annotated[Binary64, Field(ge=0)]
-    repetitions_equal: Literal[True]
-
-
 class DevelopmentScore(CoreImmutable):
     """Only one original development path's exact stored-binary64 total loss."""
 
@@ -608,134 +591,3 @@ class DevelopmentFamily(Record):
             or tuple(_treatment_key(r.setting, r.case_id, r.horizon) for r in self.rows) != expected
         ):
             raise ValueError("Development-only projection requires the complete exact original development grid")
-
-
-class DevelopmentChoice(Record):
-    """Freeze all five family winners before any evaluation-field inspection."""
-
-    protocol_content: Fingerprint
-    selected_family: Family
-    selected_slots: tuple[tuple[Family, Slot], ...]
-    development_artifacts: Annotated[tuple[Artifact, ...], Field(min_length=5, max_length=5)]
-
-    @model_validator(mode="after")
-    def _families(self) -> Self:
-        order = ("fixed-uniform", "constant", "anytime", "fixed-share", "periodic")
-        if tuple(f for f, _ in self.selected_slots) != order:
-            raise ValueError("Development choice must retain every original family in declared tie order")
-        if any(not 0 <= slot <= (0 if f == "fixed-uniform" else 3) for f, slot in self.selected_slots):
-            raise ValueError("Development choice requires actual declared setting slots")
-        return self
-
-
-class ChildSummary(Record):
-    """Process bookkeeping has no evaluation metrics and does not certify efficacy."""
-
-    protocol_content: Fingerprint
-    family: Family
-    repetition: Annotated[int, Field(strict=True, ge=0, le=2)]
-    status: Literal["completed", "numerical_failure", "resource_limited"]
-    reason: str | None
-    attempted: Count
-    source_files: tuple[tuple[str, str], ...]
-    artifact: Artifact
-    development_artifact: Artifact | None
-
-
-class UnavailableChoice(Record):
-    """Freeze refusal of selection before inspecting any evaluation fields."""
-
-    protocol_content: Fingerprint
-    status: Literal["unavailable"] = "unavailable"
-    reason: Literal["missing-original-development-evidence"] = "missing-original-development-evidence"
-
-
-class Gate(Record):
-    """Finite descriptive entry decision, never a protected/unseen efficacy claim."""
-
-    selected_family: Family
-    selected_slots: tuple[tuple[Family, Slot], ...]
-    shape_excess: tuple[tuple[str, Binary64], ...]
-    threshold: Annotated[Binary64, Field(ge=0.015625, le=0.015625)] = 1 / 64
-    decision: Literal["retain_baselines", "formulation_review_supported"]
-    independent_empirical_units: Literal[0] = 0
-    exposure: Literal["public_authored_evaluation_exposed"] = "public_authored_evaluation_exposed"
-
-    @model_validator(mode="after")
-    def _decision(self) -> Self:
-        """Refuse a promoted decision inconsistent with all four original rate shapes."""
-        shapes = ("stationary-gap", "stationary-small-gap", "neutral-prefix", "contrast-pulses")
-        if tuple(shape for shape, _ in self.shape_excess) != shapes:
-            raise ValueError("Entry decision requires every distinct original primary rate shape")
-        supported = sum(value > self.threshold for _, value in self.shape_excess) >= 2
-        if (self.decision == "formulation_review_supported") != supported:
-            raise ValueError("Entry decision differs from the declared descriptive shape threshold")
-        return self
-
-
-class StudyReport(Record):
-    """One complete or explicitly limited original fifteen-slot baseline attempt."""
-
-    protocol_content: Fingerprint
-    status: Literal["completed", "resource_limited", "numerical_failure"]
-    reason: str | None
-    runtime: InstalledRuntime
-    driver_runtime: SelectedInstalledRuntime
-    source_files: tuple[tuple[str, str], ...]
-    attempts: Annotated[tuple[Attempt, ...], Field(min_length=15, max_length=15)]
-    reserved_calls: Count
-    known_attempted_calls: Count
-    unknown_attempts: Annotated[int, Field(strict=True, ge=0, le=15)]
-    oracle: Artifact | None
-    oracle_wall_seconds: Binary64 | None
-    development_choice: Artifact | None
-    gate: Gate | None
-
-    @model_validator(mode="after")
-    def _complete(self) -> Self:
-        self.driver_runtime.require_base(self.runtime, extras=("cli",), pins=(("click", "8.1.8"),))
-        order = ("constant", "anytime", "fixed-share", "periodic", "fixed-uniform")
-        expected = tuple((r, f) for r in range(3) for f in order[r:] + order[:r])
-        if tuple((a.repetition, a.family) for a in self.attempts) != expected:
-            raise ValueError("All fifteen original physical slots must retain their declared execution order")
-        return self
-
-    @model_validator(mode="after")
-    def _work(self) -> Self:
-        """Reserve all declared calls, retaining unknown physical outcomes."""
-        for attempt in self.attempts:
-            expected_calls = (
-                0 if attempt.status == "not_started" else 1512 * (1 if attempt.family == "fixed-uniform" else 4)
-            )
-            if attempt.reserved_calls != expected_calls:
-                raise ValueError("Each launched family must reserve its entire original declared workload")
-        return self
-
-    @model_validator(mode="after")
-    def _work_totals(self) -> Self:
-        """Separate known actual work from unavailable launched-child counts."""
-        if self.reserved_calls != sum(a.reserved_calls for a in self.attempts):
-            raise ValueError("Reserved calls must include unknown post-timeout work")
-        if self.known_attempted_calls != sum(a.attempted_calls or 0 for a in self.attempts):
-            raise ValueError("Known work cannot hide original reported attempts")
-        if self.unknown_attempts != sum(a.status != "not_started" and a.attempted_calls is None for a in self.attempts):
-            raise ValueError("Unknown launched work must remain explicitly unavailable")
-        return self
-
-    @model_validator(mode="after")
-    def _completion(self) -> Self:
-        """Require the full original work, frozen selection and separate oracle."""
-        if self.status == "completed":
-            if self.reason is not None or any(a.status != "completed" for a in self.attempts):
-                raise ValueError("Complete study requires all original physical slots")
-            if (
-                self.reserved_calls != 77112
-                or self.oracle is None
-                or self.gate is None
-                or self.oracle_wall_seconds is None
-                or self.development_choice is None
-            ):
-                raise ValueError("Complete study requires all original work and the independent checked oracle/gate")
-        elif self.reason is None or self.gate is not None:
-            raise ValueError("Limited study needs its reason and cannot claim a completed scientific entry gate")
-        return self

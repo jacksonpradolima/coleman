@@ -9,20 +9,24 @@ from fractions import Fraction
 from pathlib import Path
 
 from coleman.application.resource_usage import peak_rss_mib
-from examples.research.expert_rate_execute import METRICS, ResourceLimitError
+from examples.research.expert_rate_execute import (
+    METRICS,
+    ResourceLimitError,
+    _checkpoint,
+    _new_owner,
+    restore_checkpoint,
+)
 from examples.research.expert_rate_math import comparator_losses, periodic_trace, reference_trace, score
+from examples.research.expert_rate_process_records import Attempt, DevelopmentChoice, Gate, OracleResult
 from examples.research.expert_rate_records import (
     REFERENCE_PROFILES,
     Artifact,
-    Attempt,
-    DevelopmentChoice,
     DevelopmentFamily,
     DevelopmentScore,
     Family,
     FamilyRun,
-    Gate,
-    OracleResult,
     StudyInput,
+    admit_protocol,
     read_artifact,
 )
 
@@ -144,6 +148,33 @@ def _oracle_guard(started: float) -> None:
         raise ResourceLimitError("original-independent-oracle-wall-or-rss-cap")
 
 
+def _checkpoint_recovery(run, case, protocol) -> None:
+    """Exercise selected full-state readers, independently of expected arithmetic."""
+    owner = _new_owner(protocol, case, run.setting)
+    for checkpoint in run.checkpoints:
+        restore_checkpoint(owner, checkpoint)
+        expected = run.trace[0].before if checkpoint.position == 0 else run.trace[checkpoint.position - 1].after
+        if tuple(w.value for w in owner.weights) != expected or _checkpoint(owner) != checkpoint:
+            raise ValueError("Complete selected checkpoint does not restore the original trace position/state")
+
+
+def _recorded_attempts(root: Path) -> tuple[Attempt, ...]:
+    """Read every original versioned process slot, without dropping failures."""
+    return tuple(
+        Attempt.from_json(read_artifact(root / f"r{repetition}-{family}-attempt.json"))
+        for repetition in range(3)
+        for family in ORDER[repetition:] + ORDER[:repetition]
+    )
+
+
+def _assessed_gate(root: Path, protocol: StudyInput, started: float) -> Gate:
+    """Charge the final complete assessment to the same original oracle window."""
+    choice = DevelopmentChoice.from_json(read_artifact(root / "selection.json"))
+    gate = entry_gate(root, _recorded_attempts(root), protocol, choice)
+    _oracle_guard(started)
+    return gate
+
+
 def oracle(root: Path, protocol: StudyInput) -> OracleResult:
     """Check all actual repeated traces against separately authored arithmetic.
 
@@ -170,6 +201,7 @@ def oracle(root: Path, protocol: StudyInput) -> OracleResult:
     Fraction work is charged to this separate declared oracle process.
     """
     started = time.monotonic()
+    protocol = admit_protocol(protocol)
     first = {}
     checked, maxima = 0, (0.0, 0.0)
     for repetition in range(3):
@@ -178,6 +210,7 @@ def oracle(root: Path, protocol: StudyInput) -> OracleResult:
             for index, run in enumerate(result.cases):
                 _oracle_guard(started)
                 case = next(c for c in protocol.cases if c.case_id == run.case_id)
+                _checkpoint_recovery(run, case, protocol)
                 errors = _check_case(run, case)
                 maxima = max(maxima[0], errors[0]), max(maxima[1], errors[1])
                 checked += len(run.trace)
@@ -194,6 +227,7 @@ def oracle(root: Path, protocol: StudyInput) -> OracleResult:
         maximum_coefficient_error=maxima[0],
         maximum_score_error=maxima[1],
         repetitions_equal=True,
+        gate=_assessed_gate(root, protocol, started),
     )
 
 

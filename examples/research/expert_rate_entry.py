@@ -19,21 +19,18 @@ from coleman.application.resource_usage import output_exceeds
 from coleman.artifacts import ArtifactWriter
 from coleman.spec.runtime_identity import InstalledRuntime
 from coleman.spec.selected_runtime import SelectedInstalledRuntime
-from examples.research.expert_rate_assess import development_projection, entry_gate, freeze_choice, oracle, read_family
+from examples.research.expert_rate_assess import development_projection, freeze_choice, oracle, read_family
 from examples.research.expert_rate_execute import ResourceLimitError, run_family
-from examples.research.expert_rate_records import (
-    Artifact,
+from examples.research.expert_rate_process_records import (
     Attempt,
     ChildSummary,
-    Family,
+    DevelopmentChoice,
     Gate,
     OracleResult,
-    StudyInput,
     StudyReport,
     UnavailableChoice,
-    load_protocol,
-    read_artifact,
 )
+from examples.research.expert_rate_records import Artifact, Family, StudyInput, load_protocol, read_artifact
 
 ORDER: tuple[Family, ...] = ("constant", "anytime", "fixed-share", "periodic", "fixed-uniform")
 
@@ -48,8 +45,18 @@ class Assessment(NamedTuple):
     reason: str | None
 
 
+class BaselineExecution(NamedTuple):
+    """Retain fixed-slot outcomes, frozen choice and complete parent wall windows."""
+
+    attempts: tuple[Attempt, ...]
+    choice: DevelopmentChoice | None
+    choice_artifact: Artifact | None
+    pass_wall_seconds: tuple[float, float, float]
+    wall_seconds: float
+
+
 def source_files() -> tuple[tuple[str, str], ...]:
-    """Read all four actual driver source identities, without importing a plugin."""
+    """Read every actual driver source identity, without importing a plugin."""
     return tuple(
         (p.name, hashlib.sha256(p.read_bytes()).hexdigest())
         for p in sorted(Path(__file__).parent.glob("expert_rate_*.py"))
@@ -124,7 +131,8 @@ def _process(command: list[str], root: Path, name: str, timeout: float) -> tuple
             return False, time.monotonic() - start, _child_cpu(cpu)
     if result.returncode not in (0, 75):
         raise RuntimeError(f"Unexpected child software failure ({result.returncode}); retain {name}.log")
-    return result.returncode == 0, time.monotonic() - start, _child_cpu(cpu)
+    elapsed = time.monotonic() - start
+    return result.returncode == 0 and elapsed <= timeout, elapsed, _child_cpu(cpu)
 
 
 def _child_cpu(before) -> float:
@@ -144,6 +152,7 @@ def _attempt(
     reserved = sum(len(c.panels) for c in protocol.cases) * sum(s.family == family for s in protocol.settings)
     if remaining <= 0:
         return Attempt(
+            schema_version=1,
             family=family,
             repetition=repetition,
             status="not_started",
@@ -169,6 +178,7 @@ def _attempt(
     ok, wall, cpu = _process(command, root, name, min(180, remaining))
     if not ok:
         return Attempt(
+            schema_version=1,
             family=family,
             repetition=repetition,
             status="resource_limited",
@@ -187,6 +197,7 @@ def _attempt(
     ):
         raise ValueError("Child original identity/source differs from this frozen attempt")
     return Attempt(
+        schema_version=1,
         family=family,
         repetition=repetition,
         status=value.status,
@@ -199,8 +210,10 @@ def _attempt(
     )
 
 
-def _assess_finished(root, protocol, attempts, choice) -> Assessment:
+def _assess_finished(root, protocol, attempts, choice, wall_limited: bool = False) -> Assessment:
     """Charge one independent oracle only after every original baseline completes."""
+    if wall_limited:
+        return Assessment(None, None, None, "resource_limited", "original-pass-or-baseline-wall-cap")
     if not all(a.status == "completed" for a in attempts) or choice is None:
         if any(a.status == "numerical_failure" for a in attempts):
             return Assessment(None, None, None, "numerical_failure", "actual-original-numerical-refusal")
@@ -217,8 +230,10 @@ def _assess_finished(root, protocol, attempts, choice) -> Assessment:
     checked = OracleResult.from_json(content)
     if checked.protocol_content != protocol.protocol_content or checked.checked_steps != 77112:
         raise ValueError("Independent oracle did not check the full original workload")
+    if (checked.gate.selected_family, checked.gate.selected_slots) != (choice.selected_family, choice.selected_slots):
+        raise ValueError("Assessed decision differs from the original frozen development-only choice")
     artifact = Artifact(path="oracle.json", sha256=hashlib.sha256(content).hexdigest(), size_bytes=len(content))
-    return Assessment(artifact, wall, entry_gate(root, attempts, protocol, choice), "completed", None)
+    return Assessment(artifact, wall, checked.gate, "completed", None)
 
 
 def _verify_attempt(root: Path, attempt: Attempt, protocol: StudyInput) -> None:
@@ -240,6 +255,41 @@ def _verify_attempt(root: Path, attempt: Attempt, protocol: StudyInput) -> None:
         attempt.attempted_calls,
     ):
         raise ValueError("Returned process bookkeeping differs from the actual complete family artifact")
+
+
+def _run_baseline_passes(root, protocol, sources) -> BaselineExecution:
+    """Run only the original15 slots, retaining full parent validation overhead."""
+    started, attempts = time.monotonic(), []
+    choice, choice_artifact = None, None
+    pass_walls = []
+    for repetition in range(3):
+        pass_start = time.monotonic()
+        for family in ORDER[repetition:] + ORDER[:repetition]:
+            remaining = min(900 - (time.monotonic() - pass_start), 2700 - (time.monotonic() - started))
+            attempts.append(_attempt(root, protocol, (family, repetition), remaining, sources))
+        if repetition == 0:
+            choice = freeze_choice(root, protocol)
+            if choice is not None:
+                choice_artifact = publish(root, "selection.json", choice.to_json())
+            else:
+                publish(
+                    root,
+                    "selection-unavailable.json",
+                    UnavailableChoice(schema_version=1, protocol_content=protocol.protocol_content).to_json(),
+                )
+        # Selection or its refusal is now immutable. Only now may the parent
+        # inspect full evaluation fields and advertise verified family status.
+        for attempt in attempts[-5:]:
+            _verify_attempt(root, attempt, protocol)
+            publish(root, f"r{attempt.repetition}-{attempt.family}-attempt.json", attempt.to_json())
+        pass_walls.append(time.monotonic() - pass_start)
+    return BaselineExecution(
+        tuple(attempts),
+        choice,
+        choice_artifact,
+        (pass_walls[0], pass_walls[1], pass_walls[2]),
+        time.monotonic() - started,
+    )
 
 
 def run_study(root: Path) -> StudyReport:
@@ -268,33 +318,20 @@ def run_study(root: Path) -> StudyReport:
     work caps remain unchanged. Unknown killed-child work stays reserved and
     unavailable. A separate single180s oracle runs only after all slots complete.
     Every physical attempt is retained; repetitions are not independent units.
+    Invoke from the source checkout or a dedicated copied example root that
+    contains the supplied ``examples`` namespace; children use that module route.
     """
     root.mkdir(parents=True, exist_ok=False)
     protocol = load_protocol(Path(__file__).with_name("expert-rate-entry-protocol-v2.json"))
     sources = source_files()
-    started, attempts = time.monotonic(), []
-    choice, choice_artifact = None, None
-    for repetition in range(3):
-        pass_start = time.monotonic()
-        for family in ORDER[repetition:] + ORDER[:repetition]:
-            remaining = min(900 - (time.monotonic() - pass_start), 2700 - (time.monotonic() - started))
-            attempts.append(_attempt(root, protocol, (family, repetition), remaining, sources))
-        if repetition == 0:
-            choice = freeze_choice(root, protocol)
-            if choice is not None:
-                choice_artifact = publish(root, "selection.json", choice.to_json())
-            else:
-                publish(
-                    root,
-                    "selection-unavailable.json",
-                    UnavailableChoice(schema_version=1, protocol_content=protocol.protocol_content).to_json(),
-                )
-        # Selection or its refusal is now immutable. Only now may the parent
-        # inspect full evaluation fields and advertise verified family status.
-        for attempt in attempts[-5:]:
-            _verify_attempt(root, attempt, protocol)
-            publish(root, f"r{attempt.repetition}-{attempt.family}-attempt.json", attempt.model_dump_json())
-    assessment = _assess_finished(root, protocol, tuple(attempts), choice)
+    baseline = _run_baseline_passes(root, protocol, sources)
+    assessment = _assess_finished(
+        root,
+        protocol,
+        baseline.attempts,
+        baseline.choice,
+        max(baseline.pass_wall_seconds) > 900 or baseline.wall_seconds > 2700,
+    )
     if source_files() != sources:
         raise ValueError("Driver source changed during the actual physical study")
     report = StudyReport(
@@ -305,13 +342,15 @@ def run_study(root: Path) -> StudyReport:
         runtime=InstalledRuntime.capture(),
         driver_runtime=SelectedInstalledRuntime.capture(extras=("cli",)),
         source_files=sources,
-        attempts=tuple(attempts),
-        reserved_calls=sum(a.reserved_calls for a in attempts),
-        known_attempted_calls=sum(a.attempted_calls or 0 for a in attempts),
-        unknown_attempts=sum(a.status != "not_started" and a.attempted_calls is None for a in attempts),
+        attempts=baseline.attempts,
+        reserved_calls=sum(a.reserved_calls for a in baseline.attempts),
+        known_attempted_calls=sum(a.attempted_calls or 0 for a in baseline.attempts),
+        unknown_attempts=sum(a.status != "not_started" and a.attempted_calls is None for a in baseline.attempts),
         oracle=assessment.oracle,
         oracle_wall_seconds=assessment.wall_seconds,
-        development_choice=choice_artifact,
+        pass_wall_seconds=baseline.pass_wall_seconds,
+        baseline_wall_seconds=baseline.wall_seconds,
+        development_choice=baseline.choice_artifact,
         gate=assessment.gate,
     )
     publish(root, "complete.json" if assessment.status == "completed" else "limited.json", report.to_json())

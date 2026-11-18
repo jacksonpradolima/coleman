@@ -306,9 +306,11 @@ adding a rate method or a synonymous sharing convention.
 treat genuinely abstaining experts. Inactive experts and active experts with
 missing feedback require different eligibility and comparator rules.
 
-The activity diagnostic deliberately supplies pre-decision sets `{a,b}`, `{}`,
-then `{a,b,c}`. Current references must report unsupported rather than invent
-losses. A later specialist proposal would need an awake-only comparator
+An activity-specific diagnostic would need genuine pre-decision sets `{a,b}`,
+`{}`, then `{a,b,c}`. This rate study does not execute or qualify that route;
+the current reference interface does not accept an activity set. Do not pretend
+that a partial feedback panel supplies that interface or invent inactive losses.
+A later specialist proposal would need an awake-only comparator
 denominator, explicit all-inactive abstention with no eligible update, preserved
 latent state on reentry and separate decision/update/maturity clocks. This
 protocol does not select that proposal or qualify a specialist capability.
@@ -391,6 +393,10 @@ propagate and publish no completed or ordinary limited aggregate.
 The aggregate `known_attempted_calls` is the lower bound from returned complete
 family reports; killed children can retain further readable case prefixes.
 Those prefixes do not turn an unknown total into an exact count.
+Actual pass and baseline windows include the parent's validation/publication
+overhead. Late observed child success stays limited. Full checkpoint recovery,
+independent arithmetic and the final assessment share the original single
+180-second oracle process; assessment is not extra uncharged postprocessing.
 
 Only all fifteen completed slots plus the separately limited independent oracle
 can publish `complete.json`. Known caps publish `limited.json` with the original
@@ -402,7 +408,7 @@ Neither filename is a storage acknowledgement or an exactly-once external effect
 
 ```python3
 from pathlib import Path
-from examples.research.expert_rate_records import StudyReport
+from examples.research.expert_rate_process_records import StudyReport
 
 root = Path('/tmp/coleman-expert-entry')
 path = root / 'complete.json'

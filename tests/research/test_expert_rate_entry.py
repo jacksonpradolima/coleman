@@ -30,14 +30,13 @@ from examples.research.expert_rate_execute import (
     run_case,
 )
 from examples.research.expert_rate_math import comparator_losses, periodic_trace, reference_trace, score
+from examples.research.expert_rate_process_records import Attempt, DevelopmentChoice, Gate, OracleResult, StudyReport
 from examples.research.expert_rate_records import (
     METRICS,
     CaseRun,
-    DevelopmentChoice,
     DevelopmentFamily,
     DevelopmentScore,
     FamilyRun,
-    Gate,
     StudyInput,
     admit_protocol,
     load_protocol,
@@ -118,7 +117,7 @@ def test_development_selection_uses_all_original_families_and_original_ties(prot
 @pytest.mark.parametrize("kind", ("choice", "gate"))
 def test_selection_reader_refuses_coerced_original_setting_slots(protocol, bad, kind):
     slots = (("fixed-uniform", 0), ("constant", bad), ("anytime", 0), ("fixed-share", 0), ("periodic", 0))
-    data = {"schema_version": 1, "selected_family": "fixed-uniform", "selected_slots": slots}
+    data: dict[str, object] = {"schema_version": 1, "selected_family": "fixed-uniform", "selected_slots": slots}
     if kind == "choice":
         data.update(
             protocol_content=protocol.protocol_content,
@@ -357,6 +356,16 @@ def test_real_methods_checkpoint_continuation_and_independent_coefficients(proto
     assert tuple(c.position for c in result.checkpoints) == (0, len(case.panels) // 2, len(case.panels))
     assert CaseRun.from_json(result.to_json()).to_json() == result.to_json()
     owner = new_owner(protocol, case.case_id, family, 0)
+    original_state = owner.export_state().to_json()
+    future = json.loads(result.checkpoints[1].content)
+    future["schema_version"] = 2
+    future_bytes = json.dumps(future, sort_keys=True, separators=(",", ":"))
+    bad_checkpoint = result.checkpoints[1].model_copy(
+        update={"content": future_bytes, "digest": "sha256:" + hashlib.sha256(future_bytes.encode()).hexdigest()}
+    )
+    with pytest.raises(ValueError):
+        restore_checkpoint(owner, bad_checkpoint)
+    assert owner.export_state().to_json() == original_state
     restore_checkpoint(owner, result.checkpoints[1])
     for row in case.panels[len(case.panels) // 2 :]:
         owner.observe(loss_panel(row))
@@ -498,6 +507,165 @@ def test_actual_process_deadline_retains_no_falsely_complete_publication(tmp_pat
     assert wall >= 0.05
     assert cpu >= 0.0
     assert not (tmp_path / "complete.json").exists()
+
+
+def test_late_observed_success_is_still_a_declared_process_limit(tmp_path, monkeypatch):
+    import examples.research.expert_rate_entry as driver
+
+    # Real child/exit; only the observer clock models a delayed parent wakeup.
+    ticks = iter((0.0, 2.0))
+    monkeypatch.setattr(driver.time, "monotonic", lambda: next(ticks))
+    ok, wall, cpu = driver._process([sys.executable, "-c", "pass"], tmp_path, "late-observer", 1.0)
+    assert ok is False
+    assert wall == 2.0
+    assert cpu >= 0.0
+
+
+def test_top_level_limited_report_retains_unknown_reserved_work_and_original_wall_caps(protocol):
+    order = ("constant", "anytime", "fixed-share", "periodic", "fixed-uniform")
+    attempts = tuple(
+        Attempt(
+            schema_version=1,
+            family=family,
+            repetition=repetition,
+            status="not_started",
+            reason="authored-limit-fixture",
+            reserved_calls=0,
+            attempted_calls=None,
+            wall_seconds=None,
+            cpu_seconds=None,
+            artifact=None,
+        )
+        for repetition in range(3)
+        for family in order[repetition:] + order[:repetition]
+    )
+    first = attempts[0].model_copy(
+        update={
+            "status": "resource_limited",
+            "reserved_calls": 6048,
+            "wall_seconds": 180.01,
+            "reason": "original-process-deadline",
+        }
+    )
+    report = StudyReport(
+        schema_version=1,
+        protocol_content=protocol.protocol_content,
+        status="resource_limited",
+        reason="authored-controller-contract-fixture",
+        runtime=InstalledRuntime.capture(),
+        driver_runtime=SelectedInstalledRuntime.capture(extras=("cli",)),
+        source_files=(),
+        attempts=(first, *attempts[1:]),
+        reserved_calls=6048,
+        known_attempted_calls=0,
+        unknown_attempts=1,
+        pass_wall_seconds=(180.01, 0.0, 0.0),
+        baseline_wall_seconds=180.01,
+        oracle=None,
+        oracle_wall_seconds=None,
+        development_choice=None,
+        gate=None,
+    )
+    assert StudyReport.from_json(report.to_json()).to_json() == report.to_json()
+    assert report.attempts[0].attempted_calls is None
+    assert report.reserved_calls == 6048
+    assert report.known_attempted_calls == 0
+    assert report.unknown_attempts == 1
+    fields = json.loads(report.to_json())
+    for updates in (
+        {"status": "completed", "reason": None},
+        {"schema_version": 2},
+        {"baseline_wall_seconds": -1.0},
+        {"oracle_wall_seconds": -1.0},
+        {"oracle_wall_seconds": float("nan")},
+        {"oracle_wall_seconds": float("inf")},
+        {"oracle_wall_seconds": True},
+    ):
+        with pytest.raises(ValueError):
+            StudyReport.from_json(json.dumps({**fields, **updates}))
+    zero = StudyReport.from_json(json.dumps({**fields, "oracle_wall_seconds": 0.0}))
+    assert zero.oracle_wall_seconds == 0.0
+    assert report.oracle_wall_seconds is None
+    # Structural reader fixture only; these are not measured scientific trials.
+    artifact = {"path": "authored.json", "sha256": "0" * 64, "size_bytes": 1}
+    complete = json.loads(report.to_json())
+    for attempt in complete["attempts"]:
+        count = 1512 * (1 if attempt["family"] == "fixed-uniform" else 4)
+        attempt.update(
+            status="completed",
+            reason=None,
+            reserved_calls=count,
+            attempted_calls=count,
+            wall_seconds=1.0,
+            cpu_seconds=0.0,
+            artifact=artifact,
+        )
+    complete.update(
+        status="completed",
+        reason=None,
+        reserved_calls=77112,
+        known_attempted_calls=77112,
+        unknown_attempts=0,
+        oracle=artifact,
+        oracle_wall_seconds=1.0,
+        development_choice=artifact,
+        gate={
+            "schema_version": 1,
+            "selected_family": "fixed-uniform",
+            "selected_slots": (
+                ("fixed-uniform", 0),
+                ("constant", 0),
+                ("anytime", 0),
+                ("fixed-share", 0),
+                ("periodic", 0),
+            ),
+            "shape_excess": tuple(
+                (shape, 0.0)
+                for shape in ("stationary-gap", "stationary-small-gap", "neutral-prefix", "contrast-pulses")
+            ),
+            "decision": "retain_baselines",
+        },
+    )
+    valid = StudyReport.from_json(json.dumps(complete))
+    assert valid.status == "completed"
+    for field in ("family", "oracle"):
+        changed = json.loads(valid.to_json())
+        if field == "family":
+            changed["attempts"][0]["wall_seconds"] = 181.0
+        else:
+            changed["oracle_wall_seconds"] = 181.0
+        with pytest.raises(ValueError):
+            StudyReport.from_json(json.dumps(changed))
+
+
+def test_scientific_zero_count_and_success_boolean_keep_strict_kinds(protocol):
+    slots = (("fixed-uniform", 0), ("constant", 0), ("anytime", 0), ("fixed-share", 0), ("periodic", 0))
+    gate = Gate(
+        schema_version=1,
+        selected_family="fixed-uniform",
+        selected_slots=slots,
+        shape_excess=tuple(
+            (shape, 0.0) for shape in ("stationary-gap", "stationary-small-gap", "neutral-prefix", "contrast-pulses")
+        ),
+        decision="retain_baselines",
+    )
+    oracle = OracleResult(
+        schema_version=1,
+        protocol_content=protocol.protocol_content,
+        checked_steps=77112,
+        maximum_coefficient_error=0.0,
+        maximum_score_error=0.0,
+        repetitions_equal=True,
+        gate=gate,
+    )
+    fields = json.loads(oracle.to_json())
+    for value in (1, 1.0, False):
+        with pytest.raises(ValueError):
+            OracleResult.from_json(json.dumps({**fields, "repetitions_equal": value}))
+    invalid = json.loads(gate.to_json())
+    invalid["independent_empirical_units"] = False
+    with pytest.raises(ValueError):
+        Gate.from_json(json.dumps(invalid))
 
 
 def test_optional_click_command_help_bad_flags_and_math_cold_import(tmp_path):
