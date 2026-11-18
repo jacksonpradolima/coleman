@@ -6,9 +6,9 @@ import os
 import sqlite3
 import threading
 import time
-from collections.abc import Callable
-from contextlib import closing, suppress
-from dataclasses import dataclass
+from collections.abc import Callable, Iterator
+from contextlib import closing, contextmanager, suppress
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -21,12 +21,37 @@ from coleman.artifacts import ArtifactWriter
 from coleman.core.primitives import canonical_json
 from coleman.tasks.contracts import EncodedValue, TaskFrontier, TaskJobRecord, TaskPlan
 from coleman.tasks.identity import HostBootstrapProfile
-from coleman.tasks.protocols import AttemptContext, CommittedProgress, CoordinateContext, decode_value
+from coleman.tasks.protocols import (
+    AttemptContext,
+    CommittedProgress,
+    CoordinateContext,
+    coordinate_operation,
+    decode_value,
+)
 from coleman.workflows.contracts import MAX_WORKFLOW_ARTIFACT_ENTRIES, WorkflowError
 
 type Program = ExecutionProgram[Any, Any, Any, Any]
 type Work = CoordinateWork[Any]
 type ProgressHook = Callable[[str, int], None]
+
+
+@contextmanager
+def _coordinate_scope(program: Program, work: Work, context: CoordinateContext) -> Iterator[Program]:
+    """Acquire at most one optional scope without changing the finite work loop."""
+    capability = coordinate_operation(program.executor)
+    if capability is None:
+        yield program
+        return
+    failure: BaseException | None = None
+    with capability.open(work.value, context) as selected:
+        try:
+            yield replace(program, executor=selected)
+        except BaseException as error:
+            # Provider cleanup must not hide cancellation or a failed driver guard.
+            failure = error
+            raise
+    if failure is not None:
+        raise failure
 
 
 def read_job(store: WorkflowStore, job_id: str) -> views.Job:
@@ -210,18 +235,21 @@ class _Worker:
                 work.artifact_directory,
                 seed=work.seed,
             )
-            result = program.executor.read_completed(work.value, context)
-            if result is None:
-                views.require_pending_coordinate(self.job, index)
-                self._reconcile(program, context)
-                identity = self.reserve(work)
-                attempt = AttemptContext(context, identity, self.job.invocations, self.deadline, self.check)
-                result = program.executor.advance(
-                    work.value, attempt, lambda progress, ctx=context: self.record_progress(program, ctx, progress)
-                )
-                self.check()
-                program.executor.publish_coordinate(work.value, result, context)
-                self.check()
+            with _coordinate_scope(program, work, context) as active:
+                result = active.executor.read_completed(work.value, context)
+                if result is None:
+                    views.require_pending_coordinate(self.job, index)
+                    self._reconcile(active, context)
+                    identity = self.reserve(work)
+                    attempt = AttemptContext(context, identity, self.job.invocations, self.deadline, self.check)
+                    result = active.executor.advance(
+                        work.value,
+                        attempt,
+                        lambda progress, ctx=context, selected=active: self.record_progress(selected, ctx, progress),
+                    )
+                    self.check()
+                    active.executor.publish_coordinate(work.value, result, context)
+                    self.check()
             receipts.append(result)
             self.transition(lambda job: views.coordinate_completed(job, len(receipts)), deadline=self.deadline)
         return tuple(receipts)
@@ -289,7 +317,8 @@ def _worker_context(
 def _program(worker: _Worker, bootstrap_profile: HostBootstrapProfile | None) -> Program:
     """Resolve known metadata only; never import code named by stored JSON."""
     if isinstance(worker.plan, TaskPlan):
-        from coleman.application.task_runtime import prepare_task_program
+        # Keep provider bootstrap outside the provider-neutral cold import.
+        from coleman.application.task_runtime import prepare_task_program  # pylint: disable=import-outside-toplevel
 
         if not isinstance(worker.job, TaskJobRecord):
             raise WorkflowError("Task plan requires its exact task metadata record")
@@ -300,7 +329,8 @@ def _program(worker: _Worker, bootstrap_profile: HostBootstrapProfile | None) ->
             bootstrap_profile=bootstrap_profile,
             guard=worker.check,
         )
-    from coleman.application.native_executor import prepare_native_program
+    # Native scientific dependencies are loaded only for an actual native plan.
+    from coleman.application.native_executor import prepare_native_program  # pylint: disable=import-outside-toplevel
 
     if isinstance(worker.job, TaskJobRecord):
         raise WorkflowError("Native plan requires its exact native metadata record")
@@ -387,7 +417,8 @@ def run_with_hooks(
         count = views.retained_attempts(store.root / "jobs" / job_id, worker.plan, job_id=job_id)
         worker.transition(lambda current: views.changed(current, attempts=count), deadline=worker.deadline)
         worker.publish(program, _produce(worker, program))
-    except Exception as error:
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        # Retain private failure evidence for every unexpected provider error.
         _failure(worker, error)
     finally:
         stopped.set()

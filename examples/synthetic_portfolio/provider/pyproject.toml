@@ -32,6 +32,7 @@ bypass-selection = true
 "../recipe.py" = "coleman_synthetic_portfolio/recipe.py"
 "../_state.py" = "coleman_synthetic_portfolio/_state.py"
 "../_state_records.py" = "coleman_synthetic_portfolio/_state_records.py"
+"../scoped_portfolio.py" = "coleman_synthetic_portfolio/scoped_portfolio.py"
 "../executor.py" = "coleman_synthetic_portfolio/executor.py"
 "../sample.py" = "coleman_synthetic_portfolio/sample.py"
 "../reporting.py" = "coleman_synthetic_portfolio/reporting.py"

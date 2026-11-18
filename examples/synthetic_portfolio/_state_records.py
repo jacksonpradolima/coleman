@@ -52,3 +52,19 @@ class _CheckpointIdentity(CoreImmutable):
     coordinate_fingerprint: Fingerprint
     source: DefinitionBinding
     rows: tuple[tuple[int, int], ...]
+
+
+def _require_matching_progress(
+    progress: CommittedProgress[OwnedCommitProof],
+    candidate: OwnedCommitProof,
+    actual: CommittedProgress[OwnedCommitProof],
+) -> None:
+    """Compare complete admitted proof fields after actual current acquisition."""
+    if (progress.plan_fingerprint, progress.coordinate_fingerprint, progress.frontier) != (
+        actual.plan_fingerprint,
+        actual.coordinate_fingerprint,
+        actual.frontier,
+    ) or candidate.model_dump(exclude={"receipt": {"status"}}) != actual.proof.model_dump(
+        exclude={"receipt": {"status"}}
+    ):
+        raise ValueError("Portfolio progress differs from the actual current ACK and complete state")

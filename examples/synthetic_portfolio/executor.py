@@ -14,6 +14,7 @@ from coleman.tasks.contracts import OwnedCommitProof
 from coleman.tasks.protocols import AttemptContext, CommittedProgress, CoordinateContext, PreparationContext
 
 from ._state import Layout, read_text
+from ._state_records import _require_matching_progress
 from .recipe import (
     CONFIGURATION,
     COORDINATE,
@@ -28,6 +29,7 @@ from .recipe import (
     STATE_V2 as STATE,
 )
 from .recipe import recipe as declare_recipe
+from .scoped_portfolio import PortfolioCoordinateOperations
 from .task_contracts import (
     PortfolioCheckpointV2 as PortfolioCheckpoint,
 )
@@ -93,6 +95,18 @@ class PreparedPortfolio:
             This immutable handler, without capturing state or performing I/O.
         """
         return self
+
+    @property
+    def coordinate_operation(self) -> PortfolioCoordinateOperations:
+        """Declare a fresh bounded coordinate operation, without opening it.
+
+        Returns
+        -------
+        PortfolioCoordinateOperations
+            Version-one handler. Each entered operation owns independent
+            temporary acquisitions and disposes them on every exit path.
+        """
+        return PortfolioCoordinateOperations(self)
 
     @property
     def profile(self) -> Reference:
@@ -181,14 +195,7 @@ class PreparedPortfolio:
         actual = self.reconcile(context)
         if actual is None:
             raise ValueError("Portfolio progress requires actual acknowledged state")
-        if (progress.plan_fingerprint, progress.coordinate_fingerprint, progress.frontier) != (
-            actual.plan_fingerprint,
-            actual.coordinate_fingerprint,
-            actual.frontier,
-        ) or candidate.model_dump(exclude={"receipt": {"status"}}) != actual.proof.model_dump(
-            exclude={"receipt": {"status"}}
-        ):
-            raise ValueError("Portfolio progress differs from the actual current ACK and complete state")
+        _require_matching_progress(progress, candidate, actual)
 
     def read_completed(
         self, coordinate: PortfolioTrajectory, context: CoordinateContext, /

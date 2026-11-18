@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 
 from coleman.core.identity import Reference
 from coleman.core.primitives import Fingerprint
@@ -398,6 +399,95 @@ class PublicationReadbackV1[W, R](Protocol):
         grants no job-completion or exactly-once external-effect guarantee.
         """
         ...
+
+
+class CoordinateOperationV1[W, R, O, P](Protocol):
+    """Optionally acquire a prepared executor for one bounded coordinate scope.
+
+    Notes
+    -----
+    Trusted prepared providers may expose ``coordinate_operation``. Absence or
+    None keeps the existing standalone operations. The host owns the finite
+    loop, reservations, resource guards, concrete codecs and progress ordering.
+    The scope may reuse complete actual acquisitions only within this operation;
+    it must retain original ACK, source, current-head and integrity checks.
+    No caller supplies a snapshot, validation token or cross-operation cache.
+    """
+
+    @property
+    def profile(self) -> Reference:
+        """Declare the supported coordinate-operation semantic profile.
+
+        Returns
+        -------
+        Reference
+            ``coleman-coordinate-operation`` at version ``1``. This declaration
+            is neither a storage acknowledgement nor execution authority.
+        """
+        ...
+
+    def open(
+        self, coordinate: W, context: CoordinateContext, /
+    ) -> AbstractContextManager[PreparedExecutor[W, R, O, P]]:
+        """Acquire operations for one coordinate and dispose them on exit.
+
+        Parameters
+        ----------
+        coordinate : W
+            Exact selected decoded coordinate, never a metadata-derived frontier.
+        context : CoordinateContext
+            Actual retained plan, source, runtime and artifact bindings.
+
+        Returns
+        -------
+        contextlib.AbstractContextManager
+            Bounded prepared operations, valid only between enter and exit.
+            Separate scopes own separate acquisitions and cannot share mutable
+            continuation authority. Exceptions must propagate after cleanup.
+
+        Raises
+        ------
+        ValueError, TypeError, OSError
+            Incompatible context, corrupt or unavailable evidence, or failed
+            acquisition/cleanup. Earlier accepted effects are not rolled back.
+
+        Notes
+        -----
+        Closing a scope does not roll back an earlier mathematical update, ACK
+        or immutable publication. Reconcile actual retained evidence after an
+        uncertain response. Standalone APIs remain independently fresh.
+        """
+        ...
+
+
+def coordinate_operation(value: object) -> CoordinateOperationV1 | None:
+    """Select only the known optional capability on an actual prepared provider.
+
+    Parameters
+    ----------
+    value : object
+        Independently captured trusted prepared implementation, not request JSON.
+
+    Returns
+    -------
+    CoordinateOperationV1 or None
+        Supported scope handler, or the unchanged standalone execution path.
+
+    Raises
+    ------
+    ValueError, TypeError
+        Malformed or unsupported profile, or a missing callable scope opener.
+        Unknown future profiles never silently select the standalone path.
+    """
+    capability = getattr(value, "coordinate_operation", None)
+    if capability is None:
+        return None
+    profile = Reference.model_validate(getattr(capability, "profile", None))
+    if profile != Reference(id="coleman-coordinate-operation", version="1"):
+        raise ValueError("Unsupported task coordinate operation profile")
+    if not callable(getattr(capability, "open", None)):
+        raise TypeError("Task coordinate operation capability requires its concrete scope opener")
+    return cast(CoordinateOperationV1, capability)
 
 
 class PreparedExecutor[W, R, O, P](Protocol):

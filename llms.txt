@@ -21881,6 +21881,17 @@ readback; a final fresh ACK/manifest/blob integrity check must still match.
 Independent publication and read methods retain their complete fresh reads.
 A refusal after publication can leave the immutable file present without a
 completed task, so artifact presence alone is never completion evidence.
+The optional `coleman-coordinate-operation@1` capability gives these steps one
+explicit host-opened lifetime. The common host still owns the finite loop,
+reservation, resource guards and callback ordering. Inside that operation the
+provider holds only complete state acquired through the actual selected reader;
+callback verification and publication reuse it only after actual retained SQL
+and matching fresh ACK, manifest and blob-integrity checks. A concurrent head
+advance reloads or refuses. The host closes the operation on success or failure;
+the proxy and captured verifier then refuse further use. Separate operations
+and standalone readers remain fresh, and providers without this capability use
+the existing separate-call route. The scope is not an atomic transaction: an ACK
+or immutable file can survive a later error without becoming task completion.
 The task adapter uses `open_reconciled()` when one operation needs both opening
 and retained progress, and `open_resolved(result)` when it needs opening and full
 terminal evidence. Each reuses only that operation's actual complete selected
@@ -21935,7 +21946,8 @@ from an unacknowledged file.
 
 ```mermaid
 flowchart LR
-    Plan[Same frozen 16-period plan] --> Owner[All real component and book state]
+    Plan[Same frozen 16-period plan] --> Scope[Host opens optional coordinate operation v1]
+    Scope --> Owner[All real component and book state]
     Owner --> State[Schema2: period observations plus ready label]
     State --> Commit[Existing state store and ACK / state codec v2]
     Commit --> Full[Complete schema2 state artifact]
@@ -21943,7 +21955,8 @@ flowchart LR
     Coordinate --> Publish[Optional v1 immutable publication and actual codec readback]
     Full -->|Full selected acquisition| Publish
     Publish --> Fresh[Fresh ACK, manifest and blob integrity]
-    Fresh --> Report[Compact schema2 final report]
+    Fresh --> Close[Host closes operation and disposes held acquisition]
+    Close --> Report[Compact schema2 final report]
     Report --> Edge[Bounded CLI or MCP reply]
     Report --> Resolve[Trusted local evidence resolver]
     Full --> Resolve

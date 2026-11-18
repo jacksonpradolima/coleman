@@ -396,6 +396,12 @@ class Layout:
         """
         selected = COORDINATE_RESULT.validate(value)
         store, _checkpoint = self.open_resolved(selected)
+        return self._publish_verified_bytes(store, selected)
+
+    def _publish_verified_bytes(
+        self, store: LocalStateStore, selected: PortfolioCoordinateResultV2
+    ) -> PortfolioCoordinateResultV2:
+        """Write/read actual bytes only after this operation's full state audit."""
         content = COORDINATE_RESULT.encode(selected)
         path = self.context.artifact_directory / "coordinate-result.json"
         ArtifactWriter(self.context.artifact_directory).write_immutable(path, content)
