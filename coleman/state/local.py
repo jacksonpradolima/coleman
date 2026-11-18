@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Callable
 from pathlib import Path
+from types import MethodType
 from typing import Self
 
 from coleman.artifacts import ArtifactWriter
@@ -306,8 +307,21 @@ class LocalStateStore:
                 values = stage._export()  # pylint: disable=protected-access
             finally:
                 stage._close()  # pylint: disable=protected-access
-            new = _prepare.build(manifest.definition, compatibility, request, values, bindings, self.limits)
+            publication = (
+                _prepare._build_for_publish(  # pylint: disable=protected-access
+                    manifest.definition, compatibility, request, values, bindings, self.limits
+                )
+                if _stock_publication(self)
+                else None
+            )
+            new = (
+                _prepare.build(manifest.definition, compatibility, request, values, bindings, self.limits)
+                if publication is None
+                else publication.prepared
+            )
             self._validate_successor(old, new)
+            if publication is not None and publication.values is not None:
+                return _publish_built(self, database, request, publication)
             return self._publish(database, request, new)
 
     def migrate(
@@ -561,32 +575,8 @@ class LocalStateStore:
         """Publish complete bytes then atomically accept head, receipt and floor."""
         self._barrier("before_blobs")
         content = _prepare.encoded(prepared.manifest.definition, prepared.values, self.limits)
-        for index, item in enumerate(content):
-            _disk.publish(self.root, "blobs", item.content, self.limits.maximum_component_bytes)
-            self._barrier("after_blob", component=index)
-        _disk.publish(
-            self.root, "manifests", prepared.manifest.to_json().encode("utf-8"), self.limits.maximum_manifest_bytes
-        )
-        self._barrier("after_manifest")
-        _garbage.candidate_limits(self.root, database, self.limits)
-        accepted = _disk.make_head(prepared.manifest)
-        database.execute("UPDATE state SET ever_initialized=1,head=? WHERE singleton=1", (accepted.to_json(),))
-        database.execute(
-            "INSERT INTO receipts VALUES (?,?,?,?)",
-            (
-                request.intent.generation,
-                request.intent.to_json(),
-                None if request.expected is None else request.expected.to_json(),
-                accepted.to_json(),
-            ),
-        )
-        floor = max(0, accepted.generation - self.limits.receipt_window + 1)
-        database.execute("DELETE FROM receipts WHERE generation < ?", (floor,))
-        self._barrier("after_head_update")
-        _disk.usage(self.root, self.limits)
-        _disk.commit(database, self.limits.lock_wait_seconds)
-        self._barrier("after_commit")
-        return CommitReceipt(schema_version=1, status="new", accepted_head=accepted, current_head=accepted)
+        _prepare._verify_publication_content(prepared, content, self.limits)  # pylint: disable=protected-access
+        return _publish_content(self, database, request, prepared, content)
 
     @staticmethod
     def _validate_successor(old: PreparedCollection, new: PreparedCollection) -> None:
@@ -600,3 +590,65 @@ class LocalStateStore:
 
     def _barrier(self, phase: str, *, component: int | None = None) -> None:
         """Expose a private no-op process-fault observation point for qualification."""
+
+
+_STOCK_PUBLISH = LocalStateStore._publish  # pylint: disable=protected-access
+
+
+def _stock_publication(store: LocalStateStore) -> bool:
+    """Preserve custom publish dispatch without excluding actual fault barriers."""
+    if type(store).__getattribute__ is not object.__getattribute__:
+        return False
+    descriptor = next((cls.__dict__["_publish"] for cls in type(store).__mro__ if "_publish" in cls.__dict__), None)
+    storage = LocalStateStore.__dict__["__dict__"].__get__(store, type(store))  # pylint: disable=unnecessary-dunder-call
+    if descriptor is not _STOCK_PUBLISH or "_publish" in storage:
+        return False
+    method = store._publish  # pylint: disable=protected-access
+    return type(method) is MethodType and method.__self__ is store and method.__func__ is _STOCK_PUBLISH  # pylint: disable=unidiomatic-typecheck
+
+
+def _publish_built(
+    store: LocalStateStore, database: sqlite3.Connection, request: CommitRequest, publication: _prepare._Publication
+) -> CommitReceipt:
+    """Use only this transition's original admission after the real fault barrier."""
+    store._barrier("before_blobs")  # pylint: disable=protected-access
+    if not _stock_publication(store):
+        raise ValueError("Stock publication dispatch changed during callbacks")
+    content = _prepare._publication_content(publication, store.limits)  # pylint: disable=protected-access
+    return _publish_content(store, database, request, publication.prepared, content)
+
+
+def _publish_content(
+    store: LocalStateStore,
+    database: sqlite3.Connection,
+    request: CommitRequest,
+    prepared: PreparedCollection,
+    content: tuple[_prepare.StateBytes, ...],
+) -> CommitReceipt:
+    """Keep the original blob/manifest/fault/SQL acknowledgement sequence."""
+    for index, item in enumerate(content):
+        _disk.publish(store.root, "blobs", item.content, store.limits.maximum_component_bytes)
+        store._barrier("after_blob", component=index)  # pylint: disable=protected-access
+    _disk.publish(
+        store.root, "manifests", prepared.manifest.to_json().encode("utf-8"), store.limits.maximum_manifest_bytes
+    )
+    store._barrier("after_manifest")  # pylint: disable=protected-access
+    _garbage.candidate_limits(store.root, database, store.limits)
+    accepted = _disk.make_head(prepared.manifest)
+    database.execute("UPDATE state SET ever_initialized=1,head=? WHERE singleton=1", (accepted.to_json(),))
+    database.execute(
+        "INSERT INTO receipts VALUES (?,?,?,?)",
+        (
+            request.intent.generation,
+            request.intent.to_json(),
+            None if request.expected is None else request.expected.to_json(),
+            accepted.to_json(),
+        ),
+    )
+    floor = max(0, accepted.generation - store.limits.receipt_window + 1)
+    database.execute("DELETE FROM receipts WHERE generation < ?", (floor,))
+    store._barrier("after_head_update")  # pylint: disable=protected-access
+    _disk.usage(store.root, store.limits)
+    _disk.commit(database, store.limits.lock_wait_seconds)
+    store._barrier("after_commit")  # pylint: disable=protected-access
+    return CommitReceipt(schema_version=1, status="new", accepted_head=accepted, current_head=accepted)

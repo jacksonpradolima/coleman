@@ -44,6 +44,13 @@ class _GraphBudget:
 
 def _quoted_size(value: str, remaining: int) -> int:
     """Count exact unescaped-UTF8 JSON string bytes without a large temporary."""
+    # Common field names/digests need no Python loop. The lower bound precedes
+    # scanning, so an oversized input retains the early bounded legacy path.
+    if len(value) + 2 <= remaining and value.isascii() and value.isprintable():
+        size = len(value) + 2 + value.count('"') + value.count("\\")
+        if size > remaining:
+            raise ValueError("Graph byte budget exceeded by a UTF-8/escaped string")
+        return size
     size = 2
     for character in value:
         code = ord(character)
@@ -100,6 +107,22 @@ def _number_size(value: bool | int | float, remaining: int) -> int:
 def _visit_graph(value: Any, depth: int, active: set[int], budget: _GraphBudget) -> None:
     """Traverse with an ancestor set so aliases are charged per occurrence."""
     budget.item()
+    kind = type(value)
+    # Exact built-ins cannot be BaseModel subclasses. Dispatching them directly
+    # avoids repeated metaclass checks and temporary sets without skipping any
+    # occurrence, scalar validation or container bound.
+    if kind is str:
+        budget.charge(_quoted_size(value, budget.maximum_bytes - budget.bytes))
+        return
+    if kind is int or kind is float or kind is bool:
+        budget.charge(_number_size(value, budget.maximum_bytes - budget.bytes))
+        return
+    if value is None:
+        budget.charge(4)
+        return
+    if kind is dict or kind is list or kind is tuple or kind is set or kind is frozenset:
+        _visit_container(value, depth, active, budget)
+        return
     if isinstance(value, BaseModel):
         identity = id(value)
         if identity in active:
@@ -108,9 +131,11 @@ def _visit_graph(value: Any, depth: int, active: set[int], budget: _GraphBudget)
         _visit_graph(model_storage(value), depth, active, budget)
         active.remove(identity)
         return
-    if type(value) not in {dict, list, tuple, set, frozenset}:
-        budget.charge(_scalar_size(value, budget.maximum_bytes - budget.bytes))
-        return
+    budget.charge(_scalar_size(value, budget.maximum_bytes - budget.bytes))
+
+
+def _visit_container(value: Any, depth: int, active: set[int], budget: _GraphBudget) -> None:
+    """Apply the original bounds to an already selected exact built-in container."""
     if depth >= 64:
         raise ValueError("Graph container depth exceeds 64 before validation")
     identity = id(value)

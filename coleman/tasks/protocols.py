@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 
 from coleman.core.identity import Reference
 from coleman.core.primitives import Fingerprint
@@ -329,6 +330,164 @@ class OwnedContinuation[S, P](ProgressVerifier[P], Protocol):
             Exact immutable plan, coordinate and runtime bindings.
         """
         ...
+
+
+class PublicationReadbackV1[W, R](Protocol):
+    """Optionally publish and reread one coordinate in a single owned operation.
+
+    Notes
+    -----
+    Trusted prepared providers may expose this capability through an optional
+    ``publication_readback`` attribute. Absence or None retains the separate
+    ``publish_coordinate`` and ``read_completed`` operations. The only supported
+    profile is ``coleman-coordinate-publication-readback`` version ``1``; its
+    identity is a contract declaration, not proof of storage or authentication.
+
+    A provider must perform the actual immutable publication and bounded typed
+    readback, including its original source, integrity and current-ACK checks.
+    Only complete evidence acquired within that operation may be reused. No
+    caller supplies a snapshot, validation token or cross-call cached authority.
+    The common host still validates input and output through the selected result
+    codec and requires identical complete canonical bytes. Existing standalone
+    readers and publishers remain independently usable and fresh.
+    """
+
+    @property
+    def profile(self) -> Reference:
+        """Declare the exact supported publication/readback semantic profile.
+
+        Returns
+        -------
+        Reference
+            ``coleman-coordinate-publication-readback`` at version ``1``.
+            No state, storage receipt or execution authority is returned.
+        """
+        ...
+
+    def publish_and_read(self, coordinate: W, value: R, context: CoordinateContext, /) -> R:
+        """Write and actually reread the complete coordinate result.
+
+        Parameters
+        ----------
+        coordinate : W
+            Exact decoded coordinate under the independently captured provider.
+        value : R
+            Complete result revalidated with the selected concrete result codec.
+            Its units, missingness and original producer retain their meanings.
+        context : CoordinateContext
+            Actual trusted artifact directory, source, runtime and coordinate
+            bindings; no request-selected path or receipt substitute.
+
+        Returns
+        -------
+        R
+            Actual bounded typed readback, retaining every declared result field
+            and its canonical bytes. None does not represent completion.
+
+        Raises
+        ------
+        ValueError, TypeError, OSError
+            Incompatible input, changed evidence or source, failed publication,
+            missing readback or mismatched current acknowledgement.
+
+        Notes
+        -----
+        May write the fixed immutable coordinate artifact and inspect its actual
+        current storage. Publication and readback are not an atomic transaction:
+        an error may leave a valid artifact or an earlier mathematical ACK.
+        Reconcile actual retained evidence after an uncertain response. This
+        grants no job-completion or exactly-once external-effect guarantee.
+        """
+        ...
+
+
+class CoordinateOperationV1[W, R, O, P](Protocol):
+    """Optionally acquire a prepared executor for one bounded coordinate scope.
+
+    Notes
+    -----
+    Trusted prepared providers may expose ``coordinate_operation``. Absence or
+    None keeps the existing standalone operations. The host owns the finite
+    loop, reservations, resource guards, concrete codecs and progress ordering.
+    The scope may reuse complete actual acquisitions only within this operation;
+    it must retain original ACK, source, current-head and integrity checks.
+    No caller supplies a snapshot, validation token or cross-operation cache.
+    """
+
+    @property
+    def profile(self) -> Reference:
+        """Declare the supported coordinate-operation semantic profile.
+
+        Returns
+        -------
+        Reference
+            ``coleman-coordinate-operation`` at version ``1``. This declaration
+            is neither a storage acknowledgement nor execution authority.
+        """
+        ...
+
+    def open(
+        self, coordinate: W, context: CoordinateContext, /
+    ) -> AbstractContextManager[PreparedExecutor[W, R, O, P]]:
+        """Acquire operations for one coordinate and dispose them on exit.
+
+        Parameters
+        ----------
+        coordinate : W
+            Exact selected decoded coordinate, never a metadata-derived frontier.
+        context : CoordinateContext
+            Actual retained plan, source, runtime and artifact bindings.
+
+        Returns
+        -------
+        contextlib.AbstractContextManager
+            Bounded prepared operations, valid only between enter and exit.
+            Separate scopes own separate acquisitions and cannot share mutable
+            continuation authority. Exceptions must propagate after cleanup.
+
+        Raises
+        ------
+        ValueError, TypeError, OSError
+            Incompatible context, corrupt or unavailable evidence, or failed
+            acquisition/cleanup. Earlier accepted effects are not rolled back.
+
+        Notes
+        -----
+        Closing a scope does not roll back an earlier mathematical update, ACK
+        or immutable publication. Reconcile actual retained evidence after an
+        uncertain response. Standalone APIs remain independently fresh.
+        """
+        ...
+
+
+def coordinate_operation(value: object) -> CoordinateOperationV1 | None:
+    """Select only the known optional capability on an actual prepared provider.
+
+    Parameters
+    ----------
+    value : object
+        Independently captured trusted prepared implementation, not request JSON.
+
+    Returns
+    -------
+    CoordinateOperationV1 or None
+        Supported scope handler, or the unchanged standalone execution path.
+
+    Raises
+    ------
+    ValueError, TypeError
+        Malformed or unsupported profile, or a missing callable scope opener.
+        Unknown future profiles never silently select the standalone path.
+    """
+    capability = getattr(value, "coordinate_operation", None)
+    if capability is None:
+        return None
+    profile = Reference.model_validate(getattr(capability, "profile", None))
+    if profile != Reference(id="coleman-coordinate-operation", version="1"):
+        raise ValueError("Unsupported task coordinate operation profile")
+    if not callable(getattr(capability, "open", None)):
+        raise TypeError("Task coordinate operation capability requires its concrete scope opener")
+    return cast(CoordinateOperationV1, capability)
 
 
 class PreparedExecutor[W, R, O, P](Protocol):

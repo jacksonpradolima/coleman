@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from coleman.application.execution_program import CoordinateWork, ExecutionProgram
 from coleman.application.executor_capture import load_approved_executor
@@ -19,11 +20,14 @@ from coleman.tasks.protocols import (
     AttemptContext,
     CommittedProgress,
     CoordinateContext,
+    CoordinateOperationV1,
     PreparationContext,
     PreparedExecutor,
     ProgressVerifier,
+    PublicationReadbackV1,
     StageBoundary,
     ValueCodec,
+    coordinate_operation,
     decode_value,
     encode_value,
 )
@@ -158,6 +162,13 @@ class _Prepared:
     result_codec: ValueCodec[Any]
     boundary: StageBoundary[Any, TaskCompletion]
     progress_verifier: ProgressVerifier[Any] | None
+    progress_codec: ValueCodec[Any] | None = None
+
+    @property
+    def coordinate_operation(self) -> CoordinateOperationV1[Any, Any, Any, Any] | None:
+        """Wrap an optional scope with the same declared concrete host codecs."""
+        selected = coordinate_operation(self.selected)
+        return None if selected is None else _CoordinateOperation(selected, self)
 
     def read_completed(self, coordinate: Any, context: CoordinateContext, /) -> Any | None:
         """Read and concretely validate retained evidence; corruption is an error."""
@@ -177,11 +188,127 @@ class _Prepared:
 
     def publish_coordinate(self, coordinate: Any, value: Any, context: CoordinateContext, /) -> None:
         """Publish through the owner, then verify its complete concrete readback."""
+        publication = _publication_readback(self.selected)
         encoded = encode_value(self.result_codec, value)
-        self.selected.publish_coordinate(coordinate, decode_value(self.result_codec, encoded), context)
-        retained = self.read_completed(coordinate, context)
+        if publication is None:
+            self.selected.publish_coordinate(coordinate, decode_value(self.result_codec, encoded), context)
+            retained = self.read_completed(coordinate, context)
+        else:
+            actual = publication.publish_and_read(coordinate, decode_value(self.result_codec, encoded), context)
+            retained = (
+                None if actual is None else decode_value(self.result_codec, encode_value(self.result_codec, actual))
+            )
         if retained is None or encode_value(self.result_codec, retained) != encoded:
             raise ValueError("Task coordinate publication differs from its concrete complete result")
+
+
+@dataclass
+class _Lifetime:
+    """Reject leaked host operations after their own scope has closed."""
+
+    active: bool = True
+
+    def require_open(self) -> None:
+        """Refuse use outside the corresponding entered coordinate operation."""
+        if not self.active:
+            raise ValueError("Task coordinate operation is closed")
+
+
+@dataclass(frozen=True)
+class _ScopedProgress:
+    """Preserve concrete proof validation while binding its callback lifetime."""
+
+    selected: ProgressVerifier[Any]
+    lifetime: _Lifetime
+
+    def validate(self, progress: CommittedProgress[Any], context: CoordinateContext, /) -> None:
+        """Require the same live scope before proof and actual ACK verification."""
+        self.lifetime.require_open()
+        self.selected.validate(progress, context)
+
+    def reconcile(self, context: CoordinateContext, /) -> CommittedProgress[Any] | None:
+        """Recover evidence only while its coordinate operation remains open."""
+        self.lifetime.require_open()
+        return self.selected.reconcile(context)
+
+
+@dataclass(frozen=True)
+class _ScopedPrepared:
+    """Expose only lifetime-bound concrete operations to the common driver."""
+
+    selected: _Prepared
+    lifetime: _Lifetime
+
+    @property
+    def boundary(self) -> StageBoundary[Any, TaskCompletion]:
+        """Retain the already-selected outer scientific stage boundary."""
+        self.lifetime.require_open()
+        return self.selected.boundary
+
+    @property
+    def progress_verifier(self) -> ProgressVerifier[Any] | None:
+        """Keep a captured verifier unusable after closing this exact scope."""
+        self.lifetime.require_open()
+        selected = self.selected.progress_verifier
+        return None if selected is None else _ScopedProgress(selected, self.lifetime)
+
+    def read_completed(self, coordinate: Any, context: CoordinateContext, /) -> Any | None:
+        """Read complete concrete evidence within this live operation."""
+        self.lifetime.require_open()
+        return self.selected.read_completed(coordinate, context)
+
+    def advance(
+        self, coordinate: Any, context: AttemptContext, committed: Callable[[CommittedProgress[Any]], None], /
+    ) -> Any:
+        """Preserve the reserved attempt and common progress callback."""
+        self.lifetime.require_open()
+        return self.selected.advance(coordinate, context, committed)
+
+    def publish_coordinate(self, coordinate: Any, value: Any, context: CoordinateContext, /) -> None:
+        """Publish and validate actual readback before this operation closes."""
+        self.lifetime.require_open()
+        self.selected.publish_coordinate(coordinate, value, context)
+
+
+@dataclass(frozen=True)
+class _CoordinateOperation:
+    """Apply existing result and proof codecs to an optional acquired provider."""
+
+    selected: CoordinateOperationV1[Any, Any, Any, Any]
+    parent: _Prepared
+
+    @property
+    def profile(self) -> Reference:
+        """Retain the actual provider declaration for the pre-open check."""
+        return self.selected.profile
+
+    @contextmanager
+    def open(self, coordinate: Any, context: CoordinateContext, /) -> Iterator[_ScopedPrepared]:
+        """Close on every path and never suppress a common-driver failure."""
+        lifetime = _Lifetime()
+        failure: BaseException | None = None
+        try:
+            with self.selected.open(coordinate, context) as selected:
+                try:
+                    _require_capabilities(selected, require_progress=self.parent.progress_verifier is not None)
+                    wrapped = _Prepared(
+                        selected,
+                        self.parent.result_codec,
+                        self.parent.boundary,
+                        _progress(selected, self.parent.progress_codec),
+                        self.parent.progress_codec,
+                    )
+                    yield _ScopedPrepared(wrapped, lifetime)
+                except BaseException as error:
+                    # Cleanup must cover cancellation and process-level interrupts too.
+                    failure = error
+                    raise
+                finally:
+                    lifetime.active = False
+            if failure is not None:
+                raise failure  # A provider cannot turn a suppressed driver error into success.
+        finally:
+            lifetime.active = False
 
 
 def prepare_task_program(
@@ -271,6 +398,7 @@ def prepare_task_program(
             executor.coordinate_result_codec,
             _Boundary(selected.boundary, current, executor.final_result_codec),
             proof,
+            executor.progress_proof_codec,
         ),
         CompletionCodec(),
         lambda value: value.fingerprint,
@@ -291,13 +419,57 @@ def _progress(
 
 def _require_prepared(value: object, plan: TaskPlan) -> None:
     """Refuse incomplete declared capabilities before reserving physical work."""
+    _require_capabilities(value, require_progress=plan.implementation.recipe.effects == "local_state")
+
+
+def _require_capabilities(value: object, *, require_progress: bool) -> None:
+    """Validate actual operations before entering the shared coordinate loop."""
     for name in ("read_completed", "advance", "publish_coordinate"):
         if not callable(getattr(value, name, None)):
             raise TypeError("Prepared task executor is missing a required coordinate operation")
     if not callable(getattr(getattr(value, "boundary", None), "produce", None)):
         raise TypeError("Prepared task executor requires a concrete stage boundary")
     verifier = getattr(value, "progress_verifier", None)
-    if plan.implementation.recipe.effects == "local_state" and verifier is None:
+    if require_progress and verifier is None:
         raise ValueError("A local-state task requires actual progress verification and reconciliation")
     if verifier is not None and not all(callable(getattr(verifier, name, None)) for name in ("validate", "reconcile")):
         raise TypeError("Task progress capability requires actual validation and reconciliation")
+    _publication_readback(value)
+    coordinate_operation(value)
+
+
+def _publication_readback(value: object) -> PublicationReadbackV1[Any, Any] | None:
+    """Validate optional trusted capability metadata before physical publication.
+
+    Parameters
+    ----------
+    value : object
+        Actual prepared provider from the independently captured implementation.
+
+    Returns
+    -------
+    PublicationReadbackV1 or None
+        Supported complete operation, or the unchanged legacy publication path.
+
+    Raises
+    ------
+    ValueError, TypeError
+        Malformed or unknown profile, or a missing concrete operation. Unknown
+        future versions never silently select the legacy path.
+
+    Notes
+    -----
+    Runs during preparation before reservation and again before publication.
+    Reads only the provider's capability declaration, never a request flag,
+    artifact-selected executable, cached snapshot or storage acknowledgement.
+    The declared profile is not evidence that its callbacks performed I/O.
+    """
+    capability = getattr(value, "publication_readback", None)
+    if capability is None:
+        return None
+    profile = Reference.model_validate(getattr(capability, "profile", None))
+    if profile != Reference(id="coleman-coordinate-publication-readback", version="1"):
+        raise ValueError("Unsupported task coordinate publication/readback profile")
+    if not callable(getattr(capability, "publish_and_read", None)):
+        raise TypeError("Task publication/readback capability requires its concrete operation")
+    return cast(PublicationReadbackV1[Any, Any], capability)

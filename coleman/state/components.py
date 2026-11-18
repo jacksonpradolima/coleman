@@ -8,13 +8,14 @@ from dataclasses import dataclass, fields, is_dataclass
 from datetime import datetime, time
 from decimal import Decimal
 from math import isfinite
-from typing import Any, cast
+from types import MethodType
+from typing import Any, Self, cast
 
 from pydantic import BaseModel
 
-from coleman.core.base import CoreContract
+from coleman.core.base import CoreContract, VersionedContract
 from coleman.core.identity import Reference
-from coleman.core.primitives import fingerprint
+from coleman.core.primitives import canonical_json, fingerprint
 from coleman.core.protocols import Stateful
 from coleman.core.reading import bounded_json_bytes
 from coleman.replay.retained_contracts import RetainedContinuation
@@ -64,7 +65,8 @@ def _scalar_signature(value: Any) -> Hashable:
     return type(value), value
 
 
-def _state_signature(value: Any) -> Hashable:
+# Preserve a separate return for each original representation and callback/error path.
+def _state_signature(value: Any) -> Hashable:  # pylint: disable=too-many-return-statements
     """Compare declared typed fields without invoking model equality overrides.
 
     Parameters
@@ -87,7 +89,13 @@ def _state_signature(value: Any) -> Hashable:
     Reads only declared fields; private implementation caches are not captured.
     The host still owns snapshot completeness. Validators and serializers must
     remain pure and deterministic; this is not an arbitrary-Python sandbox.
+    Exact builtin text, integers, booleans, bytes and None retain their existing
+    type-tagged values without model/container introspection. Subclasses and
+    other scalar representations follow the original comparison checks.
     """
+    kind = type(value)
+    if kind is str or kind is int or kind is bool or value is None or kind is bytes:
+        return kind, value
     if isinstance(value, BaseModel):
         return type(value), tuple((name, _state_signature(getattr(value, name))) for name in type(value).model_fields)
     if is_dataclass(value) and not isinstance(value, type):
@@ -245,11 +253,7 @@ class ComponentCodec[S: CoreContract]:
         fields, including nested values. Private implementation caches are not
         inferred; every value needed for continuation belongs in declared state.
         """
-        content, signature = self._canonical_state(state)
-        restored = self.decode(content)
-        if signature != _state_signature(restored):
-            raise ValueError("Component codec must recover the exact complete declared state")
-        return StateBytes(self.binding, content)
+        return _encode_with_signature(self, state)[0]
 
     def _canonical_state(self, state: S) -> tuple[bytes, Hashable]:
         """Validate concrete binding and bounded canonical bytes without recursion.
@@ -275,6 +279,10 @@ class ComponentCodec[S: CoreContract]:
         -----
         Calls trusted pure validators/serialization only. It never calls encode,
         decode, an owner or storage; both public methods share this primitive.
+        After full validation, the unchanged inherited core writer can dump the
+        checked value directly. Custom method-level writers still execute their
+        own contract. The inherited route still executes Pydantic field/model
+        serializers; selected-reader and typed round-trip checks apply to both.
         """
         if type(state) is not self.state_type:  # pylint: disable=unidiomatic-typecheck
             raise TypeError("Component value must have its exact declared concrete type")
@@ -282,11 +290,30 @@ class ComponentCodec[S: CoreContract]:
         embedded = getattr(checked, "binding", None)
         if embedded is not None and embedded != self.binding:
             raise ValueError("Component embedded binding differs from its declared codec")
-        content = bounded_json_bytes(checked.to_json(), 16 * 1024**2)
+        encoded = (
+            canonical_json(checked.model_dump(mode="json"))
+            if self.state_type.to_json is VersionedContract.to_json
+            else checked.to_json()
+        )
+        content = bounded_json_bytes(encoded, 16 * 1024**2)
         signature = _state_signature(checked)
         if checked is not state and signature != _state_signature(state):
             raise ValueError("Component validation must preserve the exact complete declared state")
         return content, signature
+
+
+def _encode_with_signature[S: CoreContract](codec: ComponentCodec[S], state: S) -> tuple[StateBytes, Hashable]:
+    """Run the full encoder and retain its own signature before its reader.
+
+    Both outputs come from this actual admission call. No caller can supply a
+    signature, validation decision or encoded witness. Callback order, complete
+    canonical/binding/bounds checks and public encoder errors remain identical.
+    """
+    content, signature = codec._canonical_state(state)  # pylint: disable=protected-access
+    restored = codec.decode(content)
+    if signature != _state_signature(restored):
+        raise ValueError("Component codec must recover the exact complete declared state")
+    return StateBytes(codec.binding, content), signature
 
 
 @dataclass(frozen=True)
@@ -311,6 +338,96 @@ class ComponentValue[S: CoreContract]:
     def __post_init__(self) -> None:
         """Validate the actual concrete value without erasing its fields."""
         self.codec.encode(self.value)
+
+    @classmethod
+    def from_bytes(cls, codec: ComponentCodec[S], payload: bytes) -> Self:
+        """Admit complete owned bytes through both actual selected-reader calls.
+
+        Parameters
+        ----------
+        codec : ComponentCodec
+            Explicit complete concrete interpretation and immutable outer binding.
+            Custom codec/value subclasses and overridden hooks retain the
+            ordinary decode-then-constructor sequence.
+        payload : bytes
+            Immutable complete canonical UTF-8 JSON, at most 16 MiB/depth 64.
+
+        Returns
+        -------
+        Self
+            The first freshly decoded complete value and its original codec.
+            No owner, file, factory or durable acknowledgement is accessed.
+
+        Raises
+        ------
+        ValueError, TypeError, UnicodeError
+            Invalid outer binding, mutable/invalid/oversized bytes, unsupported
+            fields/versions, noncanonical serialization or nonrepeatable declared
+            state, including reader defaults excluded from the JSON writer.
+
+        Notes
+        -----
+        Both actual selected readers run. The first complete typed signature is
+        captured before the second read, so that read cannot hide a change by
+        mutating the first object. Each stock decode retains its full concrete
+        validation, binding, canonical-byte and typed-preservation checks. Only
+        the redundant intervening encode is omitted for unmodified base codecs
+        and value construction hooks. No caller-supplied validation flag, cache
+        or trust token is accepted. Ordinary construction and encoding retain
+        their existing independent admission behavior and exact byte format.
+        Selected callbacks retain the existing pure, deterministic codec
+        contract; framework implementations remain unchanged during the call.
+        """
+        if not _stock_value_reader(cls, codec):
+            return cls(codec, codec.decode(payload))
+        first = codec.decode(payload)
+        signature = _state_signature(first)
+        second = codec.decode(payload)
+        if signature != _state_signature(second):
+            raise ValueError("Component codec must recover the exact complete declared state")
+        StateBytes(codec.binding, payload)
+        result = object.__new__(cls)
+        object.__setattr__(result, "codec", codec)
+        object.__setattr__(result, "value", first)
+        return result
+
+
+# Immutable dispatch identities, not snapshot/validation caches. Exact class
+# descriptors and bound methods preserve all existing custom admission hooks.
+_STOCK_CODEC_METHODS = tuple((name, ComponentCodec.__dict__[name]) for name in ("decode", "encode", "_canonical_state"))
+_STOCK_CODEC_FIELDS = tuple(
+    (name, name in ComponentCodec.__dict__, ComponentCodec.__dict__.get(name)) for name in ("binding", "state_type")
+)
+_STOCK_VALUE_HOOKS = tuple(
+    (name, name in ComponentValue.__dict__, ComponentValue.__dict__.get(name))
+    for name in ("__init__", "__post_init__", "__new__", "__getattribute__", "codec", "value")
+)
+_STOCK_CODEC_GETATTRIBUTE = ComponentCodec.__getattribute__
+
+
+def _stock_value_reader(cls: type[ComponentValue[Any]], codec: ComponentCodec[Any]) -> bool:
+    """Select only unchanged own dispatch; preserve every custom fallback hook."""
+    if cls is not ComponentValue or type(codec) is not ComponentCodec:  # pylint: disable=unidiomatic-typecheck
+        return False
+    if any(
+        (name in ComponentValue.__dict__) != present or ComponentValue.__dict__.get(name) is not expected
+        for name, present, expected in _STOCK_VALUE_HOOKS
+    ):
+        return False
+    if ComponentCodec.__getattribute__ is not _STOCK_CODEC_GETATTRIBUTE or any(
+        (name in ComponentCodec.__dict__) != present or ComponentCodec.__dict__.get(name) is not expected
+        for name, present, expected in _STOCK_CODEC_FIELDS
+    ):
+        return False
+    storage = object.__getattribute__(codec, "__dict__")
+    for name, expected in _STOCK_CODEC_METHODS:
+        if name in storage or ComponentCodec.__dict__.get(name) is not expected:
+            return False
+        method = getattr(codec, name)
+        # Exact stock binding is required; accepting custom dispatch skips its hooks.
+        if type(method) is not MethodType or method.__self__ is not codec or method.__func__ is not expected:  # pylint: disable=unidiomatic-typecheck
+            return False
+    return True
 
 
 @dataclass(frozen=True)
@@ -402,6 +519,15 @@ class PreparedCollection:
         raise ValueError("Requested concrete component is absent or incompatible")
 
 
+@dataclass(frozen=True)
+class _RestoreExport:
+    """Retain this operation's actual full encode and pre-reader typed state."""
+
+    value: ComponentValue[Any]
+    encoded: StateBytes
+    signature: Hashable
+
+
 class StagedCollection:  # pylint: disable=too-few-public-methods
     """Hold fresh restored owners for exactly one trusted local transition.
 
@@ -461,6 +587,90 @@ class StagedCollection:  # pylint: disable=too-few-public-methods
         return tuple(
             ComponentValue(binding.codec, cast(Stateful[Any], owner).export_state()) for binding, owner in self._entries
         )
+
+    def _export_for_restore(self) -> tuple[_RestoreExport, ...]:
+        """Capture real exports only for this stock restoration comparison.
+
+        Returns
+        -------
+        tuple
+            Complete values, actual canonical encode results and typed signatures
+            captured before their selected readers. No byte or field is omitted.
+
+        Raises
+        ------
+        ValueError, TypeError
+            Changed stock dispatch or a value mutated during codec admission.
+            The enclosing stage invalidates itself on any failure.
+
+        Notes
+        -----
+        This private path retains the ordinary constructor's actual full encode.
+        Only its already-audited bytes are reused within the same comparison;
+        the second selected reader still runs before restoration is accepted.
+        Ordinary export and publication paths remain independent full audits.
+        """
+        if not _stock_restore_stage(self):
+            raise ValueError("Stock stage admission changed during owner callbacks")
+        exports = []
+        for binding, owner in self._entries:
+            codec = binding.codec
+            if not _stock_value_reader(ComponentValue, codec):
+                raise ValueError("Stock restore admission changed during owner callbacks")
+            snapshot = cast(Stateful[Any], owner).export_state()
+            encoded, signature = _encode_with_signature(codec, snapshot)
+            if signature != _state_signature(snapshot):
+                raise ValueError("Restored component changed during codec admission")
+            value = object.__new__(ComponentValue)
+            object.__setattr__(value, "codec", codec)
+            object.__setattr__(value, "value", snapshot)
+            exports.append(_RestoreExport(value, encoded, signature))
+        return tuple(exports)
+
+
+# Dispatch metadata only: no snapshots, bytes or validation decisions are cached.
+_STOCK_RESTORE_NAMESPACES = tuple(
+    (cls, tuple(cls.__dict__.items())) for cls in (ComponentValue, ComponentBinding, StagedCollection)
+)
+
+
+def _restore_types_unchanged() -> bool:
+    """Check stock descriptors before looking up any caller's component fields."""
+    return all(
+        len(cls.__dict__) == len(expected)
+        and all(name in cls.__dict__ and cls.__dict__[name] is value for name, value in expected)
+        for cls, expected in _STOCK_RESTORE_NAMESPACES
+    )
+
+
+def _stock_restore_exports(
+    values: tuple[ComponentValue[Any], ...], bindings: tuple[ComponentBinding[Any, Any], ...]
+) -> bool:
+    """Choose a whole stock operation before any owner export is invoked."""
+    # Preserve the existing bounded-inventory error path without enumerating a
+    # generator or touching a custom value/binding attribute during selection.
+    # pylint: disable=unidiomatic-typecheck
+    if type(values) is not tuple or type(bindings) is not tuple or not _restore_types_unchanged():
+        return False
+    if not 1 <= len(values) <= 128 or not 1 <= len(bindings) <= 128:
+        return False
+    if any(type(item) is not ComponentValue for item in values) or any(
+        type(item) is not ComponentBinding for item in bindings
+    ):
+        return False
+    codecs = tuple(item.codec for item in values) + tuple(item.codec for item in bindings)
+    return all(
+        _stock_value_reader(ComponentValue, codec) and codec.state_type.to_json is VersionedContract.to_json
+        for codec in codecs
+    )
+
+
+def _stock_restore_stage(staged: StagedCollection) -> bool:
+    """Preserve subclass or per-instance export hooks through the old path."""
+    if type(staged) is not StagedCollection or not _restore_types_unchanged():  # pylint: disable=unidiomatic-typecheck
+        return False
+    storage = object.__getattribute__(staged, "__dict__")
+    return not any(name in storage for name in ("_export", "_export_for_restore"))
 
 
 def child_frontier(continuation: RetainedContinuation[Any], *, child: Reference) -> ChildFrontier:

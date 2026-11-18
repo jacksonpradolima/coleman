@@ -384,7 +384,51 @@ the same declared field values and types before publication. This also preserves
 signed zero and Decimal precision. Validators and serializers must be pure and
 deterministic; the host still owns snapshot completeness. An invalid initial
 snapshot receives no acknowledgement; an invalid successor leaves the previous
-acknowledged head intact.
+acknowledged head intact. Exact builtin text, integer, boolean, bytes and null
+fields retain the same type-tagged comparison values directly; subclasses and
+other scalars keep their existing checks. This changes no reader, field,
+canonical byte, numeric representation or validation boundary.
+
+For the unchanged inherited core writer, the codec serializes the value it has
+just fully validated without repeating that same validation inside the writer.
+Field and model serializers remain active, and an overridden `to_json` retains
+its own writer path. Every route still passes the selected reader, canonical-byte
+and exact typed-field checks before publication. No snapshot validation is cached
+between calls, and the existing wire format and continuation rules are unchanged.
+
+Loading existing bytes uses `ComponentValue.from_bytes(codec, payload)`. For
+unchanged base codecs and value-construction hooks, it reuses the first complete
+read's canonical admission and still invokes the actual selected reader a second
+time. The first full typed-field signature is captured before that second read;
+even a changing reader default excluded from JSON must repeat exactly. The
+factory wraps the first value only after this comparison. Custom codec/value
+subclasses, overridden methods and construction hooks retain their original
+decode-then-constructor path. The direct constructor and encoder keep their
+independent admission checks. This adds no validation cache, approval flag,
+acknowledgement, new wire format or automatic compatibility with another runtime.
+
+Restoration also compares every real owner's complete re-export with its input.
+For unchanged stock admission, the comparison retains the actual full encode's
+canonical bytes within that operation and runs the second actual selected reader
+against those bytes. It checks the original typed signature before and after
+callbacks, exact bytes and bindings, including signed zero, Decimal quantum and
+declared fields excluded from JSON. Every owner exports before comparisons start;
+a later owner or reader cannot silently mutate an earlier input or export.
+Custom codec, value, stage and method-level writer hooks keep the original
+export-and-encode sequence. Ordinary exports and publication still perform their
+independent full checks. This reuse stores no state across calls and supplies no
+caller-controlled validation flag or durable acknowledgement.
+
+Within one stock local transition, the adapter also retains the complete bytes
+and signatures produced by that transition's actual build. The `before_blobs`
+fault boundary still runs first during publication. The adapter then rechecks
+the current fields and bindings, runs the second actual selected reader, and
+matches every byte count and digest to the complete manifest before writing.
+Later readers cannot silently change an earlier original or decoded state.
+Custom publication, codec, value and writer hooks retain their original path;
+fault-barrier subclasses still exercise the same optimized publication boundary.
+Initialization and migration retain their independent checks. These private
+values live only inside the current commit and authorize no later call or runtime.
 
 Passing `encode` establishes in-process admission; it cannot certify an
 arbitrary host serializer across future processes. In particular, Pydantic

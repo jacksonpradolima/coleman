@@ -390,6 +390,16 @@ an in-place parameter setter. These controlled variants have their own declared
 objective and feasibility limits; the reference regret statements above are not
 inherited.
 
+For repeated read-only observation within a controlled learner's sequential
+owner, `ControlledHedge.view_state()` returns its complete shared immutable
+`AlgorithmState`, already validated when committed. It includes pending panels,
+clocks, failures and movement usage; a later accepted transition replaces the
+state and leaves earlier views intact. This view performs no fresh validation,
+serialization, I/O or durable acknowledgement. Use `export_state()` for an
+independently revalidated snapshot or checkpoint staging. Serialization, input
+readers and restore continue to validate complete values. The view adds no
+concurrent-call guarantee or source authentication.
+
 ## Add decisions, replay or durable checkpointing when needed
 
 `DirectMixture` accepts the structural `MixtureLearner` protocol, including the

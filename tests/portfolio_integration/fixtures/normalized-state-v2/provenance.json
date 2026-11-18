@@ -1,0 +1,34 @@
+{
+  "source": "Public COLEMAN synthetic authored portfolio, retained PRE-normalization writer; no external consumer data.",
+  "writer_commit": "aa0255b5ba91d514f7050e3b13a7e540cc263968",
+  "writer_tree": "eab20ad5dbeed0c88d56cefb2736e8f9698f1582",
+  "original_component_sha256": "532721feaf7cd5cc3b642343ba3868fe478312c181fe3cf7e81394e2c289abf8",
+  "original_component_byte_count": 61071,
+  "fixture_hashes": {
+    "legacy-virgin-checkpoint-v1.json": "532721feaf7cd5cc3b642343ba3868fe478312c181fe3cf7e81394e2c289abf8",
+    "legacy-virgin-state-v1.json": "a1d4ec2c68c108769717f641ab30e1151c08f053e0f8260cab8a074aca03800a",
+    "normalized-virgin-state-v2.json": "1c11bd399ceea560609946a7fca71b21f8b141bfff05799697f4e8ce80ede213",
+    "emitted-two-state-v1.json": "66b58785aff3b347ca22e7631f3000ecc0b2b4b4fd7bc859a36963d6f86a8c41",
+    "emitted-two-state-v2.json": "69b72cd41887296cb7635b35ad23dcea88ff16c8e2f41a684f0de2aed9c75681",
+    "ready-two-state-v1.json": "6cef8d9f446ae40c97e1bc1ed665222a27a2710fd53e2ade7df51e744a6b94d3",
+    "ready-two-state-v2.json": "3473f88ac6a6af631ede6b89af46f1a5f811b79cc98f7d98829514ca58f91e53"
+  },
+  "independent_projection": [
+    "Decode retained original canonical checkpoint with Python standard json.",
+    "Select its complete experiment field without changing any value.",
+    "For expected normalized V2 only: delete top-level observations; change top-level schema_version from1 to2.",
+    "Serialize using standard json sorted keys, compact separators, ensure_ascii=False and allow_nan=False. No COLEMAN converter/serializer generated expected values."
+  ],
+  "limits": "Virgin fixture proves full legacy/default wire and explicit version choice. Nonempty/ready observations, continuation and malformed producer joins are separate real-component tests. Legacy writer implementation binding is historical; reading does not authorize current-image operational restore.",
+  "nonvirgin_writer": {
+    "command_profile": "Isolated Python -I -B from retained PRE-V2 C44 noneditable base/provider, outside checkout; two real original periods and real apply_feedback(2).",
+    "core_wheel_sha256": "5d6e8bb255e91ec90d5331c008de93d745383cb437086677ccca080243c10395",
+    "provider_wheel_sha256": "72c48fd2d9765c82cc566ff83df9a5027b7b2250b8ad994ddbb1f339210b2803",
+    "complete_installed_wheel_members_verified": {
+      "SDK": 536,
+      "provider": 17
+    },
+    "old_selected_typed_roundtrips": true,
+    "expected_v2_generation": "Only independent standard json deletion of observations and root schema_version=2; no new production converter/helpers."
+  }
+}
