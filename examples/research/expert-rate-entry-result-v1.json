@@ -1,0 +1,1300 @@
+{
+  "artifact_kind": "coleman-public-expert-rate-entry-result",
+  "decision": "retain_baselines",
+  "development_choice": {
+    "development_artifacts": [
+      {
+        "path": "r0-fixed-uniform/development.json",
+        "sha256": "3adbabb46f58138f2d2a9a5ec4aeef09dc61f261ac1619c16c37b63dc8ca79c2",
+        "size_bytes": 5502
+      },
+      {
+        "path": "r0-constant/development.json",
+        "sha256": "0ca0fee2fbe1f5623b5b5957bfc589772bac74f6998ab1f44a0688de30585e6c",
+        "size_bytes": 21229
+      },
+      {
+        "path": "r0-anytime/development.json",
+        "sha256": "2d769c1761103266218d1fa5b606eb8d8fe979f9795050029ae9558f040e83a0",
+        "size_bytes": 21120
+      },
+      {
+        "path": "r0-fixed-share/development.json",
+        "sha256": "4ec28043293bc5ff818b271aba4f701ee7c15980b0ee1dc1c1548be8e44f1ab6",
+        "size_bytes": 21682
+      },
+      {
+        "path": "r0-periodic/development.json",
+        "sha256": "2edd6cae3827924a9ce100a34ebbde5bb8e5434f5d2a12b289783197e36cb04a",
+        "size_bytes": 20494
+      }
+    ],
+    "protocol_content": "sha256:4f796903be352a1525f5b95bab046096795a38089cce3cd20ac7525e5a13611a",
+    "schema_version": 1,
+    "selected_family": "fixed-share",
+    "selected_slots": [
+      [
+        "fixed-uniform",
+        0
+      ],
+      [
+        "constant",
+        3
+      ],
+      [
+        "anytime",
+        3
+      ],
+      [
+        "fixed-share",
+        2
+      ],
+      [
+        "periodic",
+        0
+      ]
+    ]
+  },
+  "evidence_scope": {
+    "claims": "Finite descriptive mechanism, arithmetic, recovery and resource observations only; no empirical inference or new learner efficacy.",
+    "exposure": "known_exposed",
+    "independent_empirical_units": 0,
+    "kind": "constructed_mechanism"
+  },
+  "execution_profile": {
+    "environment": "Fresh interpreter processes, frozen base+cli installation, no coverage/PYTHONPATH/PYTHONHOME, no bytecode writes; existing interpreter/uv/OS caches were not cold or fully controlled.",
+    "location": "isolated source copy and noneditable SDK within ignored worktree cache; not literally outside checkout",
+    "outside_checkout_acceptance": "Separately qualified by mechanical8 test_noneditable_installed_outside_real_five_method_checkpoint_flows, not by this formal profile",
+    "resource_interpretation": "Parent Attempt wall/CPU covers each full child. Family worker measurements end before final publication; logical byte sums are not disk allocation or network traffic. Three physical repetitions/rotations are not independent empirical units."
+  },
+  "family_resources": [
+    {
+      "attempted_calls": 6048,
+      "family": "constant",
+      "logical_sizes_bytes": {
+        "logical_case_bytes": 3297462,
+        "logical_checkpoint_bytes": 1279701,
+        "protocol_input_bytes": 61989,
+        "typed_input_bytes": 39482
+      },
+      "raw_family_artifact": {
+        "path": "r0-constant/family.json",
+        "sha256": "86b1f1c6c519cd2275db695e16a66b095bfc1b37a269878682f456f77ac654dd",
+        "size_bytes": 3300275
+      },
+      "repetition": 0,
+      "worker_measurements": [
+        {
+          "direction": "minimize",
+          "meaning": "process_wall-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_wall",
+          "status": "observed",
+          "unit": "s",
+          "value": 25.426605332875624
+        },
+        {
+          "direction": "minimize",
+          "meaning": "process_cpu-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_cpu",
+          "status": "observed",
+          "unit": "s",
+          "value": 25.832652
+        },
+        {
+          "direction": "minimize",
+          "meaning": "peak_rss-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "peak_rss",
+          "status": "observed",
+          "unit": "MiB",
+          "value": 98.03125
+        }
+      ]
+    },
+    {
+      "attempted_calls": 6048,
+      "family": "anytime",
+      "logical_sizes_bytes": {
+        "logical_case_bytes": 3311214,
+        "logical_checkpoint_bytes": 1290849,
+        "protocol_input_bytes": 61989,
+        "typed_input_bytes": 39482
+      },
+      "raw_family_artifact": {
+        "path": "r0-anytime/family.json",
+        "sha256": "2a70a30169833eabf1153815a466be90a574524ca39dbd060e36242652403ff1",
+        "size_bytes": 3314027
+      },
+      "repetition": 0,
+      "worker_measurements": [
+        {
+          "direction": "minimize",
+          "meaning": "process_wall-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_wall",
+          "status": "observed",
+          "unit": "s",
+          "value": 26.290459707845002
+        },
+        {
+          "direction": "minimize",
+          "meaning": "process_cpu-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_cpu",
+          "status": "observed",
+          "unit": "s",
+          "value": 26.689597
+        },
+        {
+          "direction": "minimize",
+          "meaning": "peak_rss-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "peak_rss",
+          "status": "observed",
+          "unit": "MiB",
+          "value": 98.640625
+        }
+      ]
+    },
+    {
+      "attempted_calls": 6048,
+      "family": "fixed-share",
+      "logical_sizes_bytes": {
+        "logical_case_bytes": 3318933,
+        "logical_checkpoint_bytes": 1297005,
+        "protocol_input_bytes": 61989,
+        "typed_input_bytes": 39482
+      },
+      "raw_family_artifact": {
+        "path": "r0-fixed-share/family.json",
+        "sha256": "681764014bf41527de422efd94286c5508d84bbd1e9bf717df32f4a7d93b34f3",
+        "size_bytes": 3321750
+      },
+      "repetition": 0,
+      "worker_measurements": [
+        {
+          "direction": "minimize",
+          "meaning": "process_wall-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_wall",
+          "status": "observed",
+          "unit": "s",
+          "value": 26.974947749869898
+        },
+        {
+          "direction": "minimize",
+          "meaning": "process_cpu-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_cpu",
+          "status": "observed",
+          "unit": "s",
+          "value": 27.411054
+        },
+        {
+          "direction": "minimize",
+          "meaning": "peak_rss-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "peak_rss",
+          "status": "observed",
+          "unit": "MiB",
+          "value": 98.359375
+        }
+      ]
+    },
+    {
+      "attempted_calls": 6048,
+      "family": "periodic",
+      "logical_sizes_bytes": {
+        "logical_case_bytes": 2136462,
+        "logical_checkpoint_bytes": 549108,
+        "protocol_input_bytes": 61989,
+        "typed_input_bytes": 39482
+      },
+      "raw_family_artifact": {
+        "path": "r0-periodic/family.json",
+        "sha256": "9a35a9d3a3a147e56f596e62eead8e246e2f368d8ab6049cd3e26454e4c5ad48",
+        "size_bytes": 2139274
+      },
+      "repetition": 0,
+      "worker_measurements": [
+        {
+          "direction": "minimize",
+          "meaning": "process_wall-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_wall",
+          "status": "observed",
+          "unit": "s",
+          "value": 24.70923954178579
+        },
+        {
+          "direction": "minimize",
+          "meaning": "process_cpu-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_cpu",
+          "status": "observed",
+          "unit": "s",
+          "value": 25.110624
+        },
+        {
+          "direction": "minimize",
+          "meaning": "peak_rss-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "peak_rss",
+          "status": "observed",
+          "unit": "MiB",
+          "value": 97.234375
+        }
+      ]
+    },
+    {
+      "attempted_calls": 1512,
+      "family": "fixed-uniform",
+      "logical_sizes_bytes": {
+        "logical_case_bytes": 568587,
+        "logical_checkpoint_bytes": 98016,
+        "protocol_input_bytes": 61989,
+        "typed_input_bytes": 39482
+      },
+      "raw_family_artifact": {
+        "path": "r0-fixed-uniform/family.json",
+        "sha256": "3991d3ce4994dddd7c78f49752b7c426e899d2000c524b0cd4661c0498247476",
+        "size_bytes": 571258
+      },
+      "repetition": 0,
+      "worker_measurements": [
+        {
+          "direction": "minimize",
+          "meaning": "process_wall-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_wall",
+          "status": "observed",
+          "unit": "s",
+          "value": 3.1109988749958575
+        },
+        {
+          "direction": "minimize",
+          "meaning": "process_cpu-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_cpu",
+          "status": "observed",
+          "unit": "s",
+          "value": 3.565877
+        },
+        {
+          "direction": "minimize",
+          "meaning": "peak_rss-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "peak_rss",
+          "status": "observed",
+          "unit": "MiB",
+          "value": 88.484375
+        }
+      ]
+    },
+    {
+      "attempted_calls": 6048,
+      "family": "anytime",
+      "logical_sizes_bytes": {
+        "logical_case_bytes": 3311214,
+        "logical_checkpoint_bytes": 1290849,
+        "protocol_input_bytes": 61989,
+        "typed_input_bytes": 39482
+      },
+      "raw_family_artifact": {
+        "path": "r1-anytime/family.json",
+        "sha256": "c7bf72ecd015e29ab5284d5a5669785df79a7b1f9191736d6f0b00b379efc718",
+        "size_bytes": 3314025
+      },
+      "repetition": 1,
+      "worker_measurements": [
+        {
+          "direction": "minimize",
+          "meaning": "process_wall-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_wall",
+          "status": "observed",
+          "unit": "s",
+          "value": 28.241524749901146
+        },
+        {
+          "direction": "minimize",
+          "meaning": "process_cpu-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_cpu",
+          "status": "observed",
+          "unit": "s",
+          "value": 28.650879
+        },
+        {
+          "direction": "minimize",
+          "meaning": "peak_rss-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "peak_rss",
+          "status": "observed",
+          "unit": "MiB",
+          "value": 98.3125
+        }
+      ]
+    },
+    {
+      "attempted_calls": 6048,
+      "family": "fixed-share",
+      "logical_sizes_bytes": {
+        "logical_case_bytes": 3318933,
+        "logical_checkpoint_bytes": 1297005,
+        "protocol_input_bytes": 61989,
+        "typed_input_bytes": 39482
+      },
+      "raw_family_artifact": {
+        "path": "r1-fixed-share/family.json",
+        "sha256": "b3af01f2101c7ead087afd83141f40e9900b7dabe2d22a19d0cd43ee53e05333",
+        "size_bytes": 3321750
+      },
+      "repetition": 1,
+      "worker_measurements": [
+        {
+          "direction": "minimize",
+          "meaning": "process_wall-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_wall",
+          "status": "observed",
+          "unit": "s",
+          "value": 28.915684124920517
+        },
+        {
+          "direction": "minimize",
+          "meaning": "process_cpu-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_cpu",
+          "status": "observed",
+          "unit": "s",
+          "value": 29.314184
+        },
+        {
+          "direction": "minimize",
+          "meaning": "peak_rss-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "peak_rss",
+          "status": "observed",
+          "unit": "MiB",
+          "value": 98.390625
+        }
+      ]
+    },
+    {
+      "attempted_calls": 6048,
+      "family": "periodic",
+      "logical_sizes_bytes": {
+        "logical_case_bytes": 2136462,
+        "logical_checkpoint_bytes": 549108,
+        "protocol_input_bytes": 61989,
+        "typed_input_bytes": 39482
+      },
+      "raw_family_artifact": {
+        "path": "r1-periodic/family.json",
+        "sha256": "9d4ad082a8ae520480c152d4ce3ad28f7ac8725c09a8d0484c6703a120eb847a",
+        "size_bytes": 2139272
+      },
+      "repetition": 1,
+      "worker_measurements": [
+        {
+          "direction": "minimize",
+          "meaning": "process_wall-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_wall",
+          "status": "observed",
+          "unit": "s",
+          "value": 26.17757683293894
+        },
+        {
+          "direction": "minimize",
+          "meaning": "process_cpu-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_cpu",
+          "status": "observed",
+          "unit": "s",
+          "value": 26.601143
+        },
+        {
+          "direction": "minimize",
+          "meaning": "peak_rss-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "peak_rss",
+          "status": "observed",
+          "unit": "MiB",
+          "value": 96.9375
+        }
+      ]
+    },
+    {
+      "attempted_calls": 1512,
+      "family": "fixed-uniform",
+      "logical_sizes_bytes": {
+        "logical_case_bytes": 568587,
+        "logical_checkpoint_bytes": 98016,
+        "protocol_input_bytes": 61989,
+        "typed_input_bytes": 39482
+      },
+      "raw_family_artifact": {
+        "path": "r1-fixed-uniform/family.json",
+        "sha256": "dedfa1bdf5b3ac0f4a9aaf389905c68d7f8ce8835bdfde7cb9448f126e15eaf6",
+        "size_bytes": 571258
+      },
+      "repetition": 1,
+      "worker_measurements": [
+        {
+          "direction": "minimize",
+          "meaning": "process_wall-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_wall",
+          "status": "observed",
+          "unit": "s",
+          "value": 3.4840880408883095
+        },
+        {
+          "direction": "minimize",
+          "meaning": "process_cpu-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_cpu",
+          "status": "observed",
+          "unit": "s",
+          "value": 3.936955
+        },
+        {
+          "direction": "minimize",
+          "meaning": "peak_rss-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "peak_rss",
+          "status": "observed",
+          "unit": "MiB",
+          "value": 88.890625
+        }
+      ]
+    },
+    {
+      "attempted_calls": 6048,
+      "family": "constant",
+      "logical_sizes_bytes": {
+        "logical_case_bytes": 3297462,
+        "logical_checkpoint_bytes": 1279701,
+        "protocol_input_bytes": 61989,
+        "typed_input_bytes": 39482
+      },
+      "raw_family_artifact": {
+        "path": "r1-constant/family.json",
+        "sha256": "0b86b884dea89cf2d5c736f2e81edea91b20fa0a57e5240004a2e5a4a523ffe9",
+        "size_bytes": 3300275
+      },
+      "repetition": 1,
+      "worker_measurements": [
+        {
+          "direction": "minimize",
+          "meaning": "process_wall-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_wall",
+          "status": "observed",
+          "unit": "s",
+          "value": 29.32944708294235
+        },
+        {
+          "direction": "minimize",
+          "meaning": "process_cpu-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_cpu",
+          "status": "observed",
+          "unit": "s",
+          "value": 29.745042
+        },
+        {
+          "direction": "minimize",
+          "meaning": "peak_rss-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "peak_rss",
+          "status": "observed",
+          "unit": "MiB",
+          "value": 98.140625
+        }
+      ]
+    },
+    {
+      "attempted_calls": 6048,
+      "family": "fixed-share",
+      "logical_sizes_bytes": {
+        "logical_case_bytes": 3318933,
+        "logical_checkpoint_bytes": 1297005,
+        "protocol_input_bytes": 61989,
+        "typed_input_bytes": 39482
+      },
+      "raw_family_artifact": {
+        "path": "r2-fixed-share/family.json",
+        "sha256": "ee5804a07c2440e3ecc982edfd4635e1f0d48c2efff52f04e67b9a4ac7e81d0a",
+        "size_bytes": 3321750
+      },
+      "repetition": 2,
+      "worker_measurements": [
+        {
+          "direction": "minimize",
+          "meaning": "process_wall-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_wall",
+          "status": "observed",
+          "unit": "s",
+          "value": 30.821041457820684
+        },
+        {
+          "direction": "minimize",
+          "meaning": "process_cpu-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_cpu",
+          "status": "observed",
+          "unit": "s",
+          "value": 31.241034
+        },
+        {
+          "direction": "minimize",
+          "meaning": "peak_rss-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "peak_rss",
+          "status": "observed",
+          "unit": "MiB",
+          "value": 98.046875
+        }
+      ]
+    },
+    {
+      "attempted_calls": 6048,
+      "family": "periodic",
+      "logical_sizes_bytes": {
+        "logical_case_bytes": 2136462,
+        "logical_checkpoint_bytes": 549108,
+        "protocol_input_bytes": 61989,
+        "typed_input_bytes": 39482
+      },
+      "raw_family_artifact": {
+        "path": "r2-periodic/family.json",
+        "sha256": "e756ca01c2a1fda9ff19583e0ffb13dca52f33817a14e0d0c3bb502a7ec6ad73",
+        "size_bytes": 2139273
+      },
+      "repetition": 2,
+      "worker_measurements": [
+        {
+          "direction": "minimize",
+          "meaning": "process_wall-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_wall",
+          "status": "observed",
+          "unit": "s",
+          "value": 27.75776491709985
+        },
+        {
+          "direction": "minimize",
+          "meaning": "process_cpu-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_cpu",
+          "status": "observed",
+          "unit": "s",
+          "value": 28.183321
+        },
+        {
+          "direction": "minimize",
+          "meaning": "peak_rss-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "peak_rss",
+          "status": "observed",
+          "unit": "MiB",
+          "value": 97.78125
+        }
+      ]
+    },
+    {
+      "attempted_calls": 1512,
+      "family": "fixed-uniform",
+      "logical_sizes_bytes": {
+        "logical_case_bytes": 568587,
+        "logical_checkpoint_bytes": 98016,
+        "protocol_input_bytes": 61989,
+        "typed_input_bytes": 39482
+      },
+      "raw_family_artifact": {
+        "path": "r2-fixed-uniform/family.json",
+        "sha256": "942ba132d8ba475a79e5c6fd06cc7c96ca23eac8a306201c92ca23fc4fd08391",
+        "size_bytes": 571256
+      },
+      "repetition": 2,
+      "worker_measurements": [
+        {
+          "direction": "minimize",
+          "meaning": "process_wall-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_wall",
+          "status": "observed",
+          "unit": "s",
+          "value": 3.825292791938409
+        },
+        {
+          "direction": "minimize",
+          "meaning": "process_cpu-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_cpu",
+          "status": "observed",
+          "unit": "s",
+          "value": 4.29007
+        },
+        {
+          "direction": "minimize",
+          "meaning": "peak_rss-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "peak_rss",
+          "status": "observed",
+          "unit": "MiB",
+          "value": 88.640625
+        }
+      ]
+    },
+    {
+      "attempted_calls": 6048,
+      "family": "constant",
+      "logical_sizes_bytes": {
+        "logical_case_bytes": 3297462,
+        "logical_checkpoint_bytes": 1279701,
+        "protocol_input_bytes": 61989,
+        "typed_input_bytes": 39482
+      },
+      "raw_family_artifact": {
+        "path": "r2-constant/family.json",
+        "sha256": "935c5f29e81995e412153d69dd55e2dd060f6d41d9cc8c37f71267569130d210",
+        "size_bytes": 3300275
+      },
+      "repetition": 2,
+      "worker_measurements": [
+        {
+          "direction": "minimize",
+          "meaning": "process_wall-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_wall",
+          "status": "observed",
+          "unit": "s",
+          "value": 30.710367458174005
+        },
+        {
+          "direction": "minimize",
+          "meaning": "process_cpu-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_cpu",
+          "status": "observed",
+          "unit": "s",
+          "value": 31.125372
+        },
+        {
+          "direction": "minimize",
+          "meaning": "peak_rss-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "peak_rss",
+          "status": "observed",
+          "unit": "MiB",
+          "value": 97.96875
+        }
+      ]
+    },
+    {
+      "attempted_calls": 6048,
+      "family": "anytime",
+      "logical_sizes_bytes": {
+        "logical_case_bytes": 3311214,
+        "logical_checkpoint_bytes": 1290849,
+        "protocol_input_bytes": 61989,
+        "typed_input_bytes": 39482
+      },
+      "raw_family_artifact": {
+        "path": "r2-anytime/family.json",
+        "sha256": "ad53b7aa39c71e518656a855bac15eac1c9bc757cb9549328700998def808015",
+        "size_bytes": 3314025
+      },
+      "repetition": 2,
+      "worker_measurements": [
+        {
+          "direction": "minimize",
+          "meaning": "process_wall-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_wall",
+          "status": "observed",
+          "unit": "s",
+          "value": 31.598831250099465
+        },
+        {
+          "direction": "minimize",
+          "meaning": "process_cpu-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "process_cpu",
+          "status": "observed",
+          "unit": "s",
+          "value": 32.015012
+        },
+        {
+          "direction": "minimize",
+          "meaning": "peak_rss-actual-binary64-source-v1",
+          "minimum": null,
+          "name": "peak_rss",
+          "status": "observed",
+          "unit": "MiB",
+          "value": 98.0625
+        }
+      ]
+    }
+  ],
+  "oracle_report": {
+    "checked_steps": 77112,
+    "gate": {
+      "decision": "retain_baselines",
+      "exposure": "public_authored_evaluation_exposed",
+      "independent_empirical_units": 0,
+      "schema_version": 1,
+      "selected_family": "fixed-share",
+      "selected_slots": [
+        [
+          "fixed-uniform",
+          0
+        ],
+        [
+          "constant",
+          3
+        ],
+        [
+          "anytime",
+          3
+        ],
+        [
+          "fixed-share",
+          2
+        ],
+        [
+          "periodic",
+          0
+        ]
+      ],
+      "shape_excess": [
+        [
+          "stationary-gap",
+          0.007388006117221677
+        ],
+        [
+          "stationary-small-gap",
+          0.0009391983660897806
+        ],
+        [
+          "neutral-prefix",
+          0.0036940030586108384
+        ],
+        [
+          "contrast-pulses",
+          0.007102770329556156
+        ]
+      ],
+      "threshold": 0.015625
+    },
+    "maximum_coefficient_error": 1.942890293094024e-15,
+    "maximum_score_error": 1.2867882420347914e-15,
+    "protocol_content": "sha256:4f796903be352a1525f5b95bab046096795a38089cce3cd20ac7525e5a13611a",
+    "repetitions_equal": true,
+    "schema_version": 1
+  },
+  "oracle_resource_availability": [
+    {
+      "direction": "minimize",
+      "meaning": "not-retained-by-the-original-frozen-driver-v1",
+      "minimum": 0.0,
+      "name": "oracle_cpu",
+      "status": "unavailable",
+      "unit": "s",
+      "value": null
+    },
+    {
+      "direction": "minimize",
+      "meaning": "not-retained-by-the-original-frozen-driver-v1",
+      "minimum": 0.0,
+      "name": "oracle_peak_rss",
+      "status": "unavailable",
+      "unit": "MiB",
+      "value": null
+    }
+  ],
+  "original_artifact_sha256": {
+    "complete.json": "9a76d3d3bbb9c0f8f30e259970da335af67474709107935c6d396a8976083fb9",
+    "oracle.json": "0991b80c9e4b748ef957a9f180e60a4f0047856a16e4ce6c8f15d25e84980aeb",
+    "selection.json": "9b9ebba818af4fab83aeb27ca8c92406049321608f050c22d77ce5881ac28633"
+  },
+  "raw_artifact_access": {
+    "command": "python -m examples.research.expert_rate_entry --output /tmp/coleman-expert-entry-replication",
+    "contents": "Original15 family reports contain every before/after coefficient, complete initial/midpoint/final checkpoint and per-step digest; process logs/attempts and oracle are retained locally for review.",
+    "limits": "Mathematical repetition equality is qualified for the recorded runtime; physical timings and raw family hashes including timing change on another execution/host.",
+    "public_distribution": "This compact snapshot and full authored input tables are public repository artifacts; the38MB raw-output directory is not distributed by this commit. Do not treat relative raw paths as public download links.",
+    "reproducer": "Use the exact scientific_code_commit, frozen base+cli profile and supplied module command with a new output directory. Record a separate replication identity; never silently reset this original trial budget.",
+    "retained_output_bytes": 38059756,
+    "status": "not_committed"
+  },
+  "schema_version": 1,
+  "selected_additional_method": null,
+  "source": {
+    "all_panels_digest": "sha256:f935db31399c81539663fff31e392670db56564cba5888ba1681dce66c84c0e5",
+    "protocol_content_digest": "sha256:4f796903be352a1525f5b95bab046096795a38089cce3cd20ac7525e5a13611a",
+    "protocol_path": "examples/research/expert-rate-entry-protocol-v2.json",
+    "protocol_raw_sha256": "7f7a0c739b8275b093ef10227a7cca832508f5cca7650d9fe7c1ed078826c0bb",
+    "reference_baseline_commit": "6c72ca343efba345a1d540e2473227f047093b58",
+    "scientific_code_commit": "fc76dff49102845593da55f374297084f793f946",
+    "sdk_wheel_sha256": "c4900cc7e95742cd05cfd6867dd76ac31418df9267c282505cc56694ab2dfd68",
+    "sealed_driver_files": [
+      [
+        "expert_rate_assess.py",
+        "786648d74e7b8a694fdff386a8634a382c1eb73052c069323faf1b12492c6899"
+      ],
+      [
+        "expert_rate_entry.py",
+        "2e04e3ae4892e6d9ddfe939c7393bf80115af7a461ecfc7083930e68b279e962"
+      ],
+      [
+        "expert_rate_execute.py",
+        "dcce2290230390fcb6323b3598ecbb6a83e3155cd0dd9aa673507c25e401c985"
+      ],
+      [
+        "expert_rate_math.py",
+        "1644863d34e3b88abde5410738124b36da01b26ec9e04374fe099f219b18fc28"
+      ],
+      [
+        "expert_rate_process_records.py",
+        "e74b76f813ab4e762f8f4b4efc6a8b7ebe47bb14420f10d867df56f4c480dcd9"
+      ],
+      [
+        "expert_rate_records.py",
+        "dbdf6762988ff41bdce1498089ae6499310d56d18d49ca82a37d28205c68906b"
+      ]
+    ]
+  },
+  "study_report": {
+    "attempts": [
+      {
+        "artifact": {
+          "path": "r0-constant/family.json",
+          "sha256": "86b1f1c6c519cd2275db695e16a66b095bfc1b37a269878682f456f77ac654dd",
+          "size_bytes": 3300275
+        },
+        "attempted_calls": 6048,
+        "cpu_seconds": 28.31768,
+        "family": "constant",
+        "reason": null,
+        "repetition": 0,
+        "reserved_calls": 6048,
+        "schema_version": 1,
+        "status": "completed",
+        "wall_seconds": 28.394824041984975
+      },
+      {
+        "artifact": {
+          "path": "r0-anytime/family.json",
+          "sha256": "2a70a30169833eabf1153815a466be90a574524ca39dbd060e36242652403ff1",
+          "size_bytes": 3314027
+        },
+        "attempted_calls": 6048,
+        "cpu_seconds": 29.196738000000007,
+        "family": "anytime",
+        "reason": null,
+        "repetition": 0,
+        "reserved_calls": 6048,
+        "schema_version": 1,
+        "status": "completed",
+        "wall_seconds": 29.27126054209657
+      },
+      {
+        "artifact": {
+          "path": "r0-fixed-share/family.json",
+          "sha256": "681764014bf41527de422efd94286c5508d84bbd1e9bf717df32f4a7d93b34f3",
+          "size_bytes": 3321750
+        },
+        "attempted_calls": 6048,
+        "cpu_seconds": 29.97416,
+        "family": "fixed-share",
+        "reason": null,
+        "repetition": 0,
+        "reserved_calls": 6048,
+        "schema_version": 1,
+        "status": "completed",
+        "wall_seconds": 30.079546958208084
+      },
+      {
+        "artifact": {
+          "path": "r0-periodic/family.json",
+          "sha256": "9a35a9d3a3a147e56f596e62eead8e246e2f368d8ab6049cd3e26454e4c5ad48",
+          "size_bytes": 2139274
+        },
+        "attempted_calls": 6048,
+        "cpu_seconds": 27.232556000000006,
+        "family": "periodic",
+        "reason": null,
+        "repetition": 0,
+        "reserved_calls": 6048,
+        "schema_version": 1,
+        "status": "completed",
+        "wall_seconds": 27.32849704218097
+      },
+      {
+        "artifact": {
+          "path": "r0-fixed-uniform/family.json",
+          "sha256": "3991d3ce4994dddd7c78f49752b7c426e899d2000c524b0cd4661c0498247476",
+          "size_bytes": 571258
+        },
+        "attempted_calls": 1512,
+        "cpu_seconds": 4.445031000000007,
+        "family": "fixed-uniform",
+        "reason": null,
+        "repetition": 0,
+        "reserved_calls": 1512,
+        "schema_version": 1,
+        "status": "completed",
+        "wall_seconds": 4.514083000132814
+      },
+      {
+        "artifact": {
+          "path": "r1-anytime/family.json",
+          "sha256": "c7bf72ecd015e29ab5284d5a5669785df79a7b1f9191736d6f0b00b379efc718",
+          "size_bytes": 3314025
+        },
+        "attempted_calls": 6048,
+        "cpu_seconds": 30.97311199999999,
+        "family": "anytime",
+        "reason": null,
+        "repetition": 1,
+        "reserved_calls": 6048,
+        "schema_version": 1,
+        "status": "completed",
+        "wall_seconds": 31.037423791131005
+      },
+      {
+        "artifact": {
+          "path": "r1-fixed-share/family.json",
+          "sha256": "b3af01f2101c7ead087afd83141f40e9900b7dabe2d22a19d0cd43ee53e05333",
+          "size_bytes": 3321750
+        },
+        "attempted_calls": 6048,
+        "cpu_seconds": 31.62556599999998,
+        "family": "fixed-share",
+        "reason": null,
+        "repetition": 1,
+        "reserved_calls": 6048,
+        "schema_version": 1,
+        "status": "completed",
+        "wall_seconds": 31.708367416169494
+      },
+      {
+        "artifact": {
+          "path": "r1-periodic/family.json",
+          "sha256": "9d4ad082a8ae520480c152d4ce3ad28f7ac8725c09a8d0484c6703a120eb847a",
+          "size_bytes": 2139272
+        },
+        "attempted_calls": 6048,
+        "cpu_seconds": 28.472495000000027,
+        "family": "periodic",
+        "reason": null,
+        "repetition": 1,
+        "reserved_calls": 6048,
+        "schema_version": 1,
+        "status": "completed",
+        "wall_seconds": 28.537981207948178
+      },
+      {
+        "artifact": {
+          "path": "r1-fixed-uniform/family.json",
+          "sha256": "dedfa1bdf5b3ac0f4a9aaf389905c68d7f8ce8835bdfde7cb9448f126e15eaf6",
+          "size_bytes": 571258
+        },
+        "attempted_calls": 1512,
+        "cpu_seconds": 4.56306299999998,
+        "family": "fixed-uniform",
+        "reason": null,
+        "repetition": 1,
+        "reserved_calls": 1512,
+        "schema_version": 1,
+        "status": "completed",
+        "wall_seconds": 4.604363166028634
+      },
+      {
+        "artifact": {
+          "path": "r1-constant/family.json",
+          "sha256": "0b86b884dea89cf2d5c736f2e81edea91b20fa0a57e5240004a2e5a4a523ffe9",
+          "size_bytes": 3300275
+        },
+        "attempted_calls": 6048,
+        "cpu_seconds": 32.04954399999999,
+        "family": "constant",
+        "reason": null,
+        "repetition": 1,
+        "reserved_calls": 6048,
+        "schema_version": 1,
+        "status": "completed",
+        "wall_seconds": 32.15219229180366
+      },
+      {
+        "artifact": {
+          "path": "r2-fixed-share/family.json",
+          "sha256": "ee5804a07c2440e3ecc982edfd4635e1f0d48c2efff52f04e67b9a4ac7e81d0a",
+          "size_bytes": 3321750
+        },
+        "attempted_calls": 6048,
+        "cpu_seconds": 33.58811799999995,
+        "family": "fixed-share",
+        "reason": null,
+        "repetition": 2,
+        "reserved_calls": 6048,
+        "schema_version": 1,
+        "status": "completed",
+        "wall_seconds": 33.72542641684413
+      },
+      {
+        "artifact": {
+          "path": "r2-periodic/family.json",
+          "sha256": "e756ca01c2a1fda9ff19583e0ffb13dca52f33817a14e0d0c3bb502a7ec6ad73",
+          "size_bytes": 2139273
+        },
+        "attempted_calls": 6048,
+        "cpu_seconds": 30.07159100000004,
+        "family": "periodic",
+        "reason": null,
+        "repetition": 2,
+        "reserved_calls": 6048,
+        "schema_version": 1,
+        "status": "completed",
+        "wall_seconds": 30.187293166993186
+      },
+      {
+        "artifact": {
+          "path": "r2-fixed-uniform/family.json",
+          "sha256": "942ba132d8ba475a79e5c6fd06cc7c96ca23eac8a306201c92ca23fc4fd08391",
+          "size_bytes": 571256
+        },
+        "attempted_calls": 1512,
+        "cpu_seconds": 4.936124000000014,
+        "family": "fixed-uniform",
+        "reason": null,
+        "repetition": 2,
+        "reserved_calls": 1512,
+        "schema_version": 1,
+        "status": "completed",
+        "wall_seconds": 4.962380958953872
+      },
+      {
+        "artifact": {
+          "path": "r2-constant/family.json",
+          "sha256": "935c5f29e81995e412153d69dd55e2dd060f6d41d9cc8c37f71267569130d210",
+          "size_bytes": 3300275
+        },
+        "attempted_calls": 6048,
+        "cpu_seconds": 33.43456299999999,
+        "family": "constant",
+        "reason": null,
+        "repetition": 2,
+        "reserved_calls": 6048,
+        "schema_version": 1,
+        "status": "completed",
+        "wall_seconds": 33.50361262494698
+      },
+      {
+        "artifact": {
+          "path": "r2-anytime/family.json",
+          "sha256": "ad53b7aa39c71e518656a855bac15eac1c9bc757cb9549328700998def808015",
+          "size_bytes": 3314025
+        },
+        "attempted_calls": 6048,
+        "cpu_seconds": 34.36136900000001,
+        "family": "anytime",
+        "reason": null,
+        "repetition": 2,
+        "reserved_calls": 6048,
+        "schema_version": 1,
+        "status": "completed",
+        "wall_seconds": 34.44605679088272
+      }
+    ],
+    "baseline_wall_seconds": 398.86615224997513,
+    "development_choice": {
+      "path": "selection.json",
+      "sha256": "9b9ebba818af4fab83aeb27ca8c92406049321608f050c22d77ce5881ac28633",
+      "size_bytes": 953
+    },
+    "driver_runtime": {
+      "distributions": [
+        {
+          "name": "annotated-types",
+          "version": "0.7.0"
+        },
+        {
+          "name": "click",
+          "version": "8.1.8"
+        },
+        {
+          "name": "coleman",
+          "version": "4.20.0"
+        },
+        {
+          "name": "packaging",
+          "version": "26.3"
+        },
+        {
+          "name": "pydantic",
+          "version": "2.12.5"
+        },
+        {
+          "name": "pydantic-core",
+          "version": "2.41.5"
+        },
+        {
+          "name": "typing-extensions",
+          "version": "4.15.0"
+        },
+        {
+          "name": "typing-inspection",
+          "version": "0.4.2"
+        }
+      ],
+      "inventory_profile": "selected-extras-v1",
+      "machine": "arm64",
+      "operating_system": "Darwin",
+      "package_fingerprint": "sha256:2ef8610e6c6205e24566f8c00134cd5fc23151d94aac3680681c771deae41dfe",
+      "python_implementation": "CPython",
+      "python_version": "3.14.6",
+      "schema_version": 2,
+      "selected_extras": [
+        "cli"
+      ]
+    },
+    "gate": {
+      "decision": "retain_baselines",
+      "exposure": "public_authored_evaluation_exposed",
+      "independent_empirical_units": 0,
+      "schema_version": 1,
+      "selected_family": "fixed-share",
+      "selected_slots": [
+        [
+          "fixed-uniform",
+          0
+        ],
+        [
+          "constant",
+          3
+        ],
+        [
+          "anytime",
+          3
+        ],
+        [
+          "fixed-share",
+          2
+        ],
+        [
+          "periodic",
+          0
+        ]
+      ],
+      "shape_excess": [
+        [
+          "stationary-gap",
+          0.007388006117221677
+        ],
+        [
+          "stationary-small-gap",
+          0.0009391983660897806
+        ],
+        [
+          "neutral-prefix",
+          0.0036940030586108384
+        ],
+        [
+          "contrast-pulses",
+          0.007102770329556156
+        ]
+      ],
+      "threshold": 0.015625
+    },
+    "known_attempted_calls": 77112,
+    "oracle": {
+      "path": "oracle.json",
+      "sha256": "0991b80c9e4b748ef957a9f180e60a4f0047856a16e4ce6c8f15d25e84980aeb",
+      "size_bytes": 733
+    },
+    "oracle_wall_seconds": 62.636321124853566,
+    "pass_wall_seconds": [
+      124.78615558380261,
+      132.6354452080559,
+      141.44454766693525
+    ],
+    "protocol_content": "sha256:4f796903be352a1525f5b95bab046096795a38089cce3cd20ac7525e5a13611a",
+    "reason": null,
+    "reserved_calls": 77112,
+    "runtime": {
+      "distributions": [
+        {
+          "name": "annotated-types",
+          "version": "0.7.0"
+        },
+        {
+          "name": "coleman",
+          "version": "4.20.0"
+        },
+        {
+          "name": "packaging",
+          "version": "26.3"
+        },
+        {
+          "name": "pydantic",
+          "version": "2.12.5"
+        },
+        {
+          "name": "pydantic-core",
+          "version": "2.41.5"
+        },
+        {
+          "name": "typing-extensions",
+          "version": "4.15.0"
+        },
+        {
+          "name": "typing-inspection",
+          "version": "0.4.2"
+        }
+      ],
+      "machine": "arm64",
+      "operating_system": "Darwin",
+      "package_fingerprint": "sha256:2ef8610e6c6205e24566f8c00134cd5fc23151d94aac3680681c771deae41dfe",
+      "python_implementation": "CPython",
+      "python_version": "3.14.6",
+      "schema_version": 1
+    },
+    "schema_version": 1,
+    "source_files": [
+      [
+        "expert_rate_assess.py",
+        "786648d74e7b8a694fdff386a8634a382c1eb73052c069323faf1b12492c6899"
+      ],
+      [
+        "expert_rate_entry.py",
+        "2e04e3ae4892e6d9ddfe939c7393bf80115af7a461ecfc7083930e68b279e962"
+      ],
+      [
+        "expert_rate_execute.py",
+        "dcce2290230390fcb6323b3598ecbb6a83e3155cd0dd9aa673507c25e401c985"
+      ],
+      [
+        "expert_rate_math.py",
+        "1644863d34e3b88abde5410738124b36da01b26ec9e04374fe099f219b18fc28"
+      ],
+      [
+        "expert_rate_process_records.py",
+        "e74b76f813ab4e762f8f4b4efc6a8b7ebe47bb14420f10d867df56f4c480dcd9"
+      ],
+      [
+        "expert_rate_records.py",
+        "dbdf6762988ff41bdce1498089ae6499310d56d18d49ca82a37d28205c68906b"
+      ]
+    ],
+    "status": "completed",
+    "unknown_attempts": 0
+  }
+}
