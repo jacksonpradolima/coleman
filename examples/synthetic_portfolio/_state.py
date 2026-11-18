@@ -777,6 +777,72 @@ class Layout:
         current = self._progress_evidence(store, request, receipt)
         return accepted, current.progress, current.checkpoint
 
+    def advance_with_completion(
+        self,
+        store: LocalStateStore,
+        guard: Callable[[], None],
+        committed: Callable[[CommittedProgress[OwnedCommitProof]], None],
+    ) -> tuple[CommittedProgress[OwnedCommitProof], PortfolioCoordinateResultV2 | None]:
+        """Advance and project terminal evidence inside the same actual operation.
+
+        Parameters
+        ----------
+        store : LocalStateStore
+            Actual initialized collection under this complete source and law.
+        guard : callable
+            Shared deadline, ownership and resource check before every period.
+        committed : callable
+            Actual progress receiver, invoked exactly once after the complete
+            post-ACK acquisition. Its frontier checks and effects run first.
+
+        Returns
+        -------
+        tuple
+            Actual accepted progress and, only at the original terminal period,
+            a complete compact result joined to real retained SQL and state.
+
+        Raises
+        ------
+        ValueError, OSError
+            Changed source/head, expired receipt or incomplete terminal proof.
+            Callback failures propagate without replaying the accepted body.
+
+        Notes
+        -----
+        Only this operation's actual selected, fully audited post-ACK snapshot
+        is reused. After the callback, the exact original command must return
+        a real retained receipt with matching fresh head and manifest. A newer
+        head follows the original full completion read/refusal path. No caller
+        supplies a snapshot or validation token, and later calls remain fresh.
+
+        The transition, callback and retained lookup are not atomic together.
+        An error after acceptance leaves its actual ACK and any callback effects
+        intact. Reconcile the original command after an uncertain response;
+        never infer rollback or repeat the accepted mathematical observations.
+        """
+        acquired = self._advance_acquisition(store, guard)
+        accepted = acquired.progress
+        committed(accepted)
+        if accepted.frontier.position < len(self.trajectory.periods):
+            return accepted, None
+        request = accepted.proof.request
+        before = store.read_head()
+        receipt = store.commit_transition(
+            request, (self.binding,), _forbidden, compatibility=self.context.preparation.compatibility
+        )
+        if receipt.status != "retained":
+            raise ValueError("Portfolio completion requires the real retained original command")
+        if (
+            before == accepted.proof.observed_head
+            and receipt.accepted_head == receipt.current_head
+            and receipt.current_head == before
+            and acquired.manifest.fingerprint == receipt.current_head.manifest_fingerprint
+        ):
+            retained = self._progress_from_checkpoint(store, request, receipt, acquired.checkpoint)
+            current = _AcknowledgedState(acquired.checkpoint, acquired.manifest, retained)
+            return accepted, self._completed_from_acknowledged(store, current)[0]
+        return accepted, self._completed_evidence(store)[0]
+
     def _advance_acquisition(self, store: LocalStateStore, guard: Callable[[], None]) -> _AcknowledgedState:
         """Keep the actual post-ACK selected acquisition inside this operation."""
         selected = self.binding

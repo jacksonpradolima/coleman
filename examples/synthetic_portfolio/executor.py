@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 from hashlib import sha256
 
 from coleman.artifacts import ArtifactWriter
@@ -35,6 +36,17 @@ from .task_contracts import (
     PortfolioTrajectory,
 )
 from .task_results import PortfolioCoordinateResultV2, PortfolioReportItemV2, PortfolioReportV2
+
+
+def _report_advanced(
+    previous: int,
+    committed: Callable[[CommittedProgress[OwnedCommitProof]], None],
+    current: CommittedProgress[OwnedCommitProof],
+) -> None:
+    """Keep the original frontier refusal before forwarding the actual callback."""
+    if current.frontier.position <= previous:
+        raise ValueError("Portfolio batch must advance its actual acknowledged period frontier")
+    committed(current)
 
 
 @dataclass(frozen=True)
@@ -241,13 +253,13 @@ class PreparedPortfolio:
         assert store is not None
         layout.initialize(store)
         progress = layout.reconcile(store)
+        result: PortfolioCoordinateResultV2 | None = None
         while progress.frontier.position < len(coordinate.periods):
-            previous = progress.frontier.position
-            progress = layout.advance(store, context.guard)
-            if progress.frontier.position <= previous:
-                raise ValueError("Portfolio batch must advance its actual acknowledged period frontier")
-            committed(progress)
-        return layout.complete_result(store)
+            previous: int = progress.frontier.position
+            progress, result = layout.advance_with_completion(
+                store, context.guard, partial(_report_advanced, previous, committed)
+            )
+        return layout.complete_result(store) if result is None else result
 
     def publish_coordinate(
         self,
