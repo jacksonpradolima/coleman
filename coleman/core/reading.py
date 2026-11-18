@@ -7,7 +7,7 @@ from typing import Literal
 
 MAXIMUM_DEPTH = 64
 ReaderLabel = Literal["Replay", "State"]
-_STRUCTURAL = re.compile(r'"(?:[^"\\]++|\\[\s\S])*+(?:"|\\?\Z)|[{}\[\]]')
+_STRUCTURAL = re.compile(r'"(?:[^"\\]++|\\[\s\S])*+(?:"|(?:\\?\Z))|[{}\[\]]')
 
 
 def bounded_json_bytes(payload: str | bytes, maximum_bytes: int, *, label: ReaderLabel = "State") -> bytes:

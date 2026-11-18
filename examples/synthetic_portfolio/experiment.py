@@ -138,6 +138,7 @@ class Experiment:  # pylint: disable=too-many-instance-attributes
     rows : tuple of tuple of int, optional
         Exactly16 authored positive two-asset price rows. Decisions expose only
         the current/past prefix; exogenous prices are unaffected by actions.
+        Explicit quotes must exactly match their corresponding owned source row.
         Null keeps all source values outside this consumer; each current quote
         must then be supplied through ``step`` or ``apply_feedback``.
     source_fingerprint : str or None, optional
@@ -479,7 +480,8 @@ class Experiment:  # pylint: disable=too-many-instance-attributes
             Next index0..15, or an exact previously retained index retry.
         prices : PricePanel or None, optional
             Explicit current eligible price row, required for an external-source
-            consumer. A retry cannot replace a retained row or past observation.
+            consumer. An owned source requires exact complete-row equality.
+            A retry cannot replace a retained row or past observation.
 
         Returns
         -------
@@ -520,6 +522,7 @@ class Experiment:  # pylint: disable=too-many-instance-attributes
             callback does not emit an action or execute a new funded rebalance.
         prices : PricePanel or None, optional
             Actual newly eligible current mark; required without an owned source.
+            Explicit marks must exactly match any owned source row.
 
         Returns
         -------
@@ -552,6 +555,7 @@ class Experiment:  # pylint: disable=too-many-instance-attributes
 
     def _supply_prices(self, index: int, supplied: PricePanel | None) -> None:
         """Admit one current original row; never read future rows in a kernel."""
+        explicit = supplied is not None
         if supplied is None:
             if index < len(self.observed_prices):
                 return
@@ -559,6 +563,8 @@ class Experiment:  # pylint: disable=too-many-instance-attributes
                 raise ValueError("Current eligible price input is unavailable")
             supplied = model.prices(index, self.rows)
         quote = PricePanel.model_validate(supplied)
+        if explicit and self.rows is not None and quote != model.prices(index, self.rows):
+            raise ValueError("Eligible quote differs from its owned frozen source row")
         if (
             quote.at != model.START + timedelta(days=index)
             or tuple(item.asset for item in quote.quotes) != model.ASSETS
@@ -821,6 +827,12 @@ class Experiment:  # pylint: disable=too-many-instance-attributes
             raise ValueError("Synthetic checkpoint belongs to another tape or selected law")
         if checked.implementation != _implementation():
             raise ValueError("Synthetic checkpoint requires its exact selected host implementation")
+        # The complete reader joins the ready observation to this prefix too.
+        # A matching declared digest alone cannot authenticate external marks.
+        if self.rows is not None and any(
+            quote != model.prices(index, self.rows) for index, quote in enumerate(checked.observed_prices)
+        ):
+            raise ValueError("Synthetic checkpoint observed prefix differs from its owned frozen source")
         staged = Experiment(strength=self.strength, rows=self.rows, source_fingerprint=self.source_fingerprint)
         if {item.name for item in checked.references} != set(staged.references) or {
             item.name for item in checked.controlled

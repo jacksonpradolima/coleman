@@ -346,3 +346,19 @@ def test_long_quoted_unicode_still_charges_every_encoded_byte(as_bytes, label):
     assert bounded_json_bytes(payload, len(content), label=label) == content
     with pytest.raises(ValueError, match="maximum_bytes"):
         bounded_json_bytes(payload, len(content) - 1, label=label)
+
+
+@pytest.mark.parametrize("label", ["Replay", "State"])
+@pytest.mark.parametrize(
+    "text,refuses",
+    [
+        ('"closed"]tail', True),
+        ('"closed"' + "[" * 65 + "tail", True),
+        ('"closed"' + "[" * 64 + "tail", False),
+        ('"unfinished' + "[" * 65 + "tail", False),
+    ],
+)
+def test_eof_anchor_applies_only_to_the_unfinished_quoted_branch(text, refuses, label):
+    """Outside brackets remain unanchored even when ordinary text follows."""
+    assert historical_depth_refuses(text) is refuses
+    expect_lexical(text, label, refuses)
